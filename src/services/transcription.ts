@@ -135,8 +135,8 @@ class TranscriptionService {
       onProgress?.('Transcription complete!');
       console.log(`✅ Transcription completed for call ${call.id}`);
 
-      // Update call with transcription results
-      return {
+      // Create transcribed call record
+      const transcribedCall: CallRecord = {
         ...updatedCall,
         transcript: result.transcript,
         transcriptConfidence: result.confidence,
@@ -151,6 +151,36 @@ class TranscriptionService {
         status: 'transcribed',
         updatedAt: new Date().toISOString(),
       };
+
+      // Automatically evaluate the call after transcription
+      if (azureOpenAIService.validateConfig().valid && result.transcript && result.transcript.trim().length > 0) {
+        try {
+          onProgress?.('Starting automatic evaluation...');
+          console.log(`🤖 Auto-evaluating call ${call.id}...`);
+          
+          const evaluation = await azureOpenAIService.evaluateCall(
+            result.transcript,
+            call.metadata,
+            call.id
+          );
+
+          onProgress?.('Evaluation complete!');
+          console.log(`✅ Auto-evaluation completed for call ${call.id}: ${evaluation.percentage}%`);
+
+          return {
+            ...transcribedCall,
+            evaluation,
+            status: 'evaluated',
+            updatedAt: new Date().toISOString(),
+          };
+        } catch (evalError) {
+          console.warn(`⚠️ Auto-evaluation failed for call ${call.id}:`, evalError);
+          // Return transcribed call even if evaluation fails
+          return transcribedCall;
+        }
+      }
+
+      return transcribedCall;
     } catch (error) {
       console.error(`❌ Transcription failed for call ${call.id}:`, error);
       onProgress?.('Transcription failed');

@@ -30,6 +30,7 @@ export function ConfigDialog() {
       apiKey: '',
       deploymentName: '',
       apiVersion: '2024-12-01-preview',
+      reasoningEffort: 'low',
     },
       speech: {
       region: '',
@@ -50,6 +51,7 @@ export function ConfigDialog() {
         apiKey: '',
         deploymentName: '',
         apiVersion: '2024-12-01-preview',
+        reasoningEffort: 'low',
       },
       speech: {
         region: '',
@@ -70,17 +72,29 @@ export function ConfigDialog() {
           ? undefined
           : normalizeLocaleList(config.speech.selectedLanguages);
 
+      // Auto-migrate old API version to latest
+      const needsApiMigration = config.speech.apiVersion === '2024-11-15' || !config.speech.apiVersion;
+      const latestApiVersion = '2025-10-15';
+
       if (
-        config.speech.selectedLanguages !== undefined &&
-        JSON.stringify(config.speech.selectedLanguages) !== JSON.stringify(sanitizedLanguages)
+        (config.speech.selectedLanguages !== undefined &&
+        JSON.stringify(config.speech.selectedLanguages) !== JSON.stringify(sanitizedLanguages)) ||
+        needsApiMigration
       ) {
         const updatedConfig: AzureServicesConfig = {
           ...config,
           speech: {
             ...config.speech,
             selectedLanguages: sanitizedLanguages,
+            apiVersion: needsApiMigration ? latestApiVersion : config.speech.apiVersion,
           },
         };
+        
+        if (needsApiMigration) {
+          console.log(`🔄 Auto-migrated Speech API version from '${config.speech.apiVersion}' to '${latestApiVersion}'`);
+          toast.info(`Speech API version updated to ${latestApiVersion} (latest)`);
+        }
+        
         setConfig(updatedConfig);
         setLocalConfig(updatedConfig);
       } else {
@@ -121,8 +135,15 @@ export function ConfigDialog() {
         subscriptionKey: configToPersist.speech.subscriptionKey,
         apiVersion: configToPersist.speech.apiVersion,
         selectedLanguages: configToPersist.speech.selectedLanguages ?? DEFAULT_CALL_CENTER_LANGUAGES,
+        diarizationEnabled: configToPersist.speech.diarizationEnabled ?? false,
+        minSpeakers: configToPersist.speech.minSpeakers ?? 1,
+        maxSpeakers: configToPersist.speech.maxSpeakers ?? 2,
       });
-      console.log('🎤 Transcription service initialized with Azure Speech config');
+      console.log('🎤 Transcription service initialized with Azure Speech config', {
+        diarizationEnabled: configToPersist.speech.diarizationEnabled,
+        minSpeakers: configToPersist.speech.minSpeakers,
+        maxSpeakers: configToPersist.speech.maxSpeakers
+      });
     }
     
     toast.success('Azure services configuration saved successfully');
@@ -206,6 +227,31 @@ export function ConfigDialog() {
                     }))
                   }
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reasoning-effort">Reasoning Effort</Label>
+                <select
+                  id="reasoning-effort"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                  value={localConfig.openAI.reasoningEffort || 'low'}
+                  onChange={(e) =>
+                    setLocalConfig((prev) => ({
+                      ...prev,
+                      openAI: { 
+                        ...prev.openAI, 
+                        reasoningEffort: e.target.value as 'minimal' | 'low' | 'medium' | 'high'
+                      },
+                    }))
+                  }
+                >
+                  <option value="minimal">Minimal (fastest, GPT-5 only)</option>
+                  <option value="low">Low (recommended)</option>
+                  <option value="medium">Medium (balanced)</option>
+                  <option value="high">High (most thorough)</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  For reasoning models (o1, o3, gpt-5). Higher effort = better quality but slower.
+                </p>
               </div>
             </div>
           </div>

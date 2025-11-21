@@ -149,13 +149,13 @@ export function RulesEditorDialog({ onRulesUpdate }: RulesEditorDialogProps) {
           <ResizablePanelGroup direction="horizontal" className="h-full gap-4">
             <ResizablePanel defaultSize={40} minSize={30}>
               <div className="h-full flex flex-col gap-3 pr-2 min-w-[360px]">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-shrink-0">
                   <h3 className="text-sm font-semibold">Rules ({rules.length})</h3>
                   <Button size="sm" variant="ghost" onClick={handleAddRule}>
                     <Plus size={16} />
                   </Button>
                 </div>
-                <ScrollArea className="flex-1 border border-border rounded-lg">
+                <ScrollArea className="flex-1 border border-border rounded-lg overflow-auto">
                   <div className="p-2 space-y-2">
                     {rules.map((rule, index) => (
                       <Card
@@ -223,7 +223,7 @@ export function RulesEditorDialog({ onRulesUpdate }: RulesEditorDialogProps) {
             <ResizablePanel defaultSize={60} minSize={50}>
               <div className="h-full pl-1 min-w-[520px]">
                 {selectedRule ? (
-                  <ScrollArea className="h-full border border-border rounded-lg p-4">
+                  <ScrollArea className="h-full border border-border rounded-lg p-4 overflow-auto">
                     <div className="space-y-4">
                       <div className="flex items-start justify-between">
                         <h3 className="text-lg font-semibold">

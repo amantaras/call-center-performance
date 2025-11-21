@@ -1,4 +1,4 @@
-import { CallMetadata, CallEvaluation, EvaluationResult, EvaluationCriterion, TranscriptPhrase, CallSentimentSegment, SentimentLabel } from '@/types/call';
+import { CallMetadata, CallEvaluation, EvaluationResult, EvaluationCriterion, TranscriptPhrase, CallSentimentSegment, SentimentLabel, ProductInsight, RiskInsight, NationalityInsight, OutcomeInsight, BorrowerInsight, RiskTier, CategorizedOutcome, CallRecord } from '@/types/call';
 import { EVALUATION_CRITERIA, getMaxScore } from '@/lib/evaluation-criteria';
 import type { AzureOpenAIConfig } from '@/configManager';
 import { LLMCaller, ChatMessage, LLMCallOptions } from '../llmCaller';
@@ -47,6 +47,7 @@ export class AzureOpenAIService {
       deploymentName: '',
       apiVersion: '2024-12-01-preview',
       authType: 'apiKey',
+      reasoningEffort: 'low',
     };
     
     if (this.isConfigValid()) {
@@ -74,7 +75,7 @@ export class AzureOpenAIService {
   }
 
   /**
-   * Build evaluation prompt with criteria
+   * Build evaluation prompt with criteria and insights generation
    */
   private buildEvaluationPrompt(transcript: string, metadata: CallMetadata): string {
     const activeCriteria = getActiveEvaluationCriteria();
@@ -86,14 +87,16 @@ export class AzureOpenAIService {
    Examples: ${criterion.examples.join(' | ')}`;
     }).join('\n\n');
 
-    return `You are an expert call center quality assurance evaluator. Analyze the following call transcript and evaluate it against the ${activeCriteria.length} quality criteria below.
+    return `You are an expert call center quality assurance evaluator. Analyze the following call transcript and evaluate it against the ${activeCriteria.length} quality criteria below. Additionally, generate detailed analytical insights for business intelligence.
 
 CALL METADATA:
 - Agent Name: ${metadata.agentName}
 - Product: ${metadata.product}
+- Customer Type: ${metadata.customerType || 'N/A'}
 - Borrower Name: ${metadata.borrowerName}
+- Nationality: ${metadata.nationality}
 - Days Past Due: ${metadata.daysPastDue}
-- Due Amount: ${metadata.dueAmount}
+- Due Amount: $${metadata.dueAmount}
 - Follow-up Status: ${metadata.followUpStatus}
 
 TRANSCRIPT:
@@ -111,7 +114,37 @@ For each criterion, provide:
 
 Also provide an overallFeedback string (2-3 sentences) highlighting key strengths and areas for improvement.
 
-Return your evaluation as a valid JSON object with this exact structure:
+IMPORTANT: Additionally, generate detailed analytical insights based on the call metadata and transcript:
+
+1. PRODUCT INSIGHT:
+   - Analyze how the product type (${metadata.product}) affects the call dynamics
+   - Identify 2-3 specific performance factors related to this product
+   - Recommend specific collection approach for this product type
+
+2. RISK INSIGHT:
+   - Calculate risk tier based on Days Past Due: 0-30=Low, 31-60=Medium, 61-90=High, 90+=Critical
+   - Assign risk score (0-100) considering DPD (${metadata.daysPastDue}), amount ($${metadata.dueAmount}), sentiment, and evaluation performance
+   - Calculate payment probability percentage (0-100) based on all factors
+   - Determine if escalation is recommended (boolean)
+   - Provide detailed analysis explaining the risk assessment and payment likelihood
+
+3. NATIONALITY INSIGHT:
+   - Identify 2-3 cultural factors affecting communication with ${metadata.nationality} customers
+   - Assess language effectiveness (rate agent's communication clarity and cultural awareness)
+   - Recommend specific adjustments for better engagement with this demographic
+
+4. OUTCOME INSIGHT:
+   - Categorize the follow-up status "${metadata.followUpStatus}" into one of: "success", "promise-to-pay", "refused", "no-contact", "callback-needed", or "other"
+   - Calculate success probability percentage (0-100) for positive resolution
+   - Identify 2-3 key factors that influenced this outcome
+   - Provide reasoning for the outcome classification and probability
+
+5. BORROWER INSIGHT:
+   - Rate interaction quality (excellent/good/fair/poor) based on borrower engagement and agent rapport
+   - Identify 2-3 relationship indicators (positive or negative signals about future interactions)
+   - Recommend future strategy for handling this borrower
+
+Return your evaluation and insights as a valid JSON object with this exact structure:
 {
   "results": [
     {
@@ -122,10 +155,40 @@ Return your evaluation as a valid JSON object with this exact structure:
       "reasoning": "brief explanation"
     }
   ],
-  "overallFeedback": "2-3 sentence summary"
+  "overallFeedback": "2-3 sentence summary",
+  "insights": {
+    "product": {
+      "productType": "${metadata.product}",
+      "performanceFactors": ["factor 1", "factor 2"],
+      "recommendedApproach": "detailed approach description"
+    },
+    "risk": {
+      "riskTier": "Low" | "Medium" | "High" | "Critical",
+      "riskScore": 0-100,
+      "paymentProbability": 0-100,
+      "escalationRecommended": true | false,
+      "detailedAnalysis": "comprehensive risk analysis with reasoning"
+    },
+    "nationality": {
+      "culturalFactors": ["factor 1", "factor 2"],
+      "languageEffectiveness": "assessment of communication effectiveness",
+      "recommendedAdjustments": "specific recommendations"
+    },
+    "outcome": {
+      "categorizedOutcome": "success" | "promise-to-pay" | "refused" | "no-contact" | "callback-needed" | "other",
+      "successProbability": 0-100,
+      "keyFactors": ["factor 1", "factor 2"],
+      "reasoning": "explanation for categorization"
+    },
+    "borrower": {
+      "interactionQuality": "excellent" | "good" | "fair" | "poor",
+      "relationshipIndicators": ["indicator 1", "indicator 2"],
+      "futureStrategy": "recommended approach for future calls"
+    }
+  }
 }
 
-Be thorough, fair, and specific in your evaluation. Quote exact phrases when possible.`;
+Be thorough, fair, and specific in your evaluation. Quote exact phrases when possible. Provide detailed, actionable insights for all five insight categories.`;
   }
 
   /**
@@ -168,6 +231,36 @@ Be thorough, fair, and specific in your evaluation. Quote exact phrases when pos
       const response = await this.llmCaller.callWithJsonValidation<{
         results: EvaluationResult[];
         overallFeedback: string;
+        insights?: {
+          product?: {
+            productType: string;
+            performanceFactors: string[];
+            recommendedApproach: string;
+          };
+          risk?: {
+            riskTier: string;
+            riskScore: number;
+            paymentProbability: number;
+            escalationRecommended: boolean;
+            detailedAnalysis: string;
+          };
+          nationality?: {
+            culturalFactors: string[];
+            languageEffectiveness: string;
+            recommendedAdjustments: string;
+          };
+          outcome?: {
+            categorizedOutcome: string;
+            successProbability: number;
+            keyFactors: string[];
+            reasoning: string;
+          };
+          borrower?: {
+            interactionQuality: string;
+            relationshipIndicators: string[];
+            futureStrategy: string;
+          };
+        };
       }>(messages, {
         useJsonMode: false, // Rely on prompt engineering, not JSON mode
         maxRetries: 3,
@@ -198,6 +291,81 @@ Be thorough, fair, and specific in your evaluation. Quote exact phrases when pos
       const maxScore = activeCriteria.reduce((sum, c) => sum + c.scoringStandard.passed, 0);
       const percentage = Math.round((totalScore / maxScore) * 100);
 
+      // Parse and validate insights if present
+      let productInsight: ProductInsight | undefined;
+      let riskInsight: RiskInsight | undefined;
+      let nationalityInsight: NationalityInsight | undefined;
+      let outcomeInsight: OutcomeInsight | undefined;
+      let borrowerInsight: BorrowerInsight | undefined;
+
+      if (parsed.insights) {
+        // Product insight
+        if (parsed.insights.product) {
+          productInsight = {
+            productType: parsed.insights.product.productType || metadata.product,
+            performanceFactors: Array.isArray(parsed.insights.product.performanceFactors)
+              ? parsed.insights.product.performanceFactors
+              : [],
+            recommendedApproach: parsed.insights.product.recommendedApproach || '',
+          };
+        }
+
+        // Risk insight
+        if (parsed.insights.risk) {
+          const riskTierValue = parsed.insights.risk.riskTier as RiskTier;
+          riskInsight = {
+            riskTier: ['Low', 'Medium', 'High', 'Critical'].includes(riskTierValue)
+              ? riskTierValue
+              : this.calculateRiskTier(metadata.daysPastDue),
+            riskScore: Math.min(100, Math.max(0, parsed.insights.risk.riskScore || 0)),
+            paymentProbability: Math.min(100, Math.max(0, parsed.insights.risk.paymentProbability || 0)),
+            escalationRecommended: parsed.insights.risk.escalationRecommended === true,
+            detailedAnalysis: parsed.insights.risk.detailedAnalysis || '',
+          };
+        }
+
+        // Nationality insight
+        if (parsed.insights.nationality) {
+          nationalityInsight = {
+            culturalFactors: Array.isArray(parsed.insights.nationality.culturalFactors)
+              ? parsed.insights.nationality.culturalFactors
+              : [],
+            languageEffectiveness: parsed.insights.nationality.languageEffectiveness || '',
+            recommendedAdjustments: parsed.insights.nationality.recommendedAdjustments || '',
+          };
+        }
+
+        // Outcome insight
+        if (parsed.insights.outcome) {
+          const outcomeValue = parsed.insights.outcome.categorizedOutcome as CategorizedOutcome;
+          outcomeInsight = {
+            categorizedOutcome: ['success', 'promise-to-pay', 'refused', 'no-contact', 'callback-needed', 'other'].includes(outcomeValue)
+              ? outcomeValue
+              : 'other',
+            successProbability: Math.min(100, Math.max(0, parsed.insights.outcome.successProbability || 0)),
+            keyFactors: Array.isArray(parsed.insights.outcome.keyFactors)
+              ? parsed.insights.outcome.keyFactors
+              : [],
+            reasoning: parsed.insights.outcome.reasoning || '',
+          };
+        }
+
+        // Borrower insight
+        if (parsed.insights.borrower) {
+          borrowerInsight = {
+            interactionQuality: parsed.insights.borrower.interactionQuality || 'fair',
+            relationshipIndicators: Array.isArray(parsed.insights.borrower.relationshipIndicators)
+              ? parsed.insights.borrower.relationshipIndicators
+              : [],
+            futureStrategy: parsed.insights.borrower.futureStrategy || '',
+          };
+        }
+
+        console.log('✓ Insights generated successfully');
+      } else {
+        console.log('⚠ No insights generated in response');
+      }
+
       const evaluation: CallEvaluation = {
         id: `eval_${Date.now()}`,
         callId,
@@ -207,6 +375,11 @@ Be thorough, fair, and specific in your evaluation. Quote exact phrases when pos
         percentage,
         results: parsed.results,
         overallFeedback: parsed.overallFeedback || 'Evaluation completed.',
+        productInsight,
+        riskInsight,
+        nationalityInsight,
+        outcomeInsight,
+        borrowerInsight,
       };
 
       console.log(`✓ Evaluation complete: ${percentage}% (${totalScore}/${maxScore} points)`);
@@ -523,6 +696,86 @@ Return ONLY a single word: positive, neutral, or negative`;
     }
   }
 
+  /**
+   * Calculate risk tier from days past due
+   */
+  private calculateRiskTier(daysPastDue: number): RiskTier {
+    if (daysPastDue >= 90) return 'Critical';
+    if (daysPastDue >= 60) return 'High';
+    if (daysPastDue >= 30) return 'Medium';
+    return 'Low';
+  }
+
+  /**
+   * Regenerate insights for calls with optional progress tracking
+   * @param calls - Array of call records to regenerate insights for
+   * @param mode - 'missing' = only calls without insights, 'all' = all evaluated calls
+   * @param onProgress - Optional callback for progress updates (current, total, callId)
+   * @returns Updated call records with new insights
+   */
+  async regenerateInsights(
+    calls: Array<{ id: string; transcript?: string; metadata: CallMetadata; evaluation?: CallEvaluation }>,
+    mode: 'missing' | 'all',
+    onProgress?: (current: number, total: number, callId: string) => void
+  ): Promise<Array<{ id: string; evaluation: CallEvaluation }>> {
+    // Filter calls based on mode
+    const callsToProcess = calls.filter((call) => {
+      // Must have evaluation and transcript
+      if (!call.evaluation || !call.transcript) return false;
+
+      if (mode === 'missing') {
+        // Only process calls missing any insights
+        return !call.evaluation.productInsight ||
+               !call.evaluation.riskInsight ||
+               !call.evaluation.nationalityInsight ||
+               !call.evaluation.outcomeInsight ||
+               !call.evaluation.borrowerInsight;
+      }
+
+      // Mode === 'all', process all evaluated calls
+      return true;
+    });
+
+    console.log(`🔄 Regenerating insights for ${callsToProcess.length} calls (mode: ${mode})`);
+
+    const results: Array<{ id: string; evaluation: CallEvaluation }> = [];
+
+    for (let i = 0; i < callsToProcess.length; i++) {
+      const call = callsToProcess[i];
+      
+      try {
+        // Report progress
+        if (onProgress) {
+          onProgress(i + 1, callsToProcess.length, call.id);
+        }
+
+        console.log(`[${i + 1}/${callsToProcess.length}] Regenerating insights for call: ${call.id}`);
+
+        // Re-evaluate the call (this will generate new insights)
+        const newEvaluation = await this.evaluateCall(
+          call.transcript!,
+          call.metadata,
+          call.id
+        );
+
+        results.push({
+          id: call.id,
+          evaluation: newEvaluation,
+        });
+
+        console.log(`✓ Insights regenerated for ${call.id}`);
+
+      } catch (error) {
+        console.error(`✗ Failed to regenerate insights for ${call.id}:`, error);
+        // Continue with next call instead of failing entirely
+      }
+    }
+
+    console.log(`✓ Insights regeneration complete: ${results.length}/${callsToProcess.length} successful`);
+
+    return results;
+  }
+
   validateConfig(): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
@@ -546,3 +799,26 @@ Return ONLY a single word: positive, neutral, or negative`;
 }
 
 export const azureOpenAIService = new AzureOpenAIService();
+
+/**
+ * Standalone function to regenerate insights for call records
+ * Wraps the azureOpenAIService.regenerateInsights method for easier imports
+ */
+export async function regenerateInsights(
+  calls: CallRecord[],
+  mode: 'missing' | 'all',
+  onProgress?: (current: number, total: number, callId: string) => void
+): Promise<CallRecord[]> {
+  const results = await azureOpenAIService.regenerateInsights(calls, mode, onProgress);
+  
+  // Merge results back into original calls array
+  const updatedCalls = calls.map((call) => {
+    const result = results.find((r) => r.id === call.id);
+    if (result) {
+      return { ...call, evaluation: result.evaluation };
+    }
+    return call;
+  });
+
+  return updatedCalls;
+}

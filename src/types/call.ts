@@ -88,6 +88,43 @@ export interface EvaluationResult {
   reasoning: string;
 }
 
+export type CategorizedOutcome = 'success' | 'promise-to-pay' | 'refused' | 'no-contact' | 'callback-needed' | 'other';
+
+export type RiskTier = 'Low' | 'Medium' | 'High' | 'Critical';
+
+export interface ProductInsight {
+  productType: string;
+  performanceFactors: string[];
+  recommendedApproach: string;
+}
+
+export interface RiskInsight {
+  riskTier: RiskTier;
+  riskScore: number;
+  paymentProbability: number;
+  escalationRecommended: boolean;
+  detailedAnalysis: string;
+}
+
+export interface NationalityInsight {
+  culturalFactors: string[];
+  languageEffectiveness: string;
+  recommendedAdjustments: string;
+}
+
+export interface OutcomeInsight {
+  categorizedOutcome: CategorizedOutcome;
+  successProbability: number;
+  keyFactors: string[];
+  reasoning: string;
+}
+
+export interface BorrowerInsight {
+  interactionQuality: string;
+  relationshipIndicators: string[];
+  futureStrategy: string;
+}
+
 export interface CallEvaluation {
   id: string;
   callId: string;
@@ -97,6 +134,11 @@ export interface CallEvaluation {
   percentage: number;
   results: EvaluationResult[];
   overallFeedback: string;
+  productInsight?: ProductInsight;
+  riskInsight?: RiskInsight;
+  nationalityInsight?: NationalityInsight;
+  outcomeInsight?: OutcomeInsight;
+  borrowerInsight?: BorrowerInsight;
 }
 
 export interface CallRecord {

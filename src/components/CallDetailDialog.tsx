@@ -267,6 +267,9 @@ export function CallDetailDialog({
             <TabsTrigger value="evaluation">
               Evaluation {call.evaluation && '✓'}
             </TabsTrigger>
+            <TabsTrigger value="insights">
+              AI Insights {call.evaluation?.productInsight && '✓'}
+            </TabsTrigger>
             <TabsTrigger value="sentiment">Sentiment</TabsTrigger>
           </TabsList>
 
@@ -486,6 +489,251 @@ export function CallDetailDialog({
                   </Button>
                 </div>
               </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="insights" className="space-y-4">
+            {!call.evaluation?.productInsight && !call.evaluation?.riskInsight ? (
+              <Card className="p-8 text-center">
+                <div className="space-y-4">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-accent/20">
+                    <Sparkle size={32} className="text-accent" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">AI Insights Not Generated</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Evaluate the call to generate detailed analytical insights
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              <ScrollArea className="h-[500px]">
+                <div className="pr-4 space-y-3">
+                  {/* Risk Insight - Compact View */}
+                  {call.evaluation.riskInsight && (
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center justify-between text-base">
+                          <span>Risk Assessment</span>
+                          <Badge
+                            variant={
+                              call.evaluation.riskInsight.riskTier === 'Low'
+                                ? 'default'
+                                : call.evaluation.riskInsight.riskTier === 'Medium'
+                                ? 'secondary'
+                                : call.evaluation.riskInsight.riskTier === 'High'
+                                ? 'destructive'
+                                : 'destructive'
+                            }
+                            className={
+                              call.evaluation.riskInsight.riskTier === 'Low'
+                                ? 'bg-green-500'
+                                : call.evaluation.riskInsight.riskTier === 'Medium'
+                                ? 'bg-yellow-500'
+                                : call.evaluation.riskInsight.riskTier === 'High'
+                                ? 'bg-orange-500'
+                                : 'bg-red-500'
+                            }
+                          >
+                            {call.evaluation.riskInsight.riskTier} Risk
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Payment Probability</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-xl font-bold">
+                                {call.evaluation.riskInsight.paymentProbability}%
+                              </span>
+                            </div>
+                            <Progress value={call.evaluation.riskInsight.paymentProbability} className="h-1.5 mt-1" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Risk Score</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-xl font-bold">
+                                {call.evaluation.riskInsight.riskScore}
+                              </span>
+                            </div>
+                            <Progress value={call.evaluation.riskInsight.riskScore} className="h-1.5 mt-1" />
+                          </div>
+                        </div>
+                        {call.evaluation.riskInsight.escalationRecommended && (
+                          <Badge variant="destructive" className="w-full justify-center py-1">
+                            ⚠ Escalation Recommended
+                          </Badge>
+                        )}
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Detailed Analysis:</p>
+                          <p className="text-xs leading-relaxed">
+                            {call.evaluation.riskInsight.detailedAnalysis}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Two-column layout for Product and Outcome */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Product Insight */}
+                    {call.evaluation.productInsight && (
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Product: {call.evaluation.productInsight.productType}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2.5">
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Performance Factors:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {call.evaluation.productInsight.performanceFactors.map((factor, idx) => (
+                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-0.5">
+                                  {factor}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Recommended Approach:</p>
+                            <p className="text-xs leading-relaxed">
+                              {call.evaluation.productInsight.recommendedApproach}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Outcome Insight */}
+                    {call.evaluation.outcomeInsight && (
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="flex items-center justify-between text-sm gap-2">
+                            <span>Outcome Analysis</span>
+                            <Badge
+                              variant={
+                                call.evaluation.outcomeInsight.categorizedOutcome === 'success'
+                                  ? 'default'
+                                  : call.evaluation.outcomeInsight.categorizedOutcome === 'promise-to-pay'
+                                  ? 'secondary'
+                                  : 'outline'
+                              }
+                              className="text-[10px] px-2 py-0.5 whitespace-nowrap"
+                            >
+                              {call.evaluation.outcomeInsight.categorizedOutcome.replace(/-/g, ' ').toUpperCase()}
+                            </Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2.5">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Success Probability</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-lg font-bold">
+                                {call.evaluation.outcomeInsight.successProbability}%
+                              </span>
+                            </div>
+                            <Progress value={call.evaluation.outcomeInsight.successProbability} className="h-1.5 mt-1" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Key Factors:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {call.evaluation.outcomeInsight.keyFactors.map((factor, idx) => (
+                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-0.5">
+                                  {factor}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Reasoning:</p>
+                            <p className="text-xs leading-relaxed">
+                              {call.evaluation.outcomeInsight.reasoning}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+
+                  {/* Two-column layout for Nationality and Borrower */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Nationality Insight */}
+                    {call.evaluation.nationalityInsight && (
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Cultural & Language</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2.5">
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Cultural Factors:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {call.evaluation.nationalityInsight.culturalFactors.map((factor, idx) => (
+                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-0.5">
+                                  {factor}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Language Effectiveness:</p>
+                            <p className="text-xs leading-relaxed">
+                              {call.evaluation.nationalityInsight.languageEffectiveness}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Recommended Adjustments:</p>
+                            <p className="text-xs leading-relaxed">
+                              {call.evaluation.nationalityInsight.recommendedAdjustments}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Borrower Insight */}
+                    {call.evaluation.borrowerInsight && (
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="flex items-center justify-between text-sm gap-2">
+                            <span>Borrower Interaction</span>
+                            <Badge
+                              variant={
+                                call.evaluation.borrowerInsight.interactionQuality === 'excellent'
+                                  ? 'default'
+                                  : call.evaluation.borrowerInsight.interactionQuality === 'good'
+                                  ? 'secondary'
+                                  : 'outline'
+                              }
+                              className="text-[10px] px-2 py-0.5"
+                            >
+                              {call.evaluation.borrowerInsight.interactionQuality.toUpperCase()}
+                            </Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2.5">
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Relationship Indicators:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {call.evaluation.borrowerInsight.relationshipIndicators.map((indicator, idx) => (
+                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-0.5">
+                                  {indicator}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Future Strategy:</p>
+                            <p className="text-xs leading-relaxed">
+                              {call.evaluation.borrowerInsight.futureStrategy}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              </ScrollArea>
             )}
           </TabsContent>
 

@@ -73,8 +73,15 @@ function App() {
         subscriptionKey: azureConfig.speech.subscriptionKey,
         apiVersion: azureConfig.speech.apiVersion || '2025-10-15',
         selectedLanguages: sanitizedLanguages ?? azureConfig.speech.selectedLanguages ?? DEFAULT_CALL_CENTER_LANGUAGES,
+        diarizationEnabled: azureConfig.speech.diarizationEnabled ?? false,
+        minSpeakers: azureConfig.speech.minSpeakers ?? 1,
+        maxSpeakers: azureConfig.speech.maxSpeakers ?? 2,
       });
-      console.log('🎤 Transcription service initialized from stored config');
+      console.log('🎤 Transcription service initialized from stored config', {
+        diarizationEnabled: azureConfig.speech.diarizationEnabled,
+        minSpeakers: azureConfig.speech.minSpeakers,
+        maxSpeakers: azureConfig.speech.maxSpeakers
+      });
     }
     
     if (azureConfig?.openAI?.endpoint && azureConfig?.openAI?.apiKey && azureConfig?.openAI?.deploymentName) {
@@ -83,8 +90,11 @@ function App() {
         apiKey: azureConfig.openAI.apiKey,
         deploymentName: azureConfig.openAI.deploymentName,
         apiVersion: azureConfig.openAI.apiVersion || '2024-12-01-preview',
+        reasoningEffort: azureConfig.openAI.reasoningEffort || 'low',
       });
-      console.log('🤖 Azure OpenAI service initialized from stored config');
+      console.log('🤖 Azure OpenAI service initialized from stored config', {
+        reasoningEffort: azureConfig.openAI.reasoningEffort || 'low'
+      });
     }
   }, [azureConfig]);
 

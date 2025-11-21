@@ -4,6 +4,7 @@ export interface AzureServicesConfig {
     apiKey: string;
     deploymentName: string;
     apiVersion: string;
+    reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
   };
   speech: {
     region: string;
