@@ -195,7 +195,94 @@ class TranscriptionService {
   }
 
   /**
-   * Transcribe multiple calls in batch
+   * Transcribe multiple calls in parallel with controlled concurrency
+   * @param calls - Array of calls to transcribe
+   * @param options - Speech-to-text options
+   * @param onProgress - Progress callback (callId, status, completed, total)
+   * @param concurrency - Maximum number of calls to process simultaneously (default: 5)
+   */
+  async transcribeCallsParallel(
+    calls: CallRecord[],
+    options: STTCallOptions = {},
+    onProgress?: (callId: string, status: string, completed: number, total: number) => void,
+    concurrency: number = 5
+  ): Promise<CallRecord[]> {
+    if (!this.sttCaller) {
+      throw new Error('Transcription service not initialized. Please configure Azure Speech settings first.');
+    }
+
+    const total = calls.length;
+    const results: CallRecord[] = new Array(total);
+    let completed = 0;
+
+    console.log(`🎤 Starting parallel batch transcription for ${total} calls with concurrency ${concurrency}...`);
+
+    // Process calls in batches with controlled concurrency
+    for (let i = 0; i < calls.length; i += concurrency) {
+      const batch = calls.slice(i, i + concurrency);
+      const batchNumber = Math.floor(i / concurrency) + 1;
+      const totalBatches = Math.ceil(calls.length / concurrency);
+      
+      console.log(`📦 Processing batch ${batchNumber}/${totalBatches} (${batch.length} calls)...`);
+
+      // Process all calls in this batch in parallel
+      const batchPromises = batch.map((call, batchIndex) => {
+        const callIndex = i + batchIndex;
+        console.log(`🚀 [PARALLEL] Starting transcription for call ${call.id} (${call.metadata.borrowerName}) at ${new Date().toISOString()}`);
+        return this.transcribeCall(
+          call,
+          options,
+          (status) => {
+            console.log(`📊 [PARALLEL] ${call.id}: ${status}`);
+            onProgress?.(call.id, status, completed, total);
+          }
+        ).then(
+          (result) => {
+            console.log(`✅ [PARALLEL] Completed transcription for call ${call.id} at ${new Date().toISOString()}`);
+            return { index: callIndex, result, success: true };
+          },
+          (error) => {
+            console.error(`❌ [PARALLEL] Failed to transcribe call ${call.id}:`, error);
+            return {
+              index: callIndex,
+              result: {
+                ...call,
+                status: 'failed' as const,
+                error: error instanceof Error ? error.message : 'Transcription failed',
+                updatedAt: new Date().toISOString(),
+              },
+              success: false
+            };
+          }
+        );
+      });
+
+      console.log(`⏳ [PARALLEL] Waiting for batch ${batchNumber} (${batchPromises.length} calls) to complete...`);
+      // Wait for all calls in this batch to complete
+      const batchResults = await Promise.allSettled(batchPromises);
+      console.log(`✅ [PARALLEL] Batch ${batchNumber} finished!`);
+
+      // Store results in their original positions
+      batchResults.forEach((promiseResult) => {
+        if (promiseResult.status === 'fulfilled') {
+          const { index, result } = promiseResult.value;
+          results[index] = result;
+          completed++;
+          onProgress?.(result.id, 'completed', completed, total);
+        }
+      });
+
+      console.log(`✅ Batch ${batchNumber}/${totalBatches} completed (${completed}/${total} total)`);
+    }
+
+    const successful = results.filter(r => r.status === 'transcribed' || r.status === 'evaluated').length;
+    console.log(`✅ Parallel batch transcription completed: ${successful}/${total} successful`);
+    return results;
+  }
+
+  /**
+   * Transcribe multiple calls in batch (sequential for backwards compatibility)
+   * For parallel processing, use transcribeCallsParallel() instead
    */
   async transcribeCalls(
     calls: CallRecord[],
@@ -209,7 +296,7 @@ class TranscriptionService {
     const results: CallRecord[] = [];
     const total = calls.length;
 
-    console.log(`🎤 Starting batch transcription for ${total} calls...`);
+    console.log(`🎤 Starting sequential batch transcription for ${total} calls...`);
 
     for (let i = 0; i < calls.length; i++) {
       const call = calls[i];

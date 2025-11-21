@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Upload, MagnifyingGlass, ArrowCounterClockwise, Microphone, FileCsv } from '@phosphor-icons/react';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { CallsTable } from '@/components/CallsTable';
 import { UploadDialog } from '@/components/UploadDialog';
 import { CallDetailDialog } from '@/components/CallDetailDialog';
@@ -46,6 +47,7 @@ export function CallsView() {
   const [transcribingIds, setTranscribingIds] = useState<Set<string>>(new Set());
   const [evaluatingIds, setEvaluatingIds] = useState<Set<string>>(new Set());
   const [selectedCallIds, setSelectedCallIds] = useState<Set<string>>(new Set());
+  const [batchProgress, setBatchProgress] = useState<{ completed: number; total: number } | null>(null);
 
   const onUpdateCalls = (updater: (prev: CallRecord[] | undefined) => CallRecord[]) => {
     setCalls(updater);
@@ -166,11 +168,72 @@ export function CallsView() {
       return;
     }
 
-    toast.info(`Starting transcription for ${callsToTranscribe.length} call(s)...`);
-    for (const call of callsToTranscribe) {
-      await handleTranscribe(call);
+    // Mark all calls as processing
+    const callIdsToTranscribe = new Set(callsToTranscribe.map(c => c.id));
+    setTranscribingIds(callIdsToTranscribe);
+    onUpdateCalls((prev) => 
+      (prev || []).map((c) => 
+        callIdsToTranscribe.has(c.id)
+          ? { ...c, status: 'processing' as const, updatedAt: new Date().toISOString() }
+          : c
+      )
+    );
+
+    const startTime = Date.now();
+    toast.info(`🚀 Starting parallel transcription for ${callsToTranscribe.length} call(s)...`);
+
+    try {
+      // Use parallel transcription with concurrency limit of 5
+      const results = await transcriptionService.transcribeCallsParallel(
+        callsToTranscribe,
+        {},
+        (callId, status, completed, total) => {
+          console.log(`Progress: ${callId} - ${status} (${completed}/${total})`);
+          
+          // Update progress bar
+          setBatchProgress({ completed, total });
+          
+          // Update the specific call's status in real-time
+          if (status === 'completed') {
+            setTranscribingIds((prev) => {
+              const next = new Set(prev);
+              next.delete(callId);
+              return next;
+            });
+          }
+        },
+        5 // Process 5 calls at a time
+      );
+
+      // Update all calls with their results
+      onUpdateCalls((prev) => {
+        const updated = prev || [];
+        return updated.map((c) => {
+          const result = results.find(r => r.id === c.id);
+          return result || c;
+        });
+      });
+
+      const successful = results.filter(r => r.status === 'transcribed' || r.status === 'evaluated').length;
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      toast.success(`✅ Finished: ${successful}/${callsToTranscribe.length} successful in ${duration}s`);
+    } catch (error) {
+      console.error('Batch transcription error:', error);
+      toast.error(error instanceof Error ? error.message : 'Batch transcription failed');
+      
+      // Reset all processing calls on error
+      onUpdateCalls((prev) => 
+        (prev || []).map((c) => 
+          callIdsToTranscribe.has(c.id)
+            ? { ...c, status: 'uploaded' as const, updatedAt: new Date().toISOString() }
+            : c
+        )
+      );
+    } finally {
+      setTranscribingIds(new Set());
+      setSelectedCallIds(new Set());
+      setBatchProgress(null);
     }
-    toast.success('Finished transcribing selected calls.');
   };
 
   const handleSelectAll = () => {
@@ -211,6 +274,25 @@ export function CallsView() {
 
   return (
     <div className="space-y-6">
+      {batchProgress && (
+        <Card className="p-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">Processing calls...</span>
+              <span className="text-muted-foreground">
+                {batchProgress.completed} / {batchProgress.total} completed
+              </span>
+            </div>
+            <Progress 
+              value={(batchProgress.completed / batchProgress.total) * 100} 
+              className="h-2"
+            />
+            <p className="text-xs text-muted-foreground">
+              {Math.round((batchProgress.completed / batchProgress.total) * 100)}% complete
+            </p>
+          </div>
+        </Card>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1">
           <div className="relative flex-1 max-w-sm">
