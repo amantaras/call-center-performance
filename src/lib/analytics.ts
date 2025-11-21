@@ -1,5 +1,5 @@
-import { CallRecord, AgentPerformance, CriteriaAnalytics } from '@/types/call';
-import { EVALUATION_CRITERIA } from './evaluation-criteria';
+import { CallRecord, AgentPerformance, CriteriaAnalytics, SentimentLabel } from '@/types/call';
+import { getActiveEvaluationCriteria } from '@/services/azure-openai';
 
 export function calculateAgentPerformance(calls: CallRecord[]): AgentPerformance[] {
   const agentMap = new Map<string, CallRecord[]>();
@@ -15,6 +15,7 @@ export function calculateAgentPerformance(calls: CallRecord[]): AgentPerformance
   });
 
   const performances: AgentPerformance[] = [];
+  const activeCriteria = getActiveEvaluationCriteria();
 
   agentMap.forEach((agentCalls, agentName) => {
     const totalCalls = agentCalls.length;
@@ -28,7 +29,7 @@ export function calculateAgentPerformance(calls: CallRecord[]): AgentPerformance
     );
 
     const criteriaScores: Record<number, number> = {};
-    EVALUATION_CRITERIA.forEach((criterion) => {
+    activeCriteria.forEach((criterion) => {
       const scores = agentCalls
         .map((call) => {
           const result = call.evaluation?.results.find(
@@ -45,6 +46,32 @@ export function calculateAgentPerformance(calls: CallRecord[]): AgentPerformance
     );
     const topStrengths = sortedCriteria.slice(0, 3).map(([id]) => parseInt(id));
     const topWeaknesses = sortedCriteria.slice(-3).map(([id]) => parseInt(id));
+
+    const sentimentTotals: Record<SentimentLabel, number> = {
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+    };
+
+    agentCalls.forEach((call) => {
+      call.sentimentSegments?.forEach((segment) => {
+        const duration = Math.max(0, (segment.endMilliseconds ?? 0) - (segment.startMilliseconds ?? 0));
+        sentimentTotals[segment.sentiment ?? 'neutral'] += duration;
+      });
+    });
+
+    const totalSentimentDuration = Object.values(sentimentTotals).reduce((sum, value) => sum + value, 0);
+    let sentimentDistribution: Record<SentimentLabel, number> | undefined;
+    let dominantSentiment: SentimentLabel | undefined;
+
+    if (totalSentimentDuration > 0) {
+      sentimentDistribution = {
+        positive: Number(((sentimentTotals.positive / totalSentimentDuration) * 100).toFixed(1)),
+        neutral: Number(((sentimentTotals.neutral / totalSentimentDuration) * 100).toFixed(1)),
+        negative: Number(((sentimentTotals.negative / totalSentimentDuration) * 100).toFixed(1)),
+      };
+      dominantSentiment = (Object.entries(sentimentTotals).sort(([, a], [, b]) => b - a)[0][0] as SentimentLabel);
+    }
 
     const recentCalls = agentCalls.slice(-5);
     const olderCalls = agentCalls.slice(0, -5);
@@ -70,6 +97,8 @@ export function calculateAgentPerformance(calls: CallRecord[]): AgentPerformance
       trend,
       topStrengths,
       topWeaknesses,
+      sentimentDistribution,
+      dominantSentiment,
     });
   });
 
@@ -78,8 +107,9 @@ export function calculateAgentPerformance(calls: CallRecord[]): AgentPerformance
 
 export function calculateCriteriaAnalytics(calls: CallRecord[]): CriteriaAnalytics[] {
   const evaluatedCalls = calls.filter((c) => c.evaluation);
+  const activeCriteria = getActiveEvaluationCriteria();
 
-  const analytics: CriteriaAnalytics[] = EVALUATION_CRITERIA.map((criterion) => {
+  const analytics: CriteriaAnalytics[] = activeCriteria.map((criterion) => {
     const results = evaluatedCalls
       .map((call) =>
         call.evaluation?.results.find((r) => r.criterionId === criterion.id)
@@ -140,4 +170,62 @@ export function getPerformanceTrend(calls: CallRecord[], agentName?: string): Ar
       count,
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export interface SentimentOverview {
+  totalSegments: number;
+  totalDurationMilliseconds: number;
+  distribution: Record<SentimentLabel, number>;
+  averageConfidence: number;
+}
+
+export function calculateSentimentOverview(calls: CallRecord[]): SentimentOverview {
+  const totals: Record<SentimentLabel, number> = {
+    positive: 0,
+    neutral: 0,
+    negative: 0,
+  };
+
+  let totalSegments = 0;
+  let totalDuration = 0;
+  let confidenceSum = 0;
+  let confidenceCount = 0;
+
+  calls.forEach((call) => {
+    call.sentimentSegments?.forEach((segment) => {
+      const start = segment.startMilliseconds ?? 0;
+      const end = segment.endMilliseconds ?? start;
+      const duration = Math.max(0, end - start);
+      const sentiment = segment.sentiment ?? 'neutral';
+
+      totals[sentiment] += duration;
+      totalSegments += 1;
+      totalDuration += duration;
+
+      if (typeof segment.confidence === 'number') {
+        confidenceSum += segment.confidence;
+        confidenceCount += 1;
+      }
+    });
+  });
+
+  const distribution = totalDuration
+    ? (Object.entries(totals).reduce((acc, [key, value]) => {
+        acc[key as SentimentLabel] = Number(((value / totalDuration) * 100).toFixed(1));
+        return acc;
+      }, {} as Record<SentimentLabel, number>))
+    : {
+        positive: 0,
+        neutral: 0,
+        negative: 0,
+      };
+
+  const averageConfidence = confidenceCount > 0 ? confidenceSum / confidenceCount : 0;
+
+  return {
+    totalSegments,
+    totalDurationMilliseconds: totalDuration,
+    distribution,
+    averageConfidence: Number((averageConfidence * 100).toFixed(1)) / 100,
+  };
 }

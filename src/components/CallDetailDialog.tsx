@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import {
   Dialog,
   DialogContent,
@@ -11,11 +12,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CallRecord } from '@/types/call';
-import { azureOpenAIService } from '@/services/azure-openai';
+import { AzureServicesConfig } from '@/types/config';
+import { azureOpenAIService, getActiveEvaluationCriteria } from '@/services/azure-openai';
+import { STTCaller } from '../STTCaller';
 import { getCriterionById } from '@/lib/evaluation-criteria';
 import { toast } from 'sonner';
-import { CheckCircle, XCircle, MinusCircle, Sparkle } from '@phosphor-icons/react';
+import { CheckCircle, XCircle, MinusCircle, Sparkle, Microphone } from '@phosphor-icons/react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CallSentimentPlayer } from '@/components/call-player/CallSentimentPlayer';
+import { TranscriptConversation } from '@/components/TranscriptConversation';
+import { DEFAULT_CALL_CENTER_LANGUAGES } from '@/lib/speech-languages';
 
 interface CallDetailDialogProps {
   call: CallRecord;
@@ -30,7 +36,162 @@ export function CallDetailDialog({
   onOpenChange,
   onUpdate,
 }: CallDetailDialogProps) {
+  const [config] = useLocalStorage<AzureServicesConfig>('azure-services-config', {
+    openAI: { endpoint: '', apiKey: '', deploymentName: '', apiVersion: '2024-12-01-preview' },
+    speech: { region: '', subscriptionKey: '', apiVersion: '2025-10-15', selectedLanguages: [] },
+  });
+  
+  const [transcribing, setTranscribing] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
+
+  const isProcessing = call.status === 'processing' || transcribing;
+
+  const handleTranscribe = async () => {
+    if (!call.audioFile) {
+      toast.error('No audio file available for transcription');
+      return;
+    }
+
+    if (!config?.speech.region || !config?.speech.subscriptionKey) {
+      toast.error('Azure Speech service not configured. Please configure in Settings.');
+      return;
+    }
+
+    setTranscribing(true);
+    
+    // Update status to transcribing
+    onUpdate({
+      ...call,
+      status: 'processing',
+      updatedAt: new Date().toISOString(),
+    });
+
+    try {
+      // Get selected languages from config first
+      const selectedLanguages = config?.speech?.selectedLanguages !== undefined
+        ? config.speech.selectedLanguages
+        : DEFAULT_CALL_CENTER_LANGUAGES;
+      
+      console.log(`🌍 Config has selectedLanguages:`, config?.speech?.selectedLanguages);
+      console.log(`🌍 Will use these languages:`, selectedLanguages);
+
+      const sttCaller = new STTCaller({
+        region: config.speech.region,
+        subscriptionKey: config.speech.subscriptionKey,
+        apiVersion: config.speech.apiVersion,
+        selectedLanguages: selectedLanguages, // ✅ PASS IT TO STTCaller!
+      });
+
+      // Convert audio file to File object if needed
+      let audioBlob: File | Blob;
+      if (typeof call.audioFile === 'string') {
+        // If it's a URL or path, we'd need to fetch it
+        // For now, throw an error
+        throw new Error('Audio file must be a File object');
+      } else {
+        audioBlob = call.audioFile;
+      }
+
+      toast.info('Transcribing audio... This may take a few moments.');
+      
+      const result = await sttCaller.transcribeAudioFile(audioBlob, {
+        // Languages are already set in STTCaller config above
+        candidateLocales: selectedLanguages,
+        wordLevelTimestampsEnabled: true,
+        diarizationEnabled: config.speech.diarizationEnabled ?? false,
+        minSpeakers: config.speech.minSpeakers ?? 1,
+        maxSpeakers: config.speech.maxSpeakers ?? 2,
+      });
+
+      let sentimentSegments = call.sentimentSegments;
+      let sentimentSummary = call.sentimentSummary;
+      let overallSentiment = call.overallSentiment;
+      
+      // Attempt sentiment analysis if we have phrases and Azure OpenAI is configured
+      if (result.phrases && result.phrases.length > 0) {
+        // Ensure Azure OpenAI service has the latest config
+        if (config?.openAI.endpoint && config?.openAI.apiKey && config?.openAI.deploymentName) {
+          azureOpenAIService.updateConfig({
+            endpoint: config.openAI.endpoint,
+            apiKey: config.openAI.apiKey,
+            deploymentName: config.openAI.deploymentName,
+            apiVersion: config.openAI.apiVersion,
+          });
+        }
+        
+        const configValidation = azureOpenAIService.validateConfig();
+        if (configValidation.valid) {
+          try {
+            toast.info('Analyzing sentiment...');
+            const sentiment = await azureOpenAIService.analyzeSentimentTimeline(
+              call.id,
+              result.phrases,
+              result.locale || 'en-US'
+            );
+            sentimentSegments = sentiment.segments;
+            sentimentSummary = sentiment.summary;
+            
+            // Second pass: Analyze overall sentiment for analytics
+            if (result.transcript && result.transcript.trim().length > 0) {
+              overallSentiment = await azureOpenAIService.analyzeOverallSentiment(
+                call.id,
+                result.transcript,
+                call.metadata
+              );
+            }
+            
+            toast.success('Sentiment analysis complete!');
+          } catch (error) {
+            console.error('Sentiment analysis failed:', error);
+            toast.warning('Sentiment analysis failed. Check Azure OpenAI configuration.');
+          }
+        } else {
+          console.log('Azure OpenAI not configured, skipping sentiment analysis');
+          toast.info('Sentiment analysis skipped. Configure Azure OpenAI in Settings to enable.');
+        }
+      }
+
+      const updatedCall: CallRecord = {
+        ...call,
+        transcript: result.transcript,
+        transcriptConfidence: result.confidence,
+        transcriptWords: result.words,
+        transcriptLocale: result.locale,
+        transcriptDuration: result.durationMilliseconds,
+        transcriptPhrases: result.phrases,
+        transcriptSpeakerCount: result.speakerCount,
+        sentimentSegments,
+        sentimentSummary,
+        overallSentiment,
+        status: 'transcribed',
+        updatedAt: new Date().toISOString(),
+      };
+
+      onUpdate(updatedCall);
+      
+      const detectedLanguages = result.phrases
+        ? [...new Set(result.phrases.map(p => p.locale).filter(Boolean))]
+        : [];
+
+      toast.success(
+        detectedLanguages.length > 1
+          ? `Transcription complete! ${detectedLanguages.length} languages detected • Confidence: ${(result.confidence * 100).toFixed(1)}%`
+          : `Transcription complete! Language: ${result.locale || 'Unknown'} • Confidence: ${(result.confidence * 100).toFixed(1)}%`
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Transcription failed: ${errorMessage}`);
+      
+      onUpdate({
+        ...call,
+        status: 'failed',
+        error: errorMessage,
+        updatedAt: new Date().toISOString(),
+      });
+    } finally {
+      setTranscribing(false);
+    }
+  };
 
   const handleEvaluate = async () => {
     if (!call.transcript) {
@@ -38,8 +199,21 @@ export function CallDetailDialog({
       return;
     }
 
+    if (!config?.openAI.endpoint || !config?.openAI.apiKey) {
+      toast.error('Azure OpenAI not configured. Please configure in Settings.');
+      return;
+    }
+
     setEvaluating(true);
     try {
+      // Update service configuration
+      azureOpenAIService.updateConfig({
+        endpoint: config.openAI.endpoint,
+        apiKey: config.openAI.apiKey,
+        deploymentName: config.openAI.deploymentName,
+        apiVersion: config.openAI.apiVersion,
+      });
+
       const evaluation = await azureOpenAIService.evaluateCall(
         call.transcript,
         call.metadata,
@@ -93,6 +267,7 @@ export function CallDetailDialog({
             <TabsTrigger value="evaluation">
               Evaluation {call.evaluation && '✓'}
             </TabsTrigger>
+            <TabsTrigger value="sentiment">Sentiment</TabsTrigger>
           </TabsList>
 
           <TabsContent value="metadata" className="space-y-4">
@@ -133,11 +308,81 @@ export function CallDetailDialog({
           </TabsContent>
 
           <TabsContent value="transcript">
-            <ScrollArea className="h-[500px] border border-border rounded-lg p-4">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                {call.transcript || 'No transcript available'}
+            {!call.transcript ? (
+              <Card className="p-8 text-center">
+                <div className="space-y-4">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Microphone size={32} className="text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      {isProcessing ? 'Processing...' : 'No Transcript Yet'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {isProcessing
+                        ? 'Azure Speech is processing your audio file. This may take a few moments.'
+                        : 'Use Azure Speech-to-Text to automatically transcribe this call'}
+                    </p>
+                  </div>
+                  {call.audioFile && !isProcessing && (
+                    <Button onClick={handleTranscribe} disabled={isProcessing}>
+                      {isProcessing ? 'Processing...' : 'Transcribe Audio'}
+                    </Button>
+                  )}
+                  {!call.audioFile && (
+                    <p className="text-sm text-muted-foreground">No audio file available</p>
+                  )}
+                </div>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {call.transcriptConfidence !== undefined && (
+                  <Card>
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Transcription Confidence</p>
+                        <p className="text-xs text-muted-foreground">
+                          {call.transcriptLocale && `Locale: ${call.transcriptLocale}`}
+                          {call.transcriptDuration && 
+                            ` • Duration: ${(call.transcriptDuration / 1000).toFixed(1)}s`}
+                          {call.transcriptSpeakerCount && ` • ${call.transcriptSpeakerCount} speakers`}
+                        </p>
+                      </div>
+                      <Badge variant="secondary">
+                        {(call.transcriptConfidence * 100).toFixed(1)}%
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {call.transcriptPhrases && call.transcriptPhrases.length > 0 ? (
+                  <TranscriptConversation
+                    phrases={call.transcriptPhrases}
+                    agentName={call.metadata.agentName}
+                    borrowerName={call.metadata.borrowerName}
+                    locale={call.transcriptLocale}
+                    duration={call.transcriptDuration}
+                  />
+                ) : (
+                  <ScrollArea className="h-[450px] border border-border rounded-lg p-4">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {call.transcript}
+                    </div>
+                  </ScrollArea>
+                )}
+                
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleTranscribe}
+                    variant="outline"
+                    size="sm"
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? 'Processing...' : 'Re-transcribe'}
+                  </Button>
+                </div>
               </div>
-            </ScrollArea>
+            )}
           </TabsContent>
 
           <TabsContent value="evaluation" className="space-y-4">
@@ -150,7 +395,7 @@ export function CallDetailDialog({
                   <div>
                     <h3 className="text-lg font-semibold">Ready to Evaluate</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Use AI to evaluate this call against 10 quality criteria
+                      Use AI to evaluate this call against {getActiveEvaluationCriteria().length} quality criteria
                     </p>
                   </div>
                   <Button onClick={handleEvaluate} disabled={evaluating}>
@@ -241,6 +486,34 @@ export function CallDetailDialog({
                   </Button>
                 </div>
               </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="sentiment" className="space-y-4">
+            {(!call.sentimentSegments || call.sentimentSegments.length === 0) && (
+              <Card className="p-8 text-center">
+                <div className="space-y-4">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                    <Microphone size={28} className="text-muted-foreground" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">Sentiment pending</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Transcribe the call (and ensure Azure OpenAI is configured) to generate the
+                      sentiment timeline.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {call.sentimentSegments && call.sentimentSegments.length > 0 && (
+              <CallSentimentPlayer
+                audioUrl={call.metadata.audioUrl}
+                durationMilliseconds={call.transcriptDuration}
+                segments={call.sentimentSegments}
+                sentimentSummary={call.sentimentSummary}
+              />
             )}
           </TabsContent>
         </Tabs>

@@ -1,4 +1,4 @@
-import { useKV } from '@github/spark/hooks';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { CallRecord } from '@/types/call';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { calculateCriteriaAnalytics, calculateAgentPerformance } from '@/lib/analytics';
@@ -7,7 +7,7 @@ import { PerformanceTrendChart } from '@/components/analytics/PerformanceTrendCh
 import { getCriterionById } from '@/lib/evaluation-criteria';
 
 export function AnalyticsView() {
-  const [calls] = useKV<CallRecord[]>('calls', []);
+  const [calls] = useLocalStorage<CallRecord[]>('calls', []);
 
   const evaluatedCalls = (calls || []).filter((c) => c.evaluation);
   const criteriaAnalytics = calculateCriteriaAnalytics(calls || []);
@@ -33,12 +33,22 @@ export function AnalyticsView() {
     evaluatedCalls.reduce((sum, c) => sum + (c.evaluation?.percentage || 0), 0) /
     totalEvaluations;
 
+  // Calculate overall sentiment distribution across all calls
+  const sentimentCounts = { positive: 0, neutral: 0, negative: 0 };
+  const callsWithSentiment = (calls || []).filter(c => c.overallSentiment);
+  callsWithSentiment.forEach(c => {
+    if (c.overallSentiment) {
+      sentimentCounts[c.overallSentiment]++;
+    }
+  });
+  const totalWithSentiment = callsWithSentiment.length;
+
   const sortedCriteria = [...criteriaAnalytics].sort((a, b) => a.passRate - b.passRate);
   const weakestCriteria = sortedCriteria.slice(0, 3);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -69,6 +79,34 @@ export function AnalyticsView() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{agentPerformances.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Overall Sentiment
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {totalWithSentiment > 0 ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-success text-xl">😊</span>
+                  <span className="text-sm">{Math.round((sentimentCounts.positive / totalWithSentiment) * 100)}%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground text-xl">😐</span>
+                  <span className="text-sm">{Math.round((sentimentCounts.neutral / totalWithSentiment) * 100)}%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-destructive text-xl">😞</span>
+                  <span className="text-sm">{Math.round((sentimentCounts.negative / totalWithSentiment) * 100)}%</span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">No data</div>
+            )}
           </CardContent>
         </Card>
       </div>

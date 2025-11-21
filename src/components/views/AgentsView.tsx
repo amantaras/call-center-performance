@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useKV } from '@github/spark/hooks';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { CallRecord } from '@/types/call';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { calculateAgentPerformance } from '@/lib/analytics';
@@ -8,7 +8,7 @@ import { TrendUp, TrendDown, Minus } from '@phosphor-icons/react';
 import { AgentDetailDialog } from '@/components/AgentDetailDialog';
 
 export function AgentsView() {
-  const [calls] = useKV<CallRecord[]>('calls', []);
+  const [calls] = useLocalStorage<CallRecord[]>('calls', []);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const agentPerformances = calculateAgentPerformance(calls || []);

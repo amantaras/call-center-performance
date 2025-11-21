@@ -1,23 +1,54 @@
-# ✨ Welcome to Your Spark Template!
-You've just launched your brand-new Spark Template Codespace — everything’s fired up and ready for you to explore, build, and create with Spark!
+# Call Center QA Platform
 
-This template is your blank canvas. It comes with a minimal setup to help you get started quickly with Spark development.
+React + Vite dashboard for uploading call recordings, running Azure Speech transcription, and evaluating calls with Azure OpenAI.
 
-🚀 What's Inside?
-- A clean, minimal Spark environment
-- Pre-configured for local development
-- Ready to scale with your ideas
-  
-🧠 What Can You Do?
+## Getting Started
 
-Right now, this is just a starting point — the perfect place to begin building and testing your Spark applications.
+```pwsh
+# install dependencies
+npm install
 
-🧹 Just Exploring?
-No problem! If you were just checking things out and don’t need to keep this code:
+# start dev server
+npm run dev
 
-- Simply delete your Spark.
-- Everything will be cleaned up — no traces left behind.
+# build for production
+npm run build
+```
 
-📄 License For Spark Template Resources 
+Visit the dev server URL printed in the terminal (typically http://localhost:5173 or :5174).
 
-The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.
+## Importing metadata
+
+Use **Calls → Import CSV** and select `qa.xlsx` (sheet `audio related info`). The importer automatically normalizes the header row that is stored in the first line of the sheet.
+
+### Audio files must be served over HTTP
+
+Browsers cannot fetch `C:\...` or `file://` URLs. Place the MP3s under `public/audio` (already created) or run a static file server in the folder containing the audio files:
+
+```pwsh
+cd "C:\Users\amantara\OneDrive - Microsoft\Documents\projects\astratech\Audio and rules\Audio and rules"
+npx serve -p 8080
+```
+
+Then set the **Audio Folder Path** in the import dialog to either `/audio` (if you copied the files into `public/audio`) or `http://localhost:8080` (if you started the local server). Imports that reference drive letters are rejected, preventing the transcription step from failing later.
+
+## Azure configuration persistence
+
+The Azure Services dialog stores settings in `localStorage` and also mirrors them to a Base64-encoded cookie (`ccp_azure_config`) so that a fresh browser profile can restore the saved values automatically.
+
+## Transcription & evaluation
+
+1. Configure Azure Speech + Azure OpenAI in **Azure Services**.
+2. Import your calls (metadata + audio URL).
+3. Select one or more calls and choose **Transcribe Selected**.
+4. After transcription succeeds, open a call and run **Evaluate Call** to score it with Azure OpenAI.
+
+## Project structure
+
+- `src/components/` – dialogs, tables, charts, and views
+- `src/lib/csv-parser.ts` – Excel normalization + record conversion
+- `public/audio` – HTTP-served audio files
+
+## License
+
+MIT. See [LICENSE](LICENSE).

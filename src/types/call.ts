@@ -1,12 +1,64 @@
+export interface AzureSpeechConfig {
+  region: string;
+  subscriptionKey: string;
+  apiVersion?: string; // Default: '2025-10-15' (latest GA)
+  selectedLanguages?: string[]; // Array of locale codes for transcription
+  diarizationEnabled?: boolean;
+  minSpeakers?: number;
+  maxSpeakers?: number;
+}
+
+export interface WordTiming {
+  word: string;
+  offsetMilliseconds: number;
+  durationMilliseconds: number;
+  confidence?: number;
+}
+
+export interface TranscriptPhrase {
+  text: string;
+  lexical?: string;
+  speaker?: number;
+  channel?: number;
+  offsetMilliseconds: number;
+  durationMilliseconds: number;
+  confidence?: number;
+  words?: WordTiming[];
+  locale?: string;
+}
+
+export type SentimentLabel = 'positive' | 'neutral' | 'negative';
+
+export interface CallSentimentSegment {
+  startMilliseconds: number;
+  endMilliseconds: number;
+  speaker?: number;
+  sentiment: SentimentLabel;
+  confidence?: number;
+  summary?: string;
+  rationale?: string;
+}
+
+export interface TranscriptionResult {
+  transcript: string;
+  confidence: number;
+  words?: WordTiming[];
+  phrases?: TranscriptPhrase[];
+  locale?: string;
+  durationMilliseconds?: number;
+  speakerCount?: number;
+}
+
 export interface CallMetadata {
-  time: string;
-  billId: string;
-  orderId: string;
-  userId: string;
-  fileTag: string;
+  time?: string;
+  billId?: string;
+  orderId?: string;
+  userId?: string;
+  fileTag?: string;
+  audioUrl?: string; // Azure Blob Storage URL from fileTag
   agentName: string;
   product: string;
-  customerType: string;
+  customerType?: string;
   borrowerName: string;
   nationality: string;
   daysPastDue: number;
@@ -50,11 +102,22 @@ export interface CallEvaluation {
 export interface CallRecord {
   id: string;
   metadata: CallMetadata;
-  audioFile?: File | string;
+  audioFile?: File | Blob;
+  audioUrl?: string; // URL for fetching audio
   transcript?: string;
   transcriptConfidence?: number;
+  transcriptWords?: WordTiming[];
+  transcriptLocale?: string;
+  transcriptDuration?: number;
+  transcriptPhrases?: TranscriptPhrase[];
+  transcriptSpeakerCount?: number;
+  transcriptionId?: string; // Azure Speech transcription job ID
   evaluation?: CallEvaluation;
-  status: 'uploaded' | 'transcribed' | 'evaluated' | 'failed';
+  sentimentSegments?: CallSentimentSegment[];
+  sentimentSummary?: string;
+  overallSentiment?: SentimentLabel; // Overall sentiment for the entire call (for analytics)
+  status: 'uploaded' | 'processing' | 'transcribed' | 'evaluated' | 'failed';
+  error?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,6 +131,8 @@ export interface AgentPerformance {
   trend: 'up' | 'down' | 'stable';
   topStrengths: number[];
   topWeaknesses: number[];
+  sentimentDistribution?: Record<SentimentLabel, number>;
+  dominantSentiment?: SentimentLabel;
 }
 
 export interface CriteriaAnalytics {

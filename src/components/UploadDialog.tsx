@@ -31,12 +31,17 @@ export function UploadDialog({ open, onOpenChange, onUpload }: UploadDialogProps
     for (let i = 1; i < lines.length; i++) {
       const parts = lines[i].split('\t');
       if (parts.length >= 12) {
+        const fileTag = parts[4];
+        // Check if fileTag looks like a blob URL (contains .mp3, .wav, etc.)
+        const audioUrl = fileTag.match(/\.(mp3|wav|m4a|flac|ogg)$/i) ? fileTag : undefined;
+        
         metadata.push({
           time: parts[0],
           billId: parts[1],
           orderId: parts[2],
           userId: parts[3],
           fileTag: parts[4],
+          audioUrl: audioUrl, // Store the blob URL if it's an audio file
           agentName: parts[5],
           product: parts[6],
           customerType: parts[7],
@@ -61,14 +66,21 @@ export function UploadDialog({ open, onOpenChange, onUpload }: UploadDialogProps
         return;
       }
 
-      const calls: CallRecord[] = metadataList.map((metadata) => ({
+      const calls: CallRecord[] = metadataList.map((metadata) => {
+        const parsedCreatedAt = metadata.time ? new Date(metadata.time) : new Date();
+        const createdAtDate = Number.isNaN(parsedCreatedAt.getTime()) ? new Date() : parsedCreatedAt;
+
+        return {
         id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         metadata,
-        transcript: transcriptText || `Sample transcript for call with ${metadata.borrowerName}. This is a placeholder transcript that would normally come from audio transcription. The agent ${metadata.agentName} spoke with the customer about ${metadata.product} with ${metadata.daysPastDue} days past due and amount ${metadata.dueAmount}.`,
-        status: 'transcribed',
-        createdAt: new Date(metadata.time).toISOString(),
-        updatedAt: new Date().toISOString(),
-      }));
+        // Only add transcript if manually provided OR if no audioUrl (for testing)
+        transcript: transcriptText || (!metadata.audioUrl ? `Sample transcript for call with ${metadata.borrowerName}. This is a placeholder transcript that would normally come from audio transcription. The agent ${metadata.agentName} spoke with the customer about ${metadata.product} with ${metadata.daysPastDue} days past due and amount ${metadata.dueAmount}.` : undefined),
+        // Set status based on whether we have audio URL or manual transcript
+        status: metadata.audioUrl ? 'uploaded' : (transcriptText ? 'transcribed' : 'transcribed'),
+          createdAt: createdAtDate.toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      });
 
       onUpload(calls);
       toast.success(`Successfully uploaded ${calls.length} call(s)`);
