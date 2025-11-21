@@ -213,7 +213,17 @@ class TranscriptionService {
 
     const total = calls.length;
     const results: CallRecord[] = new Array(total);
-    let completed = 0;
+    
+    // Track completion state for real-time progress updates
+    const completionTracker = {
+      completed: 0,
+      increment() {
+        this.completed++;
+      },
+      get count() {
+        return this.completed;
+      }
+    };
 
     console.log(`🎤 Starting parallel batch transcription for ${total} calls with concurrency ${concurrency}...`);
 
@@ -234,15 +244,22 @@ class TranscriptionService {
           options,
           (status) => {
             console.log(`📊 [PARALLEL] ${call.id}: ${status}`);
-            onProgress?.(call.id, status, completed, total);
+            // Pass current completion count for real-time updates
+            onProgress?.(call.id, status, completionTracker.count, total);
           }
         ).then(
           (result) => {
             console.log(`✅ [PARALLEL] Completed transcription for call ${call.id} at ${new Date().toISOString()}`);
+            // Increment completion count immediately when call finishes
+            completionTracker.increment();
+            onProgress?.(call.id, 'completed', completionTracker.count, total);
             return { index: callIndex, result, success: true };
           },
           (error) => {
             console.error(`❌ [PARALLEL] Failed to transcribe call ${call.id}:`, error);
+            // Count failures as completed too (so progress bar doesn't get stuck)
+            completionTracker.increment();
+            onProgress?.(call.id, 'failed', completionTracker.count, total);
             return {
               index: callIndex,
               result: {
@@ -267,12 +284,10 @@ class TranscriptionService {
         if (promiseResult.status === 'fulfilled') {
           const { index, result } = promiseResult.value;
           results[index] = result;
-          completed++;
-          onProgress?.(result.id, 'completed', completed, total);
         }
       });
 
-      console.log(`✅ Batch ${batchNumber}/${totalBatches} completed (${completed}/${total} total)`);
+      console.log(`✅ Batch ${batchNumber}/${totalBatches} completed (${completionTracker.count}/${total} total)`);
     }
 
     const successful = results.filter(r => r.status === 'transcribed' || r.status === 'evaluated').length;
