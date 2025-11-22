@@ -25,6 +25,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('calls');
   const [customRules] = useLocalStorage<EvaluationCriterion[]>('evaluation-criteria-custom', []);
   const [azureConfig, setAzureConfig] = useLocalStorage<AzureServicesConfig | null>('azure-services-config', null);
+  // Batch progress state (persists across tab changes)
+  const [batchProgress, setBatchProgress] = useState<{ completed: number; total: number } | null>(null);
 
   useEffect(() => {
     if (!azureConfig) {
@@ -148,7 +150,10 @@ function App() {
 
           <div className="mt-6">
             <TabsContent value="calls">
-              <CallsView />
+              <CallsView 
+                batchProgress={batchProgress}
+                setBatchProgress={setBatchProgress}
+              />
             </TabsContent>
 
             <TabsContent value="analytics">

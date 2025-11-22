@@ -9,6 +9,23 @@
   body {
     font-family: 'Inter', sans-serif;
   }
+  
+  /* Custom markdown styles for AI insights */
+  .prose strong {
+    @apply font-bold text-foreground;
+  }
+  
+  .prose p {
+    @apply my-2;
+  }
+  
+  .prose p:first-child {
+    @apply mt-0;
+  }
+  
+  .prose p:last-child {
+    @apply mb-0;
+  }
 }
 
 :root {

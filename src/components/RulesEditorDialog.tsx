@@ -145,7 +145,7 @@ export function RulesEditorDialog({ onRulesUpdate }: RulesEditorDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden pt-2">
+        <div className="flex-1 overflow-hidden pt-2" style={{ height: 'calc(90vh - 200px)' }}>
           <ResizablePanelGroup direction="horizontal" className="h-full gap-4">
             <ResizablePanel defaultSize={40} minSize={30}>
               <div className="h-full flex flex-col gap-3 pr-2 min-w-[360px]">
@@ -155,7 +155,7 @@ export function RulesEditorDialog({ onRulesUpdate }: RulesEditorDialogProps) {
                     <Plus size={16} />
                   </Button>
                 </div>
-                <ScrollArea className="flex-1 border border-border rounded-lg overflow-auto">
+                <div className="flex-1 border border-border rounded-lg overflow-y-scroll" style={{ maxHeight: 'calc(90vh - 280px)' }}>
                   <div className="p-2 space-y-2">
                     {rules.map((rule, index) => (
                       <Card
@@ -216,7 +216,7 @@ export function RulesEditorDialog({ onRulesUpdate }: RulesEditorDialogProps) {
                       </Card>
                     ))}
                   </div>
-                </ScrollArea>
+                </div>
               </div>
             </ResizablePanel>
             <ResizableHandle withHandle className="bg-border" />

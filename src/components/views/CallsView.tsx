@@ -16,7 +16,12 @@ import { azureOpenAIService } from '@/services/azure-openai';
 import { restoreAudioFilesFromStorage } from '@/lib/csv-parser';
 import { toast } from 'sonner';
 
-export function CallsView() {
+interface CallsViewProps {
+  batchProgress: { completed: number; total: number } | null;
+  setBatchProgress: (progress: { completed: number; total: number } | null) => void;
+}
+
+export function CallsView({ batchProgress, setBatchProgress }: CallsViewProps) {
   const [calls, setCalls] = useLocalStorage<CallRecord[]>('calls', defaultCalls);
   const [callsRestored, setCallsRestored] = useState(false);
   
@@ -47,7 +52,6 @@ export function CallsView() {
   const [transcribingIds, setTranscribingIds] = useState<Set<string>>(new Set());
   const [evaluatingIds, setEvaluatingIds] = useState<Set<string>>(new Set());
   const [selectedCallIds, setSelectedCallIds] = useState<Set<string>>(new Set());
-  const [batchProgress, setBatchProgress] = useState<{ completed: number; total: number } | null>(null);
 
   const onUpdateCalls = (updater: (prev: CallRecord[] | undefined) => CallRecord[]) => {
     setCalls(updater);
@@ -187,14 +191,36 @@ export function CallsView() {
       const results = await transcriptionService.transcribeCallsParallel(
         callsToTranscribe,
         {},
-        (callId, status, completed, total) => {
+        (callId, status, completed, total, completedCall) => {
           console.log(`Progress: ${callId} - ${status} (${completed}/${total})`);
           
           // Update progress bar
           setBatchProgress({ completed, total });
           
-          // Update the specific call's status in real-time
-          if (status === 'completed') {
+          // Update the individual call with real-time data
+          onUpdateCalls((prev) => 
+            (prev || []).map((c) => {
+              if (c.id !== callId) return c;
+              
+              // If we have the completed call data, use it immediately
+              if (completedCall && (status === 'completed' || status === 'failed')) {
+                return completedCall;
+              }
+              
+              // Otherwise, just update status based on progress messages
+              if (status === 'Evaluation complete!') {
+                return { ...c, status: 'evaluated' as const, updatedAt: new Date().toISOString() };
+              } else if (status === 'Transcription complete!') {
+                return { ...c, status: 'transcribed' as const, updatedAt: new Date().toISOString() };
+              } else {
+                // Keep as processing but update timestamp to show activity
+                return { ...c, status: 'processing' as const, updatedAt: new Date().toISOString() };
+              }
+            })
+          );
+          
+          // Remove from transcribing set when completed
+          if (status === 'completed' || status === 'failed') {
             setTranscribingIds((prev) => {
               const next = new Set(prev);
               next.delete(callId);

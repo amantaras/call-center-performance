@@ -198,13 +198,13 @@ class TranscriptionService {
    * Transcribe multiple calls in parallel with controlled concurrency
    * @param calls - Array of calls to transcribe
    * @param options - Speech-to-text options
-   * @param onProgress - Progress callback (callId, status, completed, total)
+   * @param onProgress - Progress callback (callId, status, completed, total, completedCall?)
    * @param concurrency - Maximum number of calls to process simultaneously (default: 5)
    */
   async transcribeCallsParallel(
     calls: CallRecord[],
     options: STTCallOptions = {},
-    onProgress?: (callId: string, status: string, completed: number, total: number) => void,
+    onProgress?: (callId: string, status: string, completed: number, total: number, completedCall?: CallRecord) => void,
     concurrency: number = 5
   ): Promise<CallRecord[]> {
     if (!this.sttCaller) {
@@ -252,22 +252,25 @@ class TranscriptionService {
             console.log(`✅ [PARALLEL] Completed transcription for call ${call.id} at ${new Date().toISOString()}`);
             // Increment completion count immediately when call finishes
             completionTracker.increment();
-            onProgress?.(call.id, 'completed', completionTracker.count, total);
+            // Pass the completed call data so UI can update immediately with full data
+            onProgress?.(call.id, 'completed', completionTracker.count, total, result);
             return { index: callIndex, result, success: true };
           },
           (error) => {
             console.error(`❌ [PARALLEL] Failed to transcribe call ${call.id}:`, error);
             // Count failures as completed too (so progress bar doesn't get stuck)
             completionTracker.increment();
-            onProgress?.(call.id, 'failed', completionTracker.count, total);
+            const failedCall: CallRecord = {
+              ...call,
+              status: 'failed' as const,
+              error: error instanceof Error ? error.message : 'Transcription failed',
+              updatedAt: new Date().toISOString(),
+            };
+            // Pass the failed call data so UI can update immediately
+            onProgress?.(call.id, 'failed', completionTracker.count, total, failedCall);
             return {
               index: callIndex,
-              result: {
-                ...call,
-                status: 'failed' as const,
-                error: error instanceof Error ? error.message : 'Transcription failed',
-                updatedAt: new Date().toISOString(),
-              },
+              result: failedCall,
               success: false
             };
           }

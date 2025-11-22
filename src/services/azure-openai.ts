@@ -134,33 +134,33 @@ Also provide an overallFeedback string (2-3 sentences IN ENGLISH) highlighting k
 
 IMPORTANT: Additionally, generate detailed analytical insights IN ENGLISH based on the call metadata and transcript:
 
-1. PRODUCT INSIGHT (ALL IN ENGLISH):
+1. PRODUCT INSIGHT (ALL IN ENGLISH, use markdown with **bold** for key points):
    - Analyze how the product type (${metadata.product}) affects the call dynamics
    - Identify 2-3 specific performance factors related to this product
-   - Recommend specific collection approach for this product type
+   - Recommend specific collection approach for this product type (use **bold** for critical action items)
 
-2. RISK INSIGHT (ALL IN ENGLISH):
+2. RISK INSIGHT (ALL IN ENGLISH, use markdown with **bold** for critical findings):
    - Calculate risk tier based on Days Past Due: 0-30=Low, 31-60=Medium, 61-90=High, 90+=Critical
    - Assign risk score (0-100) considering DPD (${metadata.daysPastDue}), amount ($${metadata.dueAmount}), sentiment, and evaluation performance
    - Calculate payment probability percentage (0-100) based on all factors
    - Determine if escalation is recommended (boolean)
-   - Provide detailed analysis IN ENGLISH explaining the risk assessment and payment likelihood
+   - Provide detailed analysis IN ENGLISH explaining the risk assessment and payment likelihood (use **bold** for warnings or critical metrics)
 
-3. NATIONALITY INSIGHT (ALL IN ENGLISH):
+3. NATIONALITY INSIGHT (ALL IN ENGLISH, use markdown with **bold** for key recommendations):
    - Identify 2-3 cultural factors affecting communication with ${metadata.nationality} customers
    - Assess language effectiveness (rate agent's communication clarity and cultural awareness)
-   - Recommend specific adjustments IN ENGLISH for better engagement with this demographic
+   - Recommend specific adjustments IN ENGLISH for better engagement with this demographic (use **bold** for most important adjustments)
 
-4. OUTCOME INSIGHT (ALL IN ENGLISH):
+4. OUTCOME INSIGHT (ALL IN ENGLISH, use markdown with **bold** for key factors):
    - Categorize the follow-up status "${metadata.followUpStatus}" into one of: "success", "promise-to-pay", "refused", "no-contact", "callback-needed", or "other"
    - Calculate success probability percentage (0-100) for positive resolution
    - Identify 2-3 key factors that influenced this outcome
-   - Provide reasoning IN ENGLISH for the outcome classification and probability
+   - Provide reasoning IN ENGLISH for the outcome classification and probability (use **bold** for most impactful factors)
 
-5. BORROWER INSIGHT (ALL IN ENGLISH):
+5. BORROWER INSIGHT (ALL IN ENGLISH, use markdown with **bold** for critical strategies):
    - Rate interaction quality (excellent/good/fair/poor) based on borrower engagement and agent rapport
    - Identify 2-3 relationship indicators (positive or negative signals about future interactions)
-   - Recommend future strategy IN ENGLISH for handling this borrower
+   - Recommend future strategy IN ENGLISH for handling this borrower (use **bold** for highest priority actions)
 
 Return your evaluation and insights as a valid JSON object with this exact structure:
 {
