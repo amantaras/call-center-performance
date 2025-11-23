@@ -1,4 +1,5 @@
 import { CallRecord } from '@/types/call';
+import { SchemaDefinition, FieldDefinition } from '@/types/schema';
 import {
   Table,
   TableBody,
@@ -15,6 +16,7 @@ import { useMemo, useState } from 'react';
 
 interface CallsTableProps {
   calls: CallRecord[];
+  schema: SchemaDefinition | null;
   onSelectCall: (call: CallRecord) => void;
   onUpdateCalls: (updater: (prev: CallRecord[] | undefined) => CallRecord[]) => void;
   transcribingIds: Set<string>;
@@ -27,6 +29,7 @@ interface CallsTableProps {
 
 export function CallsTable({
   calls,
+  schema,
   onSelectCall,
   onUpdateCalls,
   transcribingIds,
@@ -36,6 +39,12 @@ export function CallsTable({
   onTranscribe,
   onEvaluate,
 }: CallsTableProps) {
+  // Get visible columns from schema (fields marked as showInTable)
+  const visibleFields = useMemo(() => {
+    if (!schema) return [];
+    return schema.fields.filter(field => field.showInTable);
+  }, [schema]);
+
   const getStatusBadge = (status: CallRecord['status']) => {
     const variants: Record<CallRecord['status'], {
       variant: 'default' | 'secondary' | 'destructive' | 'outline';
@@ -61,21 +70,32 @@ export function CallsTable({
     });
   };
 
-  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>(
-    { key: 'date', direction: 'desc' }
+  const formatFieldValue = (value: any, field: FieldDefinition): string => {
+    if (value === null || value === undefined) return '-';
+    
+    switch (field.type) {
+      case 'date':
+        return formatDate(value);
+      case 'number':
+        // Format currency if field name suggests it's a monetary value
+        if (field.name.toLowerCase().includes('amount') || field.name.toLowerCase().includes('price')) {
+          return `$${Number(value).toFixed(2)}`;
+        }
+        return String(value);
+      case 'boolean':
+        return value ? 'Yes' : 'No';
+      default:
+        return String(value);
+    }
+  };
+
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>(
+    { key: 'createdAt', direction: 'desc' }
   );
 
-  type SortKey =
-    | 'agent'
-    | 'borrower'
-    | 'product'
-    | 'daysPastDue'
-    | 'dueAmount'
-    | 'date'
-    | 'status'
-    | 'score';
+  type SortKey = string;
 
-  const handleSort = (key: SortKey) => {
+  const handleSort = (key: string) => {
     setSortConfig((prev) =>
       prev.key === key
         ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
@@ -83,34 +103,35 @@ export function CallsTable({
     );
   };
 
-  const getSortIndicator = (key: SortKey) => {
+  const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key) {
       return '↕';
     }
     return sortConfig.direction === 'asc' ? '▲' : '▼';
   };
 
-  const getSortableValue = (call: CallRecord, key: SortKey) => {
-    switch (key) {
-      case 'agent':
-        return call.metadata.agentName?.toLowerCase() || '';
-      case 'borrower':
-        return call.metadata.borrowerName?.toLowerCase() || '';
-      case 'product':
-        return call.metadata.product?.toLowerCase() || '';
-      case 'daysPastDue':
-        return call.metadata.daysPastDue ?? null;
-      case 'dueAmount':
-        return call.metadata.dueAmount ?? null;
-      case 'date':
-        return call.createdAt ? new Date(call.createdAt).getTime() : null;
-      case 'status':
-        return call.status;
-      case 'score':
-        return call.evaluation?.percentage ?? null;
-      default:
-        return null;
+  const getSortableValue = (call: CallRecord, key: string) => {
+    // Handle special system fields
+    if (key === 'createdAt') {
+      return call.createdAt ? new Date(call.createdAt).getTime() : null;
     }
+    if (key === 'status') {
+      return call.status;
+    }
+    if (key === 'score') {
+      return call.evaluation?.percentage ?? null;
+    }
+    
+    // Handle metadata fields from schema
+    const value = call.metadata[key];
+    if (value === null || value === undefined) return null;
+    
+    // Normalize strings for case-insensitive sorting
+    if (typeof value === 'string') {
+      return value.toLowerCase();
+    }
+    
+    return value;
   };
 
   const sortedCalls = useMemo(() => {
@@ -145,64 +166,32 @@ export function CallsTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-12"></TableHead>
+            
+            {/* Dynamic columns from schema */}
+            {visibleFields.map(field => (
+              <TableHead key={field.id} className="cursor-pointer">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
+                  onClick={() => handleSort(field.name)}
+                >
+                  {field.displayName}
+                  <span className="text-xs text-muted-foreground">
+                    {getSortIndicator(field.name)}
+                  </span>
+                </button>
+              </TableHead>
+            ))}
+            
+            {/* System columns: Date, Status, Score */}
             <TableHead className="cursor-pointer">
               <button
                 type="button"
                 className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
-                onClick={() => handleSort('agent')}
-              >
-                Agent
-                <span className="text-xs text-muted-foreground">{getSortIndicator('agent')}</span>
-              </button>
-            </TableHead>
-            <TableHead className="cursor-pointer">
-              <button
-                type="button"
-                className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
-                onClick={() => handleSort('borrower')}
-              >
-                Borrower
-                <span className="text-xs text-muted-foreground">{getSortIndicator('borrower')}</span>
-              </button>
-            </TableHead>
-            <TableHead className="cursor-pointer">
-              <button
-                type="button"
-                className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
-                onClick={() => handleSort('product')}
-              >
-                Product
-                <span className="text-xs text-muted-foreground">{getSortIndicator('product')}</span>
-              </button>
-            </TableHead>
-            <TableHead className="cursor-pointer">
-              <button
-                type="button"
-                className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
-                onClick={() => handleSort('daysPastDue')}
-              >
-                Days Past Due
-                <span className="text-xs text-muted-foreground">{getSortIndicator('daysPastDue')}</span>
-              </button>
-            </TableHead>
-            <TableHead className="cursor-pointer">
-              <button
-                type="button"
-                className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
-                onClick={() => handleSort('dueAmount')}
-              >
-                Due Amount
-                <span className="text-xs text-muted-foreground">{getSortIndicator('dueAmount')}</span>
-              </button>
-            </TableHead>
-            <TableHead className="cursor-pointer">
-              <button
-                type="button"
-                className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
-                onClick={() => handleSort('date')}
+                onClick={() => handleSort('createdAt')}
               >
                 Date
-                <span className="text-xs text-muted-foreground">{getSortIndicator('date')}</span>
+                <span className="text-xs text-muted-foreground">{getSortIndicator('createdAt')}</span>
               </button>
             </TableHead>
             <TableHead className="cursor-pointer">
@@ -229,15 +218,9 @@ export function CallsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedCalls.map((call, index) => {
-            // Allow re-transcription for any call with audio file, regardless of status
+          {sortedCalls.map((call) => {
             const canTranscribe = !!call.audioFile;
-            if (index === 0) {
-              console.log('=== TABLE RENDERING ===');
-              console.log('First call metadata:', call.metadata);
-              console.log('Agent Name:', call.metadata.agentName);
-              console.log('Borrower Name:', call.metadata.borrowerName);
-            }
+            
             return (
             <TableRow
               key={call.id}
@@ -252,11 +235,23 @@ export function CallsTable({
                   />
                 )}
               </TableCell>
-              <TableCell className="font-medium">{call.metadata.agentName || 'NO AGENT'}</TableCell>
-              <TableCell>{call.metadata.borrowerName || 'NO BORROWER'}</TableCell>
-              <TableCell>{call.metadata.product || 'NO PRODUCT'}</TableCell>
-              <TableCell>{call.metadata.daysPastDue ?? 'NO DAYS'}</TableCell>
-              <TableCell>${(call.metadata.dueAmount || 0).toFixed(2)}</TableCell>
+              
+              {/* Dynamic cells from schema */}
+              {visibleFields.map((field, index) => {
+                const value = call.metadata[field.name];
+                const formattedValue = formatFieldValue(value, field);
+                
+                return (
+                  <TableCell 
+                    key={field.id}
+                    className={index === 0 ? 'font-medium' : ''}
+                  >
+                    {formattedValue}
+                  </TableCell>
+                );
+              })}
+              
+              {/* System cells: Date, Status, Score */}
               <TableCell className="text-muted-foreground">
                 {formatDate(call.createdAt)}
               </TableCell>

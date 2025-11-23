@@ -392,6 +392,7 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
       {calls && calls.length > 0 && (
         <CallsTable
           calls={filteredCalls}
+          schema={activeSchema}
           onSelectCall={setSelectedCall}
           onUpdateCalls={onUpdateCalls}
           transcribingIds={transcribingIds}
