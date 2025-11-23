@@ -143,7 +143,9 @@ export interface CallEvaluation {
 
 export interface CallRecord {
   id: string;
-  metadata: CallMetadata;
+  schemaId: string; // Schema identifier this call belongs to
+  schemaVersion: string; // Schema version (e.g., "1.0.0")
+  metadata: Record<string, any>; // Dynamic metadata based on active schema
   audioFile?: File | Blob;
   audioUrl?: string; // URL for fetching audio
   transcript?: string;
