@@ -323,3 +323,102 @@ export function importSchemaFromJson(jsonString: string): { success: boolean; sc
     };
   }
 }
+
+/**
+ * Saves or updates a schema (convenience function)
+ */
+export function saveSchema(schema: SchemaDefinition): { success: boolean; error?: string } {
+  const existing = getSchemaById(schema.id);
+  if (existing) {
+    return updateSchema(schema);
+  } else {
+    return createSchema(schema);
+  }
+}
+
+/**
+ * Duplicates a schema with a new ID and name
+ */
+export function duplicateSchema(schemaId: string): SchemaDefinition {
+  const source = getSchemaById(schemaId);
+  if (!source) {
+    throw new Error(`Schema with ID "${schemaId}" not found`);
+  }
+
+  const newName = `${source.name} (Copy)`;
+  const newId = generateSchemaId(newName);
+  
+  const duplicate: SchemaDefinition = {
+    ...source,
+    id: newId,
+    name: newName,
+    version: '1.0.0',
+    createdAt: new Date().toISOString(),
+    updatedAt: undefined,
+  };
+
+  const result = createSchema(duplicate);
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to duplicate schema');
+  }
+
+  return duplicate;
+}
+
+/**
+ * Exports schema as downloadable JSON file
+ */
+export function exportSchema(schemaId: string): void {
+  const json = exportSchemaAsJson(schemaId);
+  if (!json) {
+    throw new Error(`Schema with ID "${schemaId}" not found`);
+  }
+
+  const schema = getSchemaById(schemaId);
+  if (!schema) return;
+
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${schema.name.replace(/\s+/g, '-').toLowerCase()}-schema.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Imports schema from uploaded JSON file
+ */
+export function importSchema(schemaData: any): SchemaDefinition {
+  const result = importSchemaFromJson(JSON.stringify(schemaData));
+  if (!result.success || !result.schema) {
+    throw new Error(result.error || 'Failed to import schema');
+  }
+  return result.schema;
+}
+
+/**
+ * Bumps schema version and creates new version
+ */
+export function bumpVersion(schemaId: string, type: 'major' | 'minor' | 'patch'): SchemaDefinition {
+  const schema = getSchemaById(schemaId);
+  if (!schema) {
+    throw new Error(`Schema with ID "${schemaId}" not found`);
+  }
+
+  const newVersion = incrementVersion(schema.version, type);
+  const updatedSchema: SchemaDefinition = {
+    ...schema,
+    version: newVersion,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const result = updateSchema(updatedSchema);
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to bump version');
+  }
+
+  return updatedSchema;
+}

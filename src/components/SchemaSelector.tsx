@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Gear } from '@phosphor-icons/react';
 import { SchemaDefinition } from '@/types/schema';
 import { getAllSchemas, setActiveSchema } from '@/services/schema-manager';
+import { SchemaManagerDialog } from '@/components/SchemaManagerDialog';
 
 interface SchemaSelectorProps {
   activeSchema: SchemaDefinition | null;
@@ -33,6 +34,7 @@ export function SchemaSelector({
 }: SchemaSelectorProps) {
   const [schemas, setSchemas] = useState<SchemaDefinition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [managerOpen, setManagerOpen] = useState(false);
 
   useEffect(() => {
     loadSchemas();
@@ -123,16 +125,17 @@ export function SchemaSelector({
         </SelectContent>
       </Select>
 
-      {onManageSchemas && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onManageSchemas}
-          title="Manage schemas"
-        >
-          <Gear className="h-4 w-4" />
-        </Button>
-      )}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => {
+          setManagerOpen(true);
+          onManageSchemas?.();
+        }}
+        title="Manage schemas"
+      >
+        <Gear className="h-4 w-4" />
+      </Button>
 
       {onCreateSchema && (
         <Button
@@ -144,6 +147,17 @@ export function SchemaSelector({
           <Plus className="h-4 w-4" />
         </Button>
       )}
+
+      <SchemaManagerDialog
+        open={managerOpen}
+        onOpenChange={(open) => {
+          setManagerOpen(open);
+          if (!open) {
+            // Reload schemas after manager closes
+            loadSchemas();
+          }
+        }}
+      />
     </div>
   );
 }
