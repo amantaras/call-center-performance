@@ -8,6 +8,7 @@ import { ConfigDialog } from '@/components/ConfigDialog';
 import { RulesEditorDialog } from '@/components/RulesEditorDialog';
 import { SchemaSelector } from '@/components/SchemaSelector';
 import { SchemaMigrationDialog } from '@/components/SchemaMigrationDialog';
+import { EvaluationRulesWizard } from '@/components/EvaluationRulesWizard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { setCustomEvaluationCriteria, azureOpenAIService } from '@/services/azure-openai';
 import { EvaluationCriterion, CallRecord } from '@/types/call';
@@ -19,7 +20,7 @@ import { DEFAULT_CALL_CENTER_LANGUAGES, normalizeLocaleList } from '@/lib/speech
 import { runMigration } from '@/services/schema-compatibility';
 import { getActiveSchema, setActiveSchema as setActiveSchemaInStorage, getAllSchemas } from '@/services/schema-manager';
 import { loadRulesForSchema } from '@/services/rules-generator';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 const arraysEqual = (a?: string[], b?: string[]) => {
   if (a === b) return true;
@@ -29,7 +30,6 @@ const arraysEqual = (a?: string[], b?: string[]) => {
 };
 
 function App() {
-  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('calls');
   const [customRules] = useLocalStorage<EvaluationCriterion[]>('evaluation-criteria-custom', []);
   const [azureConfig, setAzureConfig] = useLocalStorage<AzureServicesConfig | null>('azure-services-config', null);
@@ -276,15 +276,19 @@ function App() {
               <p className="text-sm text-muted-foreground mt-1">
                 AI-powered call quality evaluation and analytics
               </p>
-            </div>
             <div className="flex items-center gap-3">
               <SchemaSelector
                 activeSchema={activeSchema}
                 onSchemaChange={handleSchemaChange}
               />
               <div className="h-6 w-px bg-border" />
+              <EvaluationRulesWizard
+                activeSchema={activeSchema}
+                onRulesGenerated={handleRulesUpdate}
+              />
               <RulesEditorDialog onRulesUpdate={handleRulesUpdate} />
               <ConfigDialog />
+            </div>figDialog />
             </div>
           </div>
         </div>

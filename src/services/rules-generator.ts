@@ -4,8 +4,8 @@
  */
 
 import type { SchemaDefinition, SchemaEvaluationRule } from '../types/schema';
-import { preparePrompt, extractJsonFromResponse } from '../lib/prompt-loader';
-import { callAzureOpenAI } from '../lib/llmCaller';
+// import { preparePrompt, extractJsonFromResponse } from '../lib/prompt-loader';
+// import { callAzureOpenAI } from '../lib/llmCaller';
 
 /**
  * Generates evaluation rules tailored to schema
@@ -14,7 +14,9 @@ export async function generateEvaluationRules(
   schema: SchemaDefinition,
   sampleCallDescriptions?: string[]
 ): Promise<SchemaEvaluationRule[]> {
-  try {
+  // This function is deprecated - use EvaluationRulesWizard component instead
+  throw new Error('Use EvaluationRulesWizard component for rule generation');
+  /* try {
     // Get participant info
     const participant1Field = schema.fields.find(f => f.semanticRole === 'participant_1');
     const participant2Field = schema.fields.find(f => f.semanticRole === 'participant_2');
@@ -59,7 +61,7 @@ export async function generateEvaluationRules(
   } catch (error) {
     console.error('Error generating evaluation rules:', error);
     throw new Error(`Failed to generate evaluation rules: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
+  } */
 }
 
 /**
@@ -117,7 +119,9 @@ export async function generateSingleRule(
   ruleName: string,
   userGuidance?: string
 ): Promise<SchemaEvaluationRule> {
-  try {
+  // This function is deprecated - use EvaluationRulesWizard component instead
+  throw new Error('Use EvaluationRulesWizard component for rule generation');
+  /* try {
     const participant1Field = schema.fields.find(f => f.semanticRole === 'participant_1');
     const participant2Field = schema.fields.find(f => f.semanticRole === 'participant_2');
 
@@ -172,5 +176,5 @@ Ensure the rule is specific, measurable, and relevant to the business context.`;
   } catch (error) {
     console.error('Error generating single rule:', error);
     throw new Error(`Failed to generate rule: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
+  } */
 }

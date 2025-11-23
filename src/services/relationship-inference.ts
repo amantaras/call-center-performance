@@ -4,8 +4,9 @@
  */
 
 import type { SchemaDefinition, RelationshipDefinition } from '../types/schema';
-import { preparePrompt, extractJsonFromResponse } from '../lib/prompt-loader';
-import { callAzureOpenAI } from '../lib/llmCaller';
+// These imports are for deprecated functions - not currently used
+// import { preparePrompt, extractJsonFromResponse } from '../lib/prompt-loader';
+// import { callAzureOpenAI } from '../lib/llmCaller';
 
 /**
  * Infers simple correlative relationships from field names and types

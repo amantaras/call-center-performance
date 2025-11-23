@@ -4,8 +4,9 @@
  */
 
 import type { SchemaDefinition } from '../types/schema';
-import { preparePrompt, extractJsonFromResponse } from '../lib/prompt-loader';
-import { callAzureOpenAI } from '../lib/llmCaller';
+// These imports are for deprecated functions - not currently used
+// import { preparePrompt, extractJsonFromResponse } from '../lib/prompt-loader';
+// import { callAzureOpenAI } from '../lib/llmCaller';
 
 export interface InsightCategory {
   id: string;

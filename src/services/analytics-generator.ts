@@ -4,8 +4,9 @@
  */
 
 import type { SchemaDefinition, AnalyticsView } from '../types/schema';
-import { preparePrompt, extractJsonFromResponse } from '../lib/prompt-loader';
-import { callAzureOpenAI } from '../lib/llmCaller';
+// These imports are for deprecated functions - use AnalyticsConfigWizard component instead
+// import { preparePrompt, extractJsonFromResponse } from '../lib/prompt-loader';
+// import { callAzureOpenAI } from '../lib/llmCaller';
 
 /**
  * Generates analytics views tailored to schema and relationships

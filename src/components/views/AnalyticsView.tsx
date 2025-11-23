@@ -31,6 +31,7 @@ import { RiskSegmentationChart } from '@/components/analytics/RiskSegmentationCh
 import { NationalityAnalysisChart } from '@/components/analytics/NationalityAnalysisChart';
 import { OutcomeCorrelationChart } from '@/components/analytics/OutcomeCorrelationChart';
 import { BorrowerInsightsChart } from '@/components/analytics/BorrowerInsightsChart';
+import { AnalyticsConfigWizard } from '@/components/AnalyticsConfigWizard';
 import { getCriterionById } from '@/lib/evaluation-criteria';
 import { regenerateInsights } from '@/services/azure-openai';
 import { Sparkles, Loader2 } from 'lucide-react';
@@ -119,6 +120,11 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
 
   return (
     <div className="space-y-6">
+      {/* Analytics Configuration */}
+      <div className="flex justify-end">
+        <AnalyticsConfigWizard activeSchema={activeSchema} />
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
