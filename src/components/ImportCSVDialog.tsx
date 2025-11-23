@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,40 +11,124 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FileArrowUp, Warning } from '@phosphor-icons/react';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { FileArrowUp, Warning, CheckCircle, Info } from '@phosphor-icons/react';
 import { CallRecord } from '@/types/call';
-import { parseCSV, csvRowsToCallRecords, readFileAsText, readExcelFile } from '@/lib/csv-parser';
+import { SchemaDefinition } from '@/types/schema';
+import { parseCSV, readFileAsText, readExcelFile } from '@/lib/csv-parser';
+import { detectSchemaForRows } from '@/lib/csv-parser';
+import { getAllSchemas } from '@/services/schema-manager';
+import { mapRow } from '@/services/schema-mapper';
 import { toast } from 'sonner';
 
 interface ImportCSVDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImport: (calls: CallRecord[]) => void;
+  activeSchema: SchemaDefinition | null;
 }
 
-export function ImportCSVDialog({ open, onOpenChange, onImport }: ImportCSVDialogProps) {
+export function ImportCSVDialog({ open, onOpenChange, onImport, activeSchema }: ImportCSVDialogProps) {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [audioFolderPath, setAudioFolderPath] = useState('/audio');
   const [isProcessing, setIsProcessing] = useState(false);
   const [sheetName, setSheetName] = useState('audio related info');
+  
+  // Schema detection state
+  const [availableSchemas, setAvailableSchemas] = useState<SchemaDefinition[]>([]);
+  const [detectedSchema, setDetectedSchema] = useState<SchemaDefinition | null>(null);
+  const [selectedSchema, setSelectedSchema] = useState<SchemaDefinition | null>(null);
+  const [matchScore, setMatchScore] = useState<number | null>(null);
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [parsedRows, setParsedRows] = useState<any[] | null>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Load available schemas on mount
+  useEffect(() => {
+    const schemas = getAllSchemas();
+    setAvailableSchemas(schemas);
+    setSelectedSchema(activeSchema);
+  }, [activeSchema]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
-      const isCsv = file.name.endsWith('.csv');
+    if (!file) return;
+
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    const isCsv = file.name.endsWith('.csv');
+    
+    if (!isExcel && !isCsv) {
+      toast.error('Please select a CSV or Excel file');
+      return;
+    }
+    
+    setCsvFile(file);
+    
+    // Auto-detect schema
+    await detectSchema(file);
+  };
+
+  const detectSchema = async (file: File) => {
+    setIsDetecting(true);
+    try {
+      let rows: any[];
       
-      if (!isExcel && !isCsv) {
-        toast.error('Please select a CSV or Excel file');
+      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      
+      if (isExcel) {
+        rows = await readExcelFile(file, sheetName);
+      } else {
+        const csvText = await readFileAsText(file);
+        rows = parseCSV(csvText);
+      }
+
+      if (rows.length === 0) {
+        toast.error('No data found in file');
         return;
       }
-      setCsvFile(file);
+
+      setParsedRows(rows);
+
+      // Detect best matching schema
+      const result = detectSchemaForRows(rows, availableSchemas);
+      
+      if (result.schema) {
+        setDetectedSchema(result.schema);
+        setSelectedSchema(result.schema);
+        setMatchScore(result.matchScore);
+        
+        toast.success(
+          `Schema detected: ${result.schema.name} (${Math.round(result.matchScore * 100)}% match)`,
+          { duration: 4000 }
+        );
+      } else {
+        toast.warning('No matching schema found. Please select manually.');
+        setDetectedSchema(null);
+        setMatchScore(null);
+      }
+    } catch (error) {
+      console.error('Schema detection error:', error);
+      toast.error('Failed to detect schema');
+    } finally {
+      setIsDetecting(false);
     }
   };
 
   const handleImport = async () => {
     if (!csvFile) {
       toast.error('Please select a file');
+      return;
+    }
+
+    if (!selectedSchema) {
+      toast.error('Please select a schema');
       return;
     }
 
@@ -62,64 +146,72 @@ export function ImportCSVDialog({ open, onOpenChange, onImport }: ImportCSVDialo
     setIsProcessing(true);
 
     try {
-      let rows: any[];
-      
-      const isExcel = csvFile.name.endsWith('.xlsx') || csvFile.name.endsWith('.xls');
-      
-      if (isExcel) {
-        // Read Excel file
-        rows = await readExcelFile(csvFile, sheetName);
-        toast.info(`Reading from sheet: "${sheetName}"`);
-      } else {
-        // Read CSV file
-        const csvText = await readFileAsText(csvFile);
-        rows = parseCSV(csvText);
+      // Use parsed rows if available, otherwise re-parse
+      let rows = parsedRows;
+      if (!rows) {
+        const isExcel = csvFile.name.endsWith('.xlsx') || csvFile.name.endsWith('.xls');
+        
+        if (isExcel) {
+          rows = await readExcelFile(csvFile, sheetName);
+        } else {
+          const csvText = await readFileAsText(csvFile);
+          rows = parseCSV(csvText);
+        }
       }
 
-      if (rows.length === 0) {
+      if (!rows || rows.length === 0) {
         toast.error('No data found in file');
         return;
       }
 
-      console.log('=== IMPORT DEBUG ===');
+      console.log('=== IMPORT WITH SCHEMA ===');
+      console.log('Selected schema:', selectedSchema.name);
       console.log('Total rows:', rows.length);
-      console.log('First row columns:', Object.keys(rows[0]));
-      console.log('First row data:', rows[0]);
-      console.log('Second row data:', rows[1]);
 
-      if (rows.length > 0) {
-        const columnNames = Object.keys(rows[0]);
-        toast.info(`Columns detected: ${columnNames.join(', ')}`);
-        try {
-          const samplePreview = JSON.stringify(rows[0]).slice(0, 180);
-          toast.info(`Sample row: ${samplePreview}`);
-        } catch (error) {
-          console.warn('Failed to stringify sample row', error);
-        }
-      }
+      // Convert rows to CallRecords using selected schema
+      const callRecords: CallRecord[] = rows.map((row, index) => {
+        const metadata = mapRow(row, selectedSchema);
+        
+        return {
+          id: `import-${Date.now()}-${index}`,
+          status: 'uploaded' as const,
+          createdAt: new Date().toISOString(),
+          schemaId: selectedSchema.id,
+          schemaVersion: selectedSchema.version,
+          metadata,
+        };
+      });
 
-      const callRecords = csvRowsToCallRecords(rows, audioFolderPath);
-      
       console.log('Converted call records:', callRecords.length);
       console.log('First call record:', callRecords[0]);
-      
-      if (callRecords.length > 0) {
-        const firstRecord = callRecords[0];
-        toast.info(`First record - Agent: "${firstRecord.metadata.agentName}" Borrower: "${firstRecord.metadata.borrowerName}"`);
-      }
 
-      // Fetch audio files from URLs
-      toast.info('Fetching audio files...');
-      const { fetchAudioFilesForCalls } = await import('@/lib/csv-parser');
-      const callsWithAudio = await fetchAudioFilesForCalls(callRecords);
-      const successCount = callsWithAudio.filter(c => c.audioFile).length;
+      // Fetch audio files from URLs if audioUrl field exists in metadata
+      const audioUrlField = selectedSchema.fields.find(f => 
+        f.name.toLowerCase().includes('audiourl') || 
+        f.name.toLowerCase().includes('audio_url') ||
+        f.name.toLowerCase().includes('file')
+      );
+
+      if (audioUrlField) {
+        toast.info('Fetching audio files...');
+        const { fetchAudioFilesForCalls } = await import('@/lib/csv-parser');
+        const callsWithAudio = await fetchAudioFilesForCalls(callRecords);
+        const successCount = callsWithAudio.filter(c => c.audioFile).length;
+        
+        onImport(callsWithAudio);
+        toast.success(`Successfully imported ${callRecords.length} call records! (${successCount} with audio files)`);
+      } else {
+        onImport(callRecords);
+        toast.success(`Successfully imported ${callRecords.length} call records!`);
+      }
       
-      onImport(callsWithAudio);
-      toast.success(`Successfully imported ${callRecords.length} call records! (${successCount} with audio files)`);
       onOpenChange(false);
       
       // Reset state
       setCsvFile(null);
+      setParsedRows(null);
+      setDetectedSchema(null);
+      setMatchScore(null);
     } catch (error) {
       console.error('Import error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to import file');
