@@ -19,6 +19,7 @@ import { getCriterionById } from '@/lib/evaluation-criteria';
 import { toast } from 'sonner';
 import { CheckCircle, XCircle, MinusCircle, Sparkle, Microphone } from '@phosphor-icons/react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import ReactMarkdown from 'react-markdown';
 import { CallSentimentPlayer } from '@/components/call-player/CallSentimentPlayer';
 import { TranscriptConversation } from '@/components/TranscriptConversation';
 import { DEFAULT_CALL_CENTER_LANGUAGES } from '@/lib/speech-languages';
@@ -568,9 +569,9 @@ export function CallDetailDialog({
                         )}
                         <div>
                           <p className="text-xs font-medium text-muted-foreground mb-1">Detailed Analysis:</p>
-                          <p className="text-xs leading-relaxed">
-                            {call.evaluation.riskInsight.detailedAnalysis}
-                          </p>
+                          <div className="text-xs leading-relaxed prose prose-sm max-w-none">
+                            <ReactMarkdown>{call.evaluation.riskInsight.detailedAnalysis}</ReactMarkdown>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -589,7 +590,7 @@ export function CallDetailDialog({
                             <p className="text-xs font-medium text-muted-foreground mb-1.5">Performance Factors:</p>
                             <div className="flex flex-wrap gap-1.5">
                               {call.evaluation.productInsight.performanceFactors.map((factor, idx) => (
-                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-0.5">
+                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-1 whitespace-normal break-words">
                                   {factor}
                                 </Badge>
                               ))}
@@ -597,9 +598,9 @@ export function CallDetailDialog({
                           </div>
                           <div>
                             <p className="text-xs font-medium text-muted-foreground mb-1.5">Recommended Approach:</p>
-                            <p className="text-xs leading-relaxed">
-                              {call.evaluation.productInsight.recommendedApproach}
-                            </p>
+                            <div className="text-xs leading-relaxed prose prose-sm max-w-none">
+                              <ReactMarkdown>{call.evaluation.productInsight.recommendedApproach}</ReactMarkdown>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -639,7 +640,7 @@ export function CallDetailDialog({
                             <p className="text-xs font-medium text-muted-foreground mb-1.5">Key Factors:</p>
                             <div className="flex flex-wrap gap-1.5">
                               {call.evaluation.outcomeInsight.keyFactors.map((factor, idx) => (
-                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-0.5">
+                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-1 whitespace-normal break-words">
                                   {factor}
                                 </Badge>
                               ))}
@@ -647,9 +648,9 @@ export function CallDetailDialog({
                           </div>
                           <div>
                             <p className="text-xs font-medium text-muted-foreground mb-1.5">Reasoning:</p>
-                            <p className="text-xs leading-relaxed">
-                              {call.evaluation.outcomeInsight.reasoning}
-                            </p>
+                            <div className="text-xs leading-relaxed prose prose-sm max-w-none">
+                              <ReactMarkdown>{call.evaluation.outcomeInsight.reasoning}</ReactMarkdown>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -669,7 +670,7 @@ export function CallDetailDialog({
                             <p className="text-xs font-medium text-muted-foreground mb-1.5">Cultural Factors:</p>
                             <div className="flex flex-wrap gap-1.5">
                               {call.evaluation.nationalityInsight.culturalFactors.map((factor, idx) => (
-                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-0.5">
+                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-1 whitespace-normal break-words">
                                   {factor}
                                 </Badge>
                               ))}
@@ -677,15 +678,15 @@ export function CallDetailDialog({
                           </div>
                           <div>
                             <p className="text-xs font-medium text-muted-foreground mb-1.5">Language Effectiveness:</p>
-                            <p className="text-xs leading-relaxed">
-                              {call.evaluation.nationalityInsight.languageEffectiveness}
-                            </p>
+                            <div className="text-xs leading-relaxed prose prose-sm max-w-none">
+                              <ReactMarkdown>{call.evaluation.nationalityInsight.languageEffectiveness}</ReactMarkdown>
+                            </div>
                           </div>
                           <div>
                             <p className="text-xs font-medium text-muted-foreground mb-1.5">Recommended Adjustments:</p>
-                            <p className="text-xs leading-relaxed">
-                              {call.evaluation.nationalityInsight.recommendedAdjustments}
-                            </p>
+                            <div className="text-xs leading-relaxed prose prose-sm max-w-none">
+                              <ReactMarkdown>{call.evaluation.nationalityInsight.recommendedAdjustments}</ReactMarkdown>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -716,7 +717,7 @@ export function CallDetailDialog({
                             <p className="text-xs font-medium text-muted-foreground mb-1.5">Relationship Indicators:</p>
                             <div className="flex flex-wrap gap-1.5">
                               {call.evaluation.borrowerInsight.relationshipIndicators.map((indicator, idx) => (
-                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-0.5">
+                                <Badge key={idx} variant="outline" className="text-[11px] px-2 py-1 whitespace-normal break-words">
                                   {indicator}
                                 </Badge>
                               ))}
@@ -724,9 +725,9 @@ export function CallDetailDialog({
                           </div>
                           <div>
                             <p className="text-xs font-medium text-muted-foreground mb-1.5">Future Strategy:</p>
-                            <p className="text-xs leading-relaxed">
-                              {call.evaluation.borrowerInsight.futureStrategy}
-                            </p>
+                            <div className="text-xs leading-relaxed prose prose-sm max-w-none">
+                              <ReactMarkdown>{call.evaluation.borrowerInsight.futureStrategy}</ReactMarkdown>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>

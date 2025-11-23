@@ -19,9 +19,12 @@ export function getActiveEvaluationCriteria(): EvaluationCriterion[] {
  * Bridges AzureOpenAIConfig with ConfigManager interface expected by LLMCaller
  */
 class BrowserConfigManager {
-  constructor(private config: AzureOpenAIConfig) {}
+  constructor(private config: AzureOpenAIConfig) {
+    console.log('📦 BrowserConfigManager created with reasoningEffort:', config.reasoningEffort);
+  }
 
   async getConfig(): Promise<AzureOpenAIConfig | null> {
+    console.log('📖 BrowserConfigManager.getConfig() returning reasoningEffort:', this.config.reasoningEffort);
     return this.config;
   }
 
@@ -60,6 +63,13 @@ export class AzureOpenAIService {
   }
 
   private initializeLLMCaller(): void {
+    console.log('🔧 Initializing LLMCaller with config:', {
+      endpoint: this.config.endpoint,
+      deploymentName: this.config.deploymentName,
+      apiVersion: this.config.apiVersion,
+      reasoningEffort: this.config.reasoningEffort,
+      authType: this.config.authType
+    });
     const configManager = new BrowserConfigManager(this.config);
     this.llmCaller = new LLMCaller(configManager);
     console.log('✓ LLMCaller initialized with structured outputs support');
@@ -68,9 +78,15 @@ export class AzureOpenAIService {
   updateConfig(config: Partial<AzureOpenAIConfig>) {
     this.config = { ...this.config, ...config };
     
-    // Reinitialize LLM caller if config is now valid
+    // Always reinitialize LLM caller if config is valid (even if already initialized)
+    // This ensures updated settings like reasoningEffort take effect immediately
     if (this.isConfigValid()) {
       this.initializeLLMCaller();
+      console.log('🔄 LLMCaller reinitialized with updated config:', {
+        reasoningEffort: this.config.reasoningEffort,
+        deploymentName: this.config.deploymentName,
+        apiVersion: this.config.apiVersion
+      });
     }
   }
 
@@ -88,6 +104,8 @@ export class AzureOpenAIService {
     }).join('\n\n');
 
     return `You are an expert call center quality assurance evaluator. Analyze the following call transcript and evaluate it against the ${activeCriteria.length} quality criteria below. Additionally, generate detailed analytical insights for business intelligence.
+
+**IMPORTANT: You MUST provide ALL responses, insights, analysis, reasoning, feedback, and recommendations in ENGLISH language only, regardless of the language used in the transcript.**
 
 CALL METADATA:
 - Agent Name: ${metadata.agentName}
@@ -110,39 +128,39 @@ For each criterion, provide:
 2. score (exactly 0, 5, or 10 based on the scoring standard)
 3. passed (true if score >= 10, false otherwise)
 4. evidence (exact quote from transcript if found, or "Not found" if missing)
-5. reasoning (brief explanation of why this score was given)
+5. reasoning (brief explanation IN ENGLISH of why this score was given)
 
-Also provide an overallFeedback string (2-3 sentences) highlighting key strengths and areas for improvement.
+Also provide an overallFeedback string (2-3 sentences IN ENGLISH) highlighting key strengths and areas for improvement.
 
-IMPORTANT: Additionally, generate detailed analytical insights based on the call metadata and transcript:
+IMPORTANT: Additionally, generate detailed analytical insights IN ENGLISH based on the call metadata and transcript:
 
-1. PRODUCT INSIGHT:
+1. PRODUCT INSIGHT (ALL IN ENGLISH, use markdown with **bold** for key points):
    - Analyze how the product type (${metadata.product}) affects the call dynamics
    - Identify 2-3 specific performance factors related to this product
-   - Recommend specific collection approach for this product type
+   - Recommend specific collection approach for this product type (use **bold** for critical action items)
 
-2. RISK INSIGHT:
+2. RISK INSIGHT (ALL IN ENGLISH, use markdown with **bold** for critical findings):
    - Calculate risk tier based on Days Past Due: 0-30=Low, 31-60=Medium, 61-90=High, 90+=Critical
    - Assign risk score (0-100) considering DPD (${metadata.daysPastDue}), amount ($${metadata.dueAmount}), sentiment, and evaluation performance
    - Calculate payment probability percentage (0-100) based on all factors
    - Determine if escalation is recommended (boolean)
-   - Provide detailed analysis explaining the risk assessment and payment likelihood
+   - Provide detailed analysis IN ENGLISH explaining the risk assessment and payment likelihood (use **bold** for warnings or critical metrics)
 
-3. NATIONALITY INSIGHT:
+3. NATIONALITY INSIGHT (ALL IN ENGLISH, use markdown with **bold** for key recommendations):
    - Identify 2-3 cultural factors affecting communication with ${metadata.nationality} customers
    - Assess language effectiveness (rate agent's communication clarity and cultural awareness)
-   - Recommend specific adjustments for better engagement with this demographic
+   - Recommend specific adjustments IN ENGLISH for better engagement with this demographic (use **bold** for most important adjustments)
 
-4. OUTCOME INSIGHT:
+4. OUTCOME INSIGHT (ALL IN ENGLISH, use markdown with **bold** for key factors):
    - Categorize the follow-up status "${metadata.followUpStatus}" into one of: "success", "promise-to-pay", "refused", "no-contact", "callback-needed", or "other"
    - Calculate success probability percentage (0-100) for positive resolution
    - Identify 2-3 key factors that influenced this outcome
-   - Provide reasoning for the outcome classification and probability
+   - Provide reasoning IN ENGLISH for the outcome classification and probability (use **bold** for most impactful factors)
 
-5. BORROWER INSIGHT:
+5. BORROWER INSIGHT (ALL IN ENGLISH, use markdown with **bold** for critical strategies):
    - Rate interaction quality (excellent/good/fair/poor) based on borrower engagement and agent rapport
    - Identify 2-3 relationship indicators (positive or negative signals about future interactions)
-   - Recommend future strategy for handling this borrower
+   - Recommend future strategy IN ENGLISH for handling this borrower (use **bold** for highest priority actions)
 
 Return your evaluation and insights as a valid JSON object with this exact structure:
 {
@@ -188,7 +206,7 @@ Return your evaluation and insights as a valid JSON object with this exact struc
   }
 }
 
-Be thorough, fair, and specific in your evaluation. Quote exact phrases when possible. Provide detailed, actionable insights for all five insight categories.`;
+Be thorough, fair, and specific in your evaluation. Quote exact phrases when possible. Provide detailed, actionable insights IN ENGLISH LANGUAGE ONLY for all five insight categories. All text fields (reasoning, evidence, feedback, analysis, recommendations, summaries) MUST be written in English.`;
   }
 
   /**
@@ -461,6 +479,8 @@ Be thorough, fair, and specific in your evaluation. Quote exact phrases when pos
       ', '
     )}. Keep the number of segments reasonable (no more than 12).
 
+**IMPORTANT: All summary, rationale, and text fields MUST be written in ENGLISH language only.**
+
 Return strict JSON with the shape:
 {
   "summary": "short overview highlighting key mood shifts",
@@ -480,10 +500,11 @@ Return strict JSON with the shape:
 - Merge consecutive sentences with similar mood.
 - Do not overlap segments.
 - If unsure, use "neutral" with low confidence.
+- ALL text output (summary, rationale) MUST be in English.
 
 Conversation timeline:\n${timeline}${omittedSuffix}
 
-Analyze carefully and ensure the returned JSON is valid.`;
+Analyze carefully and ensure the returned JSON is valid. Remember: ALL TEXT IN ENGLISH.`;
   }
 
   async analyzeSentimentTimeline(
@@ -648,6 +669,8 @@ Analyze carefully and ensure the returned JSON is valid.`;
     console.log(`🔍 Analyzing overall sentiment for call ${callId}...`);
 
     const prompt = `You are an expert call center sentiment analyst. Analyze the overall sentiment of this entire call conversation.
+
+**IMPORTANT: Your response must be in ENGLISH language only.**
 
 CALL METADATA:
 - Agent Name: ${metadata.agentName}

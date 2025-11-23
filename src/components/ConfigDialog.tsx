@@ -117,12 +117,20 @@ export function ConfigDialog() {
   const handleSave = () => {
     const sanitizedLanguages = normalizeLocaleList(localConfig.speech.selectedLanguages ?? []);
     const configToPersist: AzureServicesConfig = {
-      ...localConfig,
+      openAI: {
+        ...localConfig.openAI,
+        // Ensure reasoningEffort is explicitly included, defaulting to 'low' if not set
+        reasoningEffort: localConfig.openAI.reasoningEffort || 'low',
+      },
       speech: {
         ...localConfig.speech,
         selectedLanguages: sanitizedLanguages,
       },
     };
+
+    console.log('💾 ConfigDialog saving config with reasoningEffort:', configToPersist.openAI.reasoningEffort);
+    console.log('💾 Full OpenAI config being saved:', configToPersist.openAI);
+    console.log('💾 ConfigToPersist stringified:', JSON.stringify(configToPersist, null, 2));
 
     setConfig(configToPersist);
     setLocalConfig(configToPersist);

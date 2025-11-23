@@ -25,6 +25,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('calls');
   const [customRules] = useLocalStorage<EvaluationCriterion[]>('evaluation-criteria-custom', []);
   const [azureConfig, setAzureConfig] = useLocalStorage<AzureServicesConfig | null>('azure-services-config', null);
+  // Batch progress state (persists across tab changes)
+  const [batchProgress, setBatchProgress] = useState<{ completed: number; total: number } | null>(null);
 
   useEffect(() => {
     if (!azureConfig) {
@@ -85,16 +87,20 @@ function App() {
     }
     
     if (azureConfig?.openAI?.endpoint && azureConfig?.openAI?.apiKey && azureConfig?.openAI?.deploymentName) {
-      azureOpenAIService.updateConfig({
+      console.log('🔍 App.tsx: azureConfig.openAI.reasoningEffort from localStorage:', azureConfig.openAI.reasoningEffort);
+      console.log('🔍 App.tsx: Full openAI config from localStorage:', azureConfig.openAI);
+      
+      const configToApply = {
         endpoint: azureConfig.openAI.endpoint,
         apiKey: azureConfig.openAI.apiKey,
         deploymentName: azureConfig.openAI.deploymentName,
         apiVersion: azureConfig.openAI.apiVersion || '2024-12-01-preview',
         reasoningEffort: azureConfig.openAI.reasoningEffort || 'low',
-      });
-      console.log('🤖 Azure OpenAI service initialized from stored config', {
-        reasoningEffort: azureConfig.openAI.reasoningEffort || 'low'
-      });
+      };
+      
+      console.log('📤 App.tsx: Calling azureOpenAIService.updateConfig with:', configToApply);
+      azureOpenAIService.updateConfig(configToApply);
+      console.log('🤖 Azure OpenAI service initialized from stored config');
     }
   }, [azureConfig]);
 
@@ -144,7 +150,10 @@ function App() {
 
           <div className="mt-6">
             <TabsContent value="calls">
-              <CallsView />
+              <CallsView 
+                batchProgress={batchProgress}
+                setBatchProgress={setBatchProgress}
+              />
             </TabsContent>
 
             <TabsContent value="analytics">
