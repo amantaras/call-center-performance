@@ -7,7 +7,9 @@ import {
 import { CallRecord } from '@/types/call';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { calculateAgentPerformance } from '@/lib/analytics';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { CallRecord, EvaluationCriterion } from '@/types/call';
+import { calculateAgentPerformance, getPerformanceTrend, getAgentNameFromCall } from '@/lib/analytics';
 import { getCriterionById } from '@/lib/evaluation-criteria';
 import { PerformanceTrendChart } from '@/components/analytics/PerformanceTrendChart';
 import { Progress } from '@/components/ui/progress';
@@ -25,7 +27,7 @@ export function AgentDetailDialog({
   open,
   onOpenChange,
 }: AgentDetailDialogProps) {
-  const agentCalls = calls.filter((c) => c.metadata.agentName === agentName);
+  const agentCalls = calls.filter((c) => getAgentNameFromCall(c) === agentName);
   const performances = calculateAgentPerformance(agentCalls);
   const performance = performances[0];
 

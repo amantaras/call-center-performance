@@ -260,6 +260,7 @@ function App() {
               <p className="text-sm text-muted-foreground mt-1">
                 AI-powered call quality evaluation and analytics
               </p>
+            </div>
             <div className="flex items-center gap-3">
               <SchemaSelector
                 activeSchema={activeSchema}
@@ -272,7 +273,6 @@ function App() {
               />
               <RulesEditorDialog onRulesUpdate={handleRulesUpdate} />
               <ConfigDialog />
-            </div>figDialog />
             </div>
           </div>
         </div>

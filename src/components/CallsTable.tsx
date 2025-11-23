@@ -167,33 +167,7 @@ export function CallsTable({
           <TableRow>
             <TableHead className="w-12"></TableHead>
             
-            {/* Dynamic columns from schema */}
-            {visibleFields.map(field => (
-              <TableHead key={field.id} className="cursor-pointer">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
-                  onClick={() => handleSort(field.name)}
-                >
-                  {field.displayName}
-                  <span className="text-xs text-muted-foreground">
-                    {getSortIndicator(field.name)}
-                  </span>
-                </button>
-              </TableHead>
-            ))}
-            
-            {/* System columns: Date, Status, Score */}
-            <TableHead className="cursor-pointer">
-              <button
-                type="button"
-                className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
-                onClick={() => handleSort('createdAt')}
-              >
-                Date
-                <span className="text-xs text-muted-foreground">{getSortIndicator('createdAt')}</span>
-              </button>
-            </TableHead>
+            {/* Status and Score - Always first */}
             <TableHead className="cursor-pointer">
               <button
                 type="button"
@@ -212,6 +186,34 @@ export function CallsTable({
               >
                 Score
                 <span className="text-xs text-muted-foreground">{getSortIndicator('score')}</span>
+              </button>
+            </TableHead>
+            
+            {/* Dynamic columns from schema */}
+            {visibleFields.map(field => (
+              <TableHead key={field.id} className="cursor-pointer">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
+                  onClick={() => handleSort(field.name)}
+                >
+                  {field.displayName}
+                  <span className="text-xs text-muted-foreground">
+                    {getSortIndicator(field.name)}
+                  </span>
+                </button>
+              </TableHead>
+            ))}
+            
+            {/* Date column */}
+            <TableHead className="cursor-pointer">
+              <button
+                type="button"
+                className="flex w-full items-center gap-1 text-left font-medium hover:text-primary"
+                onClick={() => handleSort('createdAt')}
+              >
+                Date
+                <span className="text-xs text-muted-foreground">{getSortIndicator('createdAt')}</span>
               </button>
             </TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -238,6 +240,16 @@ export function CallsTable({
                 )}
               </TableCell>
               
+              {/* Status and Score - Always first */}
+              <TableCell>{getStatusBadge(call.status)}</TableCell>
+              <TableCell className="text-center">
+                {call.evaluation ? (
+                  <span className="font-semibold">{call.evaluation.percentage}%</span>
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
+              </TableCell>
+              
               {/* Dynamic cells from schema */}
               {visibleFields.map((field, index) => {
                 const value = call.metadata[field.name];
@@ -253,17 +265,9 @@ export function CallsTable({
                 );
               })}
               
-              {/* System cells: Date, Status, Score */}
+              {/* Date cell */}
               <TableCell className="text-muted-foreground">
                 {formatDate(call.createdAt)}
-              </TableCell>
-              <TableCell>{getStatusBadge(call.status)}</TableCell>
-              <TableCell className="text-center">
-                {call.evaluation ? (
-                  <span className="font-semibold">{call.evaluation.percentage}%</span>
-                ) : (
-                  <span className="text-muted-foreground">-</span>
-                )}
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-2">

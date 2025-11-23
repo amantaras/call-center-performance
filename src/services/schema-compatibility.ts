@@ -234,7 +234,7 @@ export function generateDebtCollectionSchema(): SchemaDefinition {
  * Detects if existing calls need migration
  */
 export function needsMigration(calls: CallRecord[]): boolean {
-  if (calls.length === 0) return false;
+  if (!calls || calls.length === 0) return false;
   
   // Check if any call lacks schemaId (old format)
   return calls.some(call => !call.schemaId || !call.schemaVersion);

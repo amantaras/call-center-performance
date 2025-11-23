@@ -333,7 +333,7 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
     <>
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-        <DialogContent className="max-w-5xl max-h-[90vh]">
+        <DialogContent className="!max-w-[50vw] w-[50vw] max-h-[90vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Database className="h-5 w-5" />

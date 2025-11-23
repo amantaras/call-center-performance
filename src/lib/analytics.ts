@@ -1,5 +1,38 @@
 import { CallRecord, AgentPerformance, CriteriaAnalytics, SentimentLabel, RiskTier, CategorizedOutcome } from '@/types/call';
 import { getActiveEvaluationCriteria } from '@/services/azure-openai';
+import { getActiveSchema } from '@/services/schema-manager';
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Extract agent name from call metadata using schema
+ * Falls back to hardcoded 'agentName' for backward compatibility
+ */
+export function getAgentNameFromCall(call: CallRecord): string {
+  // Try to find the participant_1 field from the schema
+  const schema = getActiveSchema();
+  if (schema) {
+    const agentField = schema.fields.find(f => f.semanticRole === 'participant_1');
+    if (agentField && call.metadata[agentField.id]) {
+      return String(call.metadata[agentField.id]);
+    }
+  }
+  
+  // Fallback to common field names
+  if (call.metadata.agentName) {
+    return String(call.metadata.agentName);
+  }
+  if (call.metadata.agent_name) {
+    return String(call.metadata.agent_name);
+  }
+  if (call.metadata.Agent) {
+    return String(call.metadata.Agent);
+  }
+  
+  return 'Unknown Agent';
+}
 
 // ============================================================================
 // ADVANCED INSIGHTS ANALYTICS - Product, Risk, Nationality, Outcome, Borrower
@@ -378,7 +411,7 @@ export function calculateAgentPerformance(calls: CallRecord[]): AgentPerformance
 
   calls.forEach((call) => {
     if (call.evaluation) {
-      const agent = call.metadata.agentName;
+      const agent = getAgentNameFromCall(call);
       if (!agentMap.has(agent)) {
         agentMap.set(agent, []);
       }
@@ -520,7 +553,7 @@ export function getPerformanceTrend(calls: CallRecord[], agentName?: string): Ar
   count: number;
 }> {
   const filteredCalls = agentName
-    ? calls.filter((c) => c.metadata.agentName === agentName && c.evaluation)
+    ? calls.filter((c) => getAgentNameFromCall(c) === agentName && c.evaluation)
     : calls.filter((c) => c.evaluation);
 
   const dateMap = new Map<string, { total: number; count: number }>();

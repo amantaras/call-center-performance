@@ -54,6 +54,7 @@ export function AnalyticsConfigWizard({
   const [open, setOpen] = useState(false);
   const [views, setViews] = useState<AnalyticsView[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [currentView, setCurrentView] = useState<Partial<AnalyticsView>>({
     name: '',
     description: '',
@@ -166,6 +167,117 @@ export function AnalyticsConfigWizard({
     setEditingIndex(null);
   };
 
+  const handleGenerateWithAI = async () => {
+    if (!activeSchema) {
+      toast.error('No active schema selected');
+      return;
+    }
+
+    setGenerating(true);
+    toast.info('🤖 Generating analytics views with AI...');
+
+    try {
+      const { LLMCaller } = await import('@/llmCaller');
+      const { loadAzureConfigFromCookie } = await import('@/lib/azure-config-storage');
+      
+      const azureConfig = loadAzureConfigFromCookie();
+      if (!azureConfig?.openAI?.endpoint || !azureConfig?.openAI?.apiKey || !azureConfig?.openAI?.deploymentName) {
+        toast.error('Azure OpenAI not configured. Please configure in Settings.');
+        setGenerating(false);
+        return;
+      }
+
+      // Create a ConfigManager wrapper for the config
+      const configManager = {
+        async getConfig() {
+          return {
+            endpoint: azureConfig.openAI.endpoint,
+            apiKey: azureConfig.openAI.apiKey,
+            deploymentName: azureConfig.openAI.deploymentName,
+            apiVersion: azureConfig.openAI.apiVersion || '2024-12-01-preview',
+            authType: 'apiKey' as const,
+            reasoningEffort: azureConfig.openAI.reasoningEffort || 'medium'
+          };
+        },
+        async getEntraIdToken() {
+          return null;
+        },
+        getMaxRetries() {
+          return 3;
+        }
+      };
+
+      const llmCaller = new LLMCaller(configManager);
+
+      // Build context from schema
+      const dimensionFields = activeSchema.fields.filter(f => 
+        f.dataType === 'dimension' || f.dataType === 'classification'
+      );
+      const measureFields = activeSchema.fields.filter(f => 
+        f.dataType === 'metric' || f.dataType === 'measure'
+      );
+
+      const prompt = `You are an expert data analyst creating analytics views for a ${activeSchema.businessContext || 'business'} application.
+
+**Schema Context:**
+- Business Context: ${activeSchema.businessContext || 'Not specified'}
+- Schema Name: ${activeSchema.name}
+
+**Available Dimension/Classification Fields:**
+${dimensionFields.map(f => `- ${f.displayName} (${f.fieldName}): ${f.description || 'No description'}`).join('\n')}
+
+**Available Measure/Metric Fields:**
+${measureFields.map(f => `- ${f.displayName} (${f.fieldName}): ${f.description || 'No description'}`).join('\n')}
+
+**Task:**
+Generate 5-8 meaningful, business-relevant analytics views that would provide valuable insights for this use case. Each view should combine dimensions and measures appropriately.
+
+For each view, specify:
+1. **name**: Clear, business-friendly name (e.g., "Agent Performance by Product")
+2. **description**: Brief explanation of what insights this view provides
+3. **chartType**: One of: "bar", "line", "pie", "area", "scatter"
+4. **dimensionField**: The field ID to use as dimension (x-axis or category) - must be from the dimension fields list above, or omit if count-only
+5. **measureField**: The field ID to use as measure (y-axis or value) - must be from the measure fields list above, or omit for count
+6. **aggregation**: One of: "count", "sum", "average", "min", "max" (use "count" if no measureField)
+
+**Important Guidelines:**
+- Choose chart types that match the data: bar for categories, line for trends, pie for proportions
+- Create a mix of different view types for comprehensive analysis
+- Use meaningful combinations that answer business questions
+- If using field IDs, use the exact fieldName values provided above
+- For count-only views (no measure), omit measureField and use aggregation: "count"
+
+Return ONLY a valid JSON array of analytics views.`;
+
+      const response = await llmCaller.callWithJsonValidation<any>(
+        [{ role: 'user', content: prompt }],
+        { temperature: 0.7, max_tokens: 3000 }
+      );
+
+      // Handle both array and object responses
+      const viewsArray = Array.isArray(response.parsed) ? response.parsed : (response.parsed.views || []);
+      
+      const generatedViews: AnalyticsView[] = viewsArray.map((v: any, index: number) => ({
+        id: `ai-view-${Date.now()}-${index}`,
+        name: v.name,
+        description: v.description || '',
+        chartType: v.chartType || 'bar',
+        dimensionField: v.dimensionField || undefined,
+        measureField: v.measureField || undefined,
+        aggregation: v.aggregation || 'count',
+        enabled: true,
+      }));
+
+      setViews(generatedViews);
+      toast.success(`✨ Generated ${generatedViews.length} analytics views with AI!`);
+    } catch (error) {
+      console.error('AI generation error:', error);
+      toast.error(`AI generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const handleSave = () => {
     if (!activeSchema) {
       toast.error('No active schema selected');
@@ -204,7 +316,7 @@ export function AnalyticsConfigWizard({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="!max-w-[90vw] w-[90vw] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ChartBar size={24} className="text-primary" />
@@ -221,6 +333,21 @@ export function AnalyticsConfigWizard({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-medium">Analytics Views ({views.length})</h3>
+                {activeSchema && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleGenerateWithAI}
+                    disabled={generating}
+                    className="border-purple-500 text-purple-600 hover:bg-purple-50"
+                  >
+                    {generating ? (
+                      <>⏳ Generating...</>
+                    ) : (
+                      <>✨ Generate with AI</>
+                    )}
+                  </Button>
+                )}
               </div>
 
               {!activeSchema ? (
@@ -234,11 +361,16 @@ export function AnalyticsConfigWizard({
                 </Card>
               ) : views.length === 0 ? (
                 <Card>
-                  <CardContent className="pt-6 text-center">
-                    <ChartBar size={48} className="mx-auto mb-3 text-muted-foreground opacity-50" />
-                    <p className="text-sm text-muted-foreground">
-                      No analytics views configured yet. Create your first view using the form.
-                    </p>
+                  <CardContent className="pt-6 text-center space-y-3">
+                    <ChartBar size={48} className="mx-auto text-muted-foreground opacity-50" />
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        No analytics views configured yet.
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Click "Generate with AI" to create views automatically based on your schema, or create them manually using the form.
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
               ) : (
@@ -361,7 +493,7 @@ export function AnalyticsConfigWizard({
                         <SelectValue placeholder="Select dimension..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {dimensionFields.map((field) => (
                           <SelectItem key={field.id} value={field.id}>
                             {field.displayName}
@@ -388,7 +520,7 @@ export function AnalyticsConfigWizard({
                         <SelectValue placeholder="Select measure..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None (Count only)</SelectItem>
+                        <SelectItem value="none">None (Count only)</SelectItem>
                         {metricFields.map((field) => (
                           <SelectItem key={field.id} value={field.id}>
                             {field.displayName}
