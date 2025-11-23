@@ -431,9 +431,10 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
         }}
       />
 
-      {selectedCall && (
+      {selectedCall && activeSchema && (
         <CallDetailDialog
           call={selectedCall}
+          schema={activeSchema}
           open={!!selectedCall}
           onOpenChange={(open) => !open && setSelectedCall(null)}
           onUpdate={(updatedCall) => {

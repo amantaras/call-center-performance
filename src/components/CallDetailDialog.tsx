@@ -12,10 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CallRecord } from '@/types/call';
+import { SchemaDefinition } from '@/types/schema';
 import { AzureServicesConfig } from '@/types/config';
 import { azureOpenAIService, getActiveEvaluationCriteria } from '@/services/azure-openai';
 import { STTCaller } from '../STTCaller';
 import { getCriterionById } from '@/lib/evaluation-criteria';
+import { DynamicDetailView, DynamicDetailSummary } from '@/components/DynamicDetailView';
 import { toast } from 'sonner';
 import { CheckCircle, XCircle, MinusCircle, Sparkle, Microphone } from '@phosphor-icons/react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -26,6 +28,7 @@ import { DEFAULT_CALL_CENTER_LANGUAGES } from '@/lib/speech-languages';
 
 interface CallDetailDialogProps {
   call: CallRecord;
+  schema: SchemaDefinition;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: (call: CallRecord) => void;
@@ -33,6 +36,7 @@ interface CallDetailDialogProps {
 
 export function CallDetailDialog({
   call,
+  schema,
   open,
   onOpenChange,
   onUpdate,
@@ -137,7 +141,8 @@ export function CallDetailDialog({
               overallSentiment = await azureOpenAIService.analyzeOverallSentiment(
                 call.id,
                 result.transcript,
-                call.metadata
+                call.metadata,
+                schema
               );
             }
             
@@ -218,6 +223,7 @@ export function CallDetailDialog({
       const evaluation = await azureOpenAIService.evaluateCall(
         call.transcript,
         call.metadata,
+        schema,
         call.id
       );
 
@@ -246,9 +252,9 @@ export function CallDetailDialog({
           <div className="flex items-start justify-between">
             <div>
               <DialogTitle className="text-2xl">Call Details</DialogTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                {call.metadata.agentName} → {call.metadata.borrowerName}
-              </p>
+              <div className="mt-2">
+                <DynamicDetailSummary metadata={call.metadata} schema={schema} />
+              </div>
             </div>
             {call.evaluation && (
               <div className="text-right">
@@ -275,40 +281,7 @@ export function CallDetailDialog({
           </TabsList>
 
           <TabsContent value="metadata" className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">Agent</h4>
-                <p className="font-medium">{call.metadata.agentName}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">Product</h4>
-                <p className="font-medium">{call.metadata.product}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">Borrower</h4>
-                <p className="font-medium">{call.metadata.borrowerName}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">Nationality</h4>
-                <p className="font-medium">{call.metadata.nationality}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Days Past Due
-                </h4>
-                <p className="font-medium">{call.metadata.daysPastDue}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">Due Amount</h4>
-                <p className="font-medium">{call.metadata.dueAmount.toFixed(2)}</p>
-              </div>
-              <div className="col-span-2">
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Follow-up Status
-                </h4>
-                <p className="font-medium">{call.metadata.followUpStatus}</p>
-              </div>
-            </div>
+            <DynamicDetailView metadata={call.metadata} schema={schema} />
           </TabsContent>
 
           <TabsContent value="transcript">
