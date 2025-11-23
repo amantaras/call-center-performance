@@ -7,6 +7,7 @@ import { AgentsView } from '@/components/views/AgentsView';
 import { ConfigDialog } from '@/components/ConfigDialog';
 import { RulesEditorDialog } from '@/components/RulesEditorDialog';
 import { SchemaSelector } from '@/components/SchemaSelector';
+import { SchemaMigrationDialog } from '@/components/SchemaMigrationDialog';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { setCustomEvaluationCriteria, azureOpenAIService } from '@/services/azure-openai';
 import { EvaluationCriterion, CallRecord } from '@/types/call';
@@ -32,10 +33,13 @@ function App() {
   const [activeTab, setActiveTab] = useState('calls');
   const [customRules] = useLocalStorage<EvaluationCriterion[]>('evaluation-criteria-custom', []);
   const [azureConfig, setAzureConfig] = useLocalStorage<AzureServicesConfig | null>('azure-services-config', null);
-  const [calls] = useLocalStorage<CallRecord[]>('calls', []);
+  const [calls, setCalls] = useLocalStorage<CallRecord[]>('calls', []);
   // Schema state
   const [activeSchema, setActiveSchema] = useState<SchemaDefinition | null>(null);
   const [schemaLoading, setSchemaLoading] = useState(true);
+  // Migration dialog state
+  const [migrationDialogOpen, setMigrationDialogOpen] = useState(false);
+  const [pendingSchema, setPendingSchema] = useState<SchemaDefinition | null>(null);
   // Batch progress state (persists across tab changes)
   const [batchProgress, setBatchProgress] = useState<{ completed: number; total: number } | null>(null);
 
@@ -188,7 +192,20 @@ function App() {
 
   // Callback when schema is changed via SchemaSelector
   const handleSchemaChange = (schema: SchemaDefinition) => {
+    // If changing from one schema to another and calls exist, show migration dialog
+    if (activeSchema && activeSchema.id !== schema.id && calls && calls.length > 0) {
+      setPendingSchema(schema);
+      setMigrationDialogOpen(true);
+      return;
+    }
+
+    // Otherwise, apply schema change directly
+    applySchemaChange(schema);
+  };
+
+  const applySchemaChange = (schema: SchemaDefinition) => {
     setActiveSchema(schema);
+    setActiveSchemaInStorage(schema.id);
     console.log(`📋 Schema switched to: ${schema.name} v${schema.version}`);
     
     // Load schema-specific rules
@@ -211,6 +228,40 @@ function App() {
       title: 'Schema Changed',
       description: `Now using ${schema.name} v${schema.version}`,
     });
+  };
+
+  const handleMigration = (keepCalls: boolean) => {
+    if (!pendingSchema) return;
+
+    if (keepCalls) {
+      // Update existing calls to new schema
+      const updatedCalls = calls.map(call => ({
+        ...call,
+        schemaId: pendingSchema.id,
+        schemaVersion: pendingSchema.version,
+        updatedAt: new Date().toISOString(),
+      }));
+      setCalls(updatedCalls);
+      toast({
+        title: 'Migration Complete',
+        description: `${updatedCalls.length} call(s) migrated to ${pendingSchema.name}`,
+      });
+    } else {
+      // Clear calls and start fresh
+      setCalls([]);
+      toast({
+        title: 'Starting Fresh',
+        description: `All calls cleared. Now using ${pendingSchema.name}`,
+      });
+    }
+
+    applySchemaChange(pendingSchema);
+    setMigrationDialogOpen(false);
+    setPendingSchema(null);
+  };
+
+  const handleMigrationCancel = () => {
+    setPendingSchema(null);
   };
 
   return (
@@ -282,6 +333,19 @@ function App() {
           </div>
         </Tabs>
       </main>
+
+      {/* Schema Migration Dialog */}
+      {pendingSchema && (
+        <SchemaMigrationDialog
+          open={migrationDialogOpen}
+          onOpenChange={setMigrationDialogOpen}
+          currentSchema={activeSchema}
+          targetSchema={pendingSchema}
+          calls={calls}
+          onMigrate={handleMigration}
+          onCancel={handleMigrationCancel}
+        />
+      )}
     </div>
   );
 }
