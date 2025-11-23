@@ -1,4 +1,5 @@
 import { CallMetadata, CallEvaluation, EvaluationResult, EvaluationCriterion, TranscriptPhrase, CallSentimentSegment, SentimentLabel, ProductInsight, RiskInsight, NationalityInsight, OutcomeInsight, BorrowerInsight, RiskTier, CategorizedOutcome, CallRecord } from '@/types/call';
+import { SchemaDefinition } from '@/types/schema';
 import { EVALUATION_CRITERIA, getMaxScore } from '@/lib/evaluation-criteria';
 import type { AzureOpenAIConfig } from '@/configManager';
 import { LLMCaller, ChatMessage, LLMCallOptions } from '../llmCaller';
@@ -91,9 +92,13 @@ export class AzureOpenAIService {
   }
 
   /**
-   * Build evaluation prompt with criteria and insights generation
+   * Build evaluation prompt with criteria and insights generation (schema-aware)
    */
-  private buildEvaluationPrompt(transcript: string, metadata: CallMetadata): string {
+  private buildEvaluationPrompt(
+    transcript: string, 
+    metadata: Record<string, any>,
+    schema: SchemaDefinition
+  ): string {
     const activeCriteria = getActiveEvaluationCriteria();
     const criteriaText = activeCriteria.map((criterion) => {
       return `${criterion.id}. ${criterion.name} [${criterion.type}]
@@ -103,19 +108,29 @@ export class AzureOpenAIService {
    Examples: ${criterion.examples.join(' | ')}`;
     }).join('\n\n');
 
-    return `You are an expert call center quality assurance evaluator. Analyze the following call transcript and evaluate it against the ${activeCriteria.length} quality criteria below. Additionally, generate detailed analytical insights for business intelligence.
+    // Build dynamic metadata section from schema fields marked for prompt inclusion
+    const metadataFields = schema.fields
+      .filter(f => f.useInPrompt !== false) // Include by default unless explicitly disabled
+      .map(field => {
+        const value = metadata[field.id];
+        const displayValue = value !== undefined && value !== null ? value : 'N/A';
+        return `- ${field.displayName}: ${displayValue}`;
+      })
+      .join('\n');
+
+    // Include business context if available
+    const businessContextSection = schema.businessContext
+      ? `\n\nBUSINESS CONTEXT:\n${schema.businessContext}\n`
+      : '';
+
+    return `You are an expert call center quality assurance evaluator for: ${schema.name}.
+
+Analyze the following call transcript and evaluate it against the ${activeCriteria.length} quality criteria below. Additionally, generate detailed analytical insights for business intelligence.${businessContextSection}
 
 **IMPORTANT: You MUST provide ALL responses, insights, analysis, reasoning, feedback, and recommendations in ENGLISH language only, regardless of the language used in the transcript.**
 
 CALL METADATA:
-- Agent Name: ${metadata.agentName}
-- Product: ${metadata.product}
-- Customer Type: ${metadata.customerType || 'N/A'}
-- Borrower Name: ${metadata.borrowerName}
-- Nationality: ${metadata.nationality}
-- Days Past Due: ${metadata.daysPastDue}
-- Due Amount: $${metadata.dueAmount}
-- Follow-up Status: ${metadata.followUpStatus}
+${metadataFields}
 
 TRANSCRIPT:
 ${transcript}
@@ -213,13 +228,15 @@ Be thorough, fair, and specific in your evaluation. Quote exact phrases when pos
    * Evaluate a call transcript against quality criteria with retry logic
    * 
    * @param transcript - The call transcript text
-   * @param metadata - Call metadata (agent, product, borrower info, etc.)
+   * @param metadata - Call metadata (dynamic schema-based fields)
+   * @param schema - Schema definition for this call
    * @param callId - Unique identifier for this call
    * @returns CallEvaluation with validated structure
    */
   async evaluateCall(
     transcript: string,
-    metadata: CallMetadata,
+    metadata: Record<string, any>,
+    schema: SchemaDefinition,
     callId: string
   ): Promise<CallEvaluation> {
     if (!transcript || transcript.trim().length === 0) {
@@ -235,11 +252,11 @@ Be thorough, fair, and specific in your evaluation. Quote exact phrases when pos
     const messages: ChatMessage[] = [
       {
         role: 'system',
-        content: 'You are an expert call center quality assurance evaluator. You must return valid JSON only.',
+        content: `You are an expert call center quality assurance evaluator for: ${schema.name}. You must return valid JSON only.`,
       },
       {
         role: 'user',
-        content: this.buildEvaluationPrompt(transcript, metadata),
+        content: this.buildEvaluationPrompt(transcript, metadata, schema),
       },
     ];
 
@@ -412,7 +429,7 @@ Be thorough, fair, and specific in your evaluation. Quote exact phrases when pos
   }
 
   async batchEvaluate(
-    calls: Array<{ transcript: string; metadata: CallMetadata; callId: string }>
+    calls: Array<{ transcript: string; metadata: Record<string, any>; schema: SchemaDefinition; callId: string }>
   ): Promise<CallEvaluation[]> {
     const results: CallEvaluation[] = [];
 
@@ -421,6 +438,7 @@ Be thorough, fair, and specific in your evaluation. Quote exact phrases when pos
         const evaluation = await this.evaluateCall(
           call.transcript,
           call.metadata,
+          call.schema,
           call.callId
         );
         results.push(evaluation);
@@ -656,7 +674,8 @@ Analyze carefully and ensure the returned JSON is valid. Remember: ALL TEXT IN E
   async analyzeOverallSentiment(
     callId: string,
     transcript: string,
-    metadata: CallMetadata
+    metadata: Record<string, any>,
+    schema: SchemaDefinition
   ): Promise<SentimentLabel> {
     if (!transcript || transcript.trim().length === 0) {
       return 'neutral';
@@ -668,16 +687,18 @@ Analyze carefully and ensure the returned JSON is valid. Remember: ALL TEXT IN E
 
     console.log(`🔍 Analyzing overall sentiment for call ${callId}...`);
 
-    const prompt = `You are an expert call center sentiment analyst. Analyze the overall sentiment of this entire call conversation.
+    // Build dynamic metadata section
+    const metadataText = schema.fields
+      .filter(f => f.useInPrompt !== false)
+      .map(field => `- ${field.displayName}: ${metadata[field.id] ?? 'N/A'}`)
+      .join('\n');
+
+    const prompt = `You are an expert call center sentiment analyst for: ${schema.name}. Analyze the overall sentiment of this entire call conversation.
 
 **IMPORTANT: Your response must be in ENGLISH language only.**
 
 CALL METADATA:
-- Agent Name: ${metadata.agentName}
-- Product: ${metadata.product}
-- Borrower Name: ${metadata.borrowerName}
-- Days Past Due: ${metadata.daysPastDue}
-- Due Amount: ${metadata.dueAmount}
+${metadataText}
 
 TRANSCRIPT:
 ${transcript}
@@ -737,7 +758,7 @@ Return ONLY a single word: positive, neutral, or negative`;
    * @returns Updated call records with new insights
    */
   async regenerateInsights(
-    calls: Array<{ id: string; transcript?: string; metadata: CallMetadata; evaluation?: CallEvaluation }>,
+    calls: Array<{ id: string; transcript?: string; metadata: Record<string, any>; schema: SchemaDefinition; evaluation?: CallEvaluation }>,
     mode: 'missing' | 'all',
     onProgress?: (current: number, total: number, callId: string) => void
   ): Promise<Array<{ id: string; evaluation: CallEvaluation }>> {
@@ -778,6 +799,7 @@ Return ONLY a single word: positive, neutral, or negative`;
         const newEvaluation = await this.evaluateCall(
           call.transcript!,
           call.metadata,
+          call.schema,
           call.id
         );
 

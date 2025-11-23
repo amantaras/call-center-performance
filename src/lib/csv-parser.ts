@@ -1,21 +1,11 @@
-import { CallRecord, CallMetadata } from '@/types/call';
+import { CallRecord } from '@/types/call';
+import { SchemaDefinition } from '@/types/schema';
 import { v4 as uuidv4 } from 'uuid';
 import * as XLSX from 'xlsx';
+import { SchemaMapper } from '@/services/schema-mapper';
 
 export interface CSVRow {
-  TITLE?: string;
-  BILLID?: string;
-  ORDERID?: string;
-  User_id?: string;
-  File_tag?: string;
-  'Agent name'?: string;
-  Product?: string;
-  'Customer type'?: string;
-  'Borrower name'?: string;
-  Nationality?: string;
-  'Days past due'?: string;
-  'Due amount'?: string;
-  'Follow up status'?: string;
+  [key: string]: any; // Dynamic structure based on schema
 }
 
 /**
@@ -72,63 +62,99 @@ function parseCSVLine(line: string): string[] {
 }
 
 /**
- * Get value from row with flexible column name matching (case-insensitive)
- */
-function getRowValue(row: any, ...possibleKeys: string[]): string {
-  // First try exact match
-  for (const key of possibleKeys) {
-    if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
-      return String(row[key]);
-    }
-  }
-  
-  // Then try case-insensitive match
-  const rowKeysLower = Object.keys(row).reduce((acc, k) => {
-    acc[k.toLowerCase().trim()] = k;
-    return acc;
-  }, {} as Record<string, string>);
-  
-  for (const key of possibleKeys) {
-    const normalizedKey = key.toLowerCase().trim();
-    const actualKey = rowKeysLower[normalizedKey];
-    if (actualKey && row[actualKey] !== undefined && row[actualKey] !== null && row[actualKey] !== '') {
-      return String(row[actualKey]);
-    }
-  }
-  
-  return '';
-}
-
-/**
- * Convert CSV rows to CallRecords
+ * Convert CSV rows to CallRecords using schema-based mapping
  */
 export function csvRowsToCallRecords(
   rows: CSVRow[],
-  audioFolderPath: string,
+  schema: SchemaDefinition,
+  audioFolderPath?: string,
 ): CallRecord[] {
   // Log the first row to help debug column names
   if (rows.length > 0) {
     console.log('=== CSV PARSER DEBUG ===');
     console.log('Total rows to convert:', rows.length);
     console.log('Excel column names found:', Object.keys(rows[0]));
+    console.log('Schema:', schema.name, 'v' + schema.version);
     console.log('First row raw data:', rows[0]);
     
-    // Test extraction with first row
-    const firstRow = rows[0];
-    const agentName = getRowValue(firstRow, 'Agent name', 'AgentName', 'agent_name', 'Agent');
-    const borrowerName = getRowValue(firstRow, 'Borrower name', 'BorrowerName', 'borrower_name', 'Borrower');
-    const product = getRowValue(firstRow, 'Product', 'product');
-    const daysPastDue = getRowValue(firstRow, 'Days past due', 'DaysPastDue', 'days_past_due', 'Days Past Due');
-    const dueAmount = getRowValue(firstRow, 'Due amount', 'DueAmount', 'due_amount', 'Due Amount');
-    
-    console.log('EXTRACTED VALUES:', { 
-      agentName, 
-      borrowerName, 
-      product,
-      daysPastDue,
-      dueAmount
-    });
+    // Test schema mapping with first row
+    const testMapping = SchemaMapper.mapRow(rows[0], schema);
+    console.log('MAPPED VALUES:', testMapping);
   }
+
+  return rows.map(row => {
+    // Map row to metadata using schema
+    const metadata = SchemaMapper.mapRow(row, schema);
+
+    // Handle audio URL if field exists in schema
+    let audioUrl: string | undefined;
+    const audioField = schema.fields.find(f => 
+      f.id === 'audioUrl' || 
+      f.id === 'fileTag' || 
+      f.columnMapping?.toString().toLowerCase().includes('file')
+    );
+
+    if (audioField && audioFolderPath) {
+      const fileTag = metadata[audioField.id];
+      if (fileTag) {
+        const audioFileName = String(fileTag).split('/').pop() || fileTag;
+        audioUrl = `${audioFolderPath}/${audioFileName}`;
+        metadata.audioUrl = audioUrl; // Store in metadata
+      }
+    }
+
+    // Extract timestamp from metadata if available
+    const timestampField = schema.fields.find(f => f.semanticRole === 'timestamp');
+    const createdAt = timestampField 
+      ? metadata[timestampField.id] || new Date().toISOString()
+      : new Date().toISOString();
+
+    return {
+      id: uuidv4(),
+      schemaId: schema.id,
+      schemaVersion: schema.version,
+      metadata,
+      audioUrl,
+      status: 'uploaded' as const,
+      createdAt,
+      updatedAt: createdAt,
+    };
+  });
+}
+
+/**
+ * Convert CSV rows using legacy format (for backward compatibility)
+ * This is used during auto-migration from old hardcoded format
+ * @deprecated Use csvRowsToCallRecords with schema instead
+ */
+export function csvRowsToCallRecordsLegacy(
+  rows: CSVRow[],
+  audioFolderPath: string,
+): CallRecord[] {
+  const getRowValue = (row: any, ...possibleKeys: string[]): string => {
+    // First try exact match
+    for (const key of possibleKeys) {
+      if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+        return String(row[key]);
+      }
+    }
+    
+    // Then try case-insensitive match
+    const rowKeysLower = Object.keys(row).reduce((acc, k) => {
+      acc[k.toLowerCase().trim()] = k;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    for (const key of possibleKeys) {
+      const normalizedKey = key.toLowerCase().trim();
+      const actualKey = rowKeysLower[normalizedKey];
+      if (actualKey && row[actualKey] !== undefined && row[actualKey] !== null && row[actualKey] !== '') {
+        return String(row[actualKey]);
+      }
+    }
+    
+    return '';
+  };
 
   return rows.map(row => {
     const fileTag = getRowValue(row, 'File_tag', 'File tag', 'file_tag', 'FileTag');
@@ -137,7 +163,7 @@ export function csvRowsToCallRecords(
       ? `${audioFolderPath}/${audioFileName}`
       : undefined;
 
-    const metadata: CallMetadata = {
+    const metadata: Record<string, any> = {
       time: getRowValue(row, 'TITLE', 'Title', 'title'),
       billId: getRowValue(row, 'BILLID', 'BillId', 'Bill ID', 'bill_id'),
       orderId: getRowValue(row, 'ORDERID', 'OrderId', 'Order ID', 'order_id'),
@@ -159,7 +185,7 @@ export function csvRowsToCallRecords(
     return {
       id: uuidv4(),
       metadata,
-      audioUrl, // Store URL for fetching later
+      audioUrl,
       status: 'uploaded' as const,
       createdAt,
       updatedAt: createdAt,
@@ -318,4 +344,61 @@ function normalizeExcelRows(rows: any[]): CSVRow[] {
     });
     return normalizedRow as CSVRow;
   });
+}
+
+/**
+ * Detect best matching schema for CSV rows
+ */
+export function detectSchemaForRows(
+  rows: CSVRow[],
+  schemas: SchemaDefinition[],
+  minMatchThreshold: number = 80
+): SchemaDefinition | null {
+  if (rows.length === 0 || schemas.length === 0) {
+    return null;
+  }
+
+  return SchemaMapper.detectSchema(rows[0], schemas, minMatchThreshold);
+}
+
+/**
+ * Extract column names from CSV rows
+ */
+export function extractColumnNames(rows: CSVRow[]): string[] {
+  if (rows.length === 0) return [];
+  return SchemaMapper.extractColumnNames(rows[0]);
+}
+
+/**
+ * Analyze row data for schema discovery
+ */
+export function analyzeRowData(rows: CSVRow[]): Record<string, any> {
+  return SchemaMapper.analyzeRowData(rows);
+}
+
+/**
+ * Validate that rows can be mapped to schema
+ */
+export function validateRowsForSchema(
+  rows: CSVRow[],
+  schema: SchemaDefinition
+): { valid: boolean; errors: string[] } {
+  if (rows.length === 0) {
+    return { valid: false, errors: ['No rows to validate'] };
+  }
+
+  const sampleSize = Math.min(5, rows.length);
+  const errors: Set<string> = new Set();
+
+  for (let i = 0; i < sampleSize; i++) {
+    const result = SchemaMapper.validateRowMapping(rows[i], schema);
+    if (!result.valid) {
+      result.missingFields.forEach(field => errors.add(`Missing required field: ${field}`));
+    }
+  }
+
+  return {
+    valid: errors.size === 0,
+    errors: Array.from(errors)
+  };
 }
