@@ -7,8 +7,8 @@ import { AgentsView } from '@/components/views/AgentsView';
 import { ConfigDialog } from '@/components/ConfigDialog';
 import { RulesEditorDialog } from '@/components/RulesEditorDialog';
 import { SchemaSelector } from '@/components/SchemaSelector';
-import { SchemaMigrationDialog } from '@/components/SchemaMigrationDialog';
 import { EvaluationRulesWizard } from '@/components/EvaluationRulesWizard';
+import { PersonalizationDialog } from '@/components/PersonalizationDialog';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { setCustomEvaluationCriteria, azureOpenAIService } from '@/services/azure-openai';
 import { EvaluationCriterion, CallRecord } from '@/types/call';
@@ -21,6 +21,14 @@ import { runMigration } from '@/services/schema-compatibility';
 import { getActiveSchema, setActiveSchema as setActiveSchemaInStorage, getAllSchemas } from '@/services/schema-manager';
 import { loadRulesForSchema } from '@/services/rules-generator';
 import { toast } from 'sonner';
+import { 
+  PersonalizationSettings, 
+  initializePersonalization, 
+  loadPersonalizationSettings,
+  applyColorPalette,
+  applyDarkMode,
+  getColorPalette 
+} from '@/lib/personalization';
 
 const arraysEqual = (a?: string[], b?: string[]) => {
   if (a === b) return true;
@@ -37,11 +45,10 @@ function App() {
   // Schema state
   const [activeSchema, setActiveSchema] = useState<SchemaDefinition | null>(null);
   const [schemaLoading, setSchemaLoading] = useState(true);
-  // Migration dialog state
-  const [migrationDialogOpen, setMigrationDialogOpen] = useState(false);
-  const [pendingSchema, setPendingSchema] = useState<SchemaDefinition | null>(null);
   // Batch progress state (persists across tab changes)
   const [batchProgress, setBatchProgress] = useState<{ completed: number; total: number } | null>(null);
+  // Personalization state
+  const [personalization, setPersonalization] = useState<PersonalizationSettings>(() => initializePersonalization());
 
   // Initialize schema system on mount
   useEffect(() => {
@@ -50,11 +57,15 @@ function App() {
         console.log('🔧 Initializing schema system...');
         
         // Run auto-migration for existing calls
-        const migrationResult = await runMigration();
+        const migrationResult = runMigration(calls);
         
-        if (migrationResult.migrated > 0) {
-          console.log(`✅ Auto-migration complete: ${migrationResult.migrated} calls migrated`);
-          toast.success(`Schema Migration Complete: Successfully migrated ${migrationResult.migrated} existing call(s) to new schema system.`);
+        if (migrationResult.count && migrationResult.count > 0) {
+          console.log(`✅ Auto-migration complete: ${migrationResult.count} calls migrated`);
+          toast.success(`Schema Migration Complete: Successfully migrated ${migrationResult.count} existing call(s) to new schema system.`);
+          // Update calls with migrated versions
+          if (migrationResult.migratedCalls) {
+            setCalls(migrationResult.migratedCalls);
+          }
         }
         
         // Load active schema
@@ -185,14 +196,7 @@ function App() {
 
   // Callback when schema is changed via SchemaSelector
   const handleSchemaChange = (schema: SchemaDefinition) => {
-    // If changing from one schema to another and calls exist, show migration dialog
-    if (activeSchema && activeSchema.id !== schema.id && calls && calls.length > 0) {
-      setPendingSchema(schema);
-      setMigrationDialogOpen(true);
-      return;
-    }
-
-    // Otherwise, apply schema change directly
+    // Simply switch to the new schema - calls are filtered by schemaId in the UI
     applySchemaChange(schema);
   };
 
@@ -220,32 +224,15 @@ function App() {
     toast.success(`Schema Changed: Now using ${schema.name} v${schema.version}`);
   };
 
-  const handleMigration = (keepCalls: boolean) => {
-    if (!pendingSchema) return;
-
-    if (keepCalls) {
-      // Update existing calls to new schema
-      const updatedCalls = calls.map(call => ({
-        ...call,
-        schemaId: pendingSchema.id,
-        schemaVersion: pendingSchema.version,
-        updatedAt: new Date().toISOString(),
-      }));
-      setCalls(updatedCalls);
-      toast.success(`Migration Complete: ${updatedCalls.length} call(s) migrated to ${pendingSchema.name}`);
-    } else {
-      // Clear calls and start fresh
-      setCalls([]);
-      toast.success(`Starting Fresh: All calls cleared. Now using ${pendingSchema.name}`);
+  // Handler for personalization changes
+  const handlePersonalizationChange = (newSettings: PersonalizationSettings) => {
+    setPersonalization(newSettings);
+    // Apply theme changes
+    const palette = getColorPalette(newSettings.colorPaletteId);
+    if (palette) {
+      applyColorPalette(palette);
     }
-
-    applySchemaChange(pendingSchema);
-    setMigrationDialogOpen(false);
-    setPendingSchema(null);
-  };
-
-  const handleMigrationCancel = () => {
-    setPendingSchema(null);
+    applyDarkMode(newSettings.darkMode);
   };
 
   return (
@@ -253,13 +240,23 @@ function App() {
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-8 py-6">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                Call Center QA Platform
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                AI-powered call quality evaluation and analytics
-              </p>
+            <div className="flex items-center gap-4 flex-1">
+              {/* Logo */}
+              {(personalization.logoBase64 || personalization.logoUrl) && (
+                <img
+                  src={personalization.logoBase64 || personalization.logoUrl || ''}
+                  alt="Logo"
+                  className="h-12 w-auto object-contain"
+                />
+              )}
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                  {personalization.appTitle || 'Call Center QA Platform'}
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {personalization.appSubtitle || 'AI-powered call quality evaluation and analytics'}
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <SchemaSelector
@@ -271,7 +268,8 @@ function App() {
                 activeSchema={activeSchema}
                 onRulesGenerated={handleRulesUpdate}
               />
-              <RulesEditorDialog onRulesUpdate={handleRulesUpdate} />
+              <RulesEditorDialog onRulesUpdate={handleRulesUpdate} activeSchema={activeSchema} />
+              <PersonalizationDialog onSettingsChange={handlePersonalizationChange} />
               <ConfigDialog />
             </div>
           </div>
@@ -321,19 +319,6 @@ function App() {
           </div>
         </Tabs>
       </main>
-
-      {/* Schema Migration Dialog */}
-      {pendingSchema && (
-        <SchemaMigrationDialog
-          open={migrationDialogOpen}
-          onOpenChange={setMigrationDialogOpen}
-          currentSchema={activeSchema}
-          targetSchema={pendingSchema}
-          calls={calls}
-          onMigrate={handleMigration}
-          onCancel={handleMigrationCancel}
-        />
-      )}
     </div>
   );
 }

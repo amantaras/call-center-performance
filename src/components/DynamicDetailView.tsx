@@ -1,4 +1,4 @@
-import { SchemaDefinition, FieldDefinition } from '@/types/schema';
+import { SchemaDefinition, FieldDefinition, DependencyOperator } from '@/types/schema';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -16,6 +16,62 @@ interface DynamicDetailViewProps {
   metadata: Record<string, any>;
   schema: SchemaDefinition;
   className?: string;
+}
+
+/**
+ * Evaluates whether a field's dependency condition is met
+ */
+function evaluateDependencyCondition(
+  dependsOn: { fieldId: string; operator: DependencyOperator; value?: any } | undefined,
+  metadata: Record<string, any>,
+  schema: SchemaDefinition
+): boolean {
+  if (!dependsOn) return true; // No dependency = always show
+  
+  // Find the dependent field to get its value from metadata
+  const dependentField = schema.fields.find(f => f.id === dependsOn.fieldId);
+  if (!dependentField) return true; // Can't find field = show anyway
+  
+  const fieldValue = metadata[dependentField.id] ?? metadata[dependentField.name];
+  const targetValue = dependsOn.value;
+  
+  switch (dependsOn.operator) {
+    case 'equals':
+      return fieldValue === targetValue || String(fieldValue) === String(targetValue);
+    case 'notEquals':
+      return fieldValue !== targetValue && String(fieldValue) !== String(targetValue);
+    case 'contains':
+      return String(fieldValue || '').toLowerCase().includes(String(targetValue || '').toLowerCase());
+    case 'greaterThan':
+      return Number(fieldValue) > Number(targetValue);
+    case 'lessThan':
+      return Number(fieldValue) < Number(targetValue);
+    case 'isEmpty':
+      return fieldValue === undefined || fieldValue === null || fieldValue === '';
+    case 'isNotEmpty':
+      return fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+    default:
+      return true;
+  }
+}
+
+/**
+ * Filters fields based on their dependency conditions
+ */
+function getVisibleFields(fields: FieldDefinition[], metadata: Record<string, any>, schema: SchemaDefinition): FieldDefinition[] {
+  return fields.filter(field => {
+    // If field has no dependency, always show
+    if (!field.dependsOn) return true;
+    
+    // If behavior is 'require', the field is always visible but becomes required when condition is met
+    // For 'show' behavior, only show when condition is met
+    if (field.dependsOnBehavior === 'require') {
+      return true; // Always visible, but required status changes
+    }
+    
+    // Default behavior is 'show' - only display when condition is met
+    return evaluateDependencyCondition(field.dependsOn, metadata, schema);
+  });
 }
 
 /**
@@ -109,16 +165,18 @@ export function DynamicDetailView({ metadata, schema, className = '' }: DynamicD
     return 'outline';
   };
 
-  // Group fields by semantic role for organized display
-  const participantFields = schema.fields.filter(
+  // Group fields by semantic role for organized display, filtering by dependencies
+  const visibleFields = getVisibleFields(schema.fields, metadata, schema);
+  
+  const participantFields = visibleFields.filter(
     f => f.semanticRole === 'participant_1' || f.semanticRole === 'participant_2'
   );
-  const classificationFields = schema.fields.filter(f => f.semanticRole === 'classification');
-  const metricFields = schema.fields.filter(f => f.semanticRole === 'metric');
-  const dimensionFields = schema.fields.filter(f => f.semanticRole === 'dimension');
-  const identifierFields = schema.fields.filter(f => f.semanticRole === 'identifier');
-  const timestampFields = schema.fields.filter(f => f.semanticRole === 'timestamp');
-  const freeformFields = schema.fields.filter(f => f.semanticRole === 'freeform');
+  const classificationFields = visibleFields.filter(f => f.semanticRole === 'classification');
+  const metricFields = visibleFields.filter(f => f.semanticRole === 'metric');
+  const dimensionFields = visibleFields.filter(f => f.semanticRole === 'dimension');
+  const identifierFields = visibleFields.filter(f => f.semanticRole === 'identifier');
+  const timestampFields = visibleFields.filter(f => f.semanticRole === 'timestamp');
+  const freeformFields = visibleFields.filter(f => f.semanticRole === 'freeform');
 
   const renderFieldGroup = (fields: FieldDefinition[], title: string) => {
     if (fields.length === 0) return null;
@@ -136,6 +194,11 @@ export function DynamicDetailView({ metadata, schema, className = '' }: DynamicD
             const shouldHighlight = field.semanticRole === 'participant_1' || 
                                    field.semanticRole === 'participant_2' ||
                                    field.semanticRole === 'classification';
+            
+            // Check if field is conditionally required
+            const isConditionallyRequired = field.dependsOn && 
+              field.dependsOnBehavior === 'require' &&
+              evaluateDependencyCondition(field.dependsOn, metadata, schema);
 
             return (
               <div
@@ -148,9 +211,14 @@ export function DynamicDetailView({ metadata, schema, className = '' }: DynamicD
                   <h5 className="text-xs font-medium text-muted-foreground">
                     {field.displayName}
                   </h5>
-                  {field.required && (
+                  {(field.required || isConditionallyRequired) && (
                     <Badge variant="destructive" className="text-[10px] px-1 py-0 h-4">
                       Required
+                    </Badge>
+                  )}
+                  {field.dependsOn && (
+                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-amber-400 text-amber-600">
+                      Conditional
                     </Badge>
                   )}
                 </div>

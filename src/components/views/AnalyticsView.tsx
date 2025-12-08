@@ -64,7 +64,7 @@ interface AnalyticsViewProps {
 }
 
 export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProps) {
-  const [calls, setCalls] = useLocalStorage<CallRecord[]>('calls', []);
+  const [allCalls, setAllCalls] = useLocalStorage<CallRecord[]>('calls', []);
   const [regenerationMode, setRegenerationMode] = useState<'missing' | 'all'>('missing');
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regenerationProgress, setRegenerationProgress] = useState({ current: 0, total: 0, callId: '' });
@@ -72,21 +72,27 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
   const [customViews, setCustomViews] = useState<any[]>([]);
   const [viewsRefreshKey, setViewsRefreshKey] = useState(0);
 
-  const evaluatedCalls = (calls || []).filter((c) => c.evaluation);
-  const criteriaAnalytics = calculateCriteriaAnalytics(calls || []);
-  const agentPerformances = calculateAgentPerformance(calls || []);
+  // Filter calls by active schema
+  const calls = useMemo(() => {
+    if (!activeSchema) return allCalls || [];
+    return (allCalls || []).filter(call => call.schemaId === activeSchema.id);
+  }, [allCalls, activeSchema]);
 
-  // Advanced analytics aggregations
-  const productAnalytics = aggregateProductAnalytics(calls || []);
-  const riskAnalytics = aggregateRiskAnalytics(calls || []);
-  const nationalityAnalytics = aggregateNationalityAnalytics(calls || []);
-  const outcomeAnalytics = aggregateOutcomeAnalytics(calls || []);
-  const borrowerAnalytics = aggregateBorrowerAnalytics(calls || []);
+  const evaluatedCalls = calls.filter((c) => c.evaluation);
+  const criteriaAnalytics = calculateCriteriaAnalytics(calls);
+  const agentPerformances = calculateAgentPerformance(calls);
+
+  // Advanced analytics aggregations - use schema-filtered calls
+  const productAnalytics = useMemo(() => aggregateProductAnalytics(calls), [calls]);
+  const riskAnalytics = useMemo(() => aggregateRiskAnalytics(calls), [calls]);
+  const nationalityAnalytics = useMemo(() => aggregateNationalityAnalytics(calls), [calls]);
+  const outcomeAnalytics = useMemo(() => aggregateOutcomeAnalytics(calls), [calls]);
+  const borrowerAnalytics = useMemo(() => aggregateBorrowerAnalytics(calls), [calls]);
 
   // Topic and key phrase analytics
-  const topicAnalytics = useMemo(() => aggregateTopicAnalytics(calls || []), [calls]);
-  const keyPhraseAnalytics = useMemo(() => aggregateKeyPhraseAnalytics(calls || []), [calls]);
-  const overviewKPIs = useMemo(() => calculateOverviewKPIs(calls || []), [calls]);
+  const topicAnalytics = useMemo(() => aggregateTopicAnalytics(calls), [calls]);
+  const keyPhraseAnalytics = useMemo(() => aggregateKeyPhraseAnalytics(calls), [calls]);
+  const overviewKPIs = useMemo(() => calculateOverviewKPIs(calls), [calls]);
 
   // Load custom analytics views from localStorage
   useEffect(() => {
@@ -121,7 +127,7 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
 
     try {
       const updatedCalls = await regenerateInsights(
-        calls || [],
+        calls,
         activeSchema,
         regenerationMode,
         (current, total, callId) => {
@@ -129,7 +135,11 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
         }
       );
 
-      setCalls(updatedCalls);
+      // Update calls in storage - merge with calls from other schemas
+      setAllCalls(prevCalls => {
+        const otherSchemaCalls = (prevCalls || []).filter(c => c.schemaId !== activeSchema?.id);
+        return [...otherSchemaCalls, ...updatedCalls];
+      });
       toast.success(`Successfully regenerated insights for ${regenerationProgress.current} calls`);
     } catch (error) {
       console.error('Failed to regenerate insights:', error);

@@ -1,813 +1,1352 @@
-// @ts-nocheck
 /**
- * DEPRECATED: Legacy schema templates file
- * This file contains outdated field definitions and is not currently used.
- * TypeScript checking is disabled for this file.
- */
-import { SchemaBundle } from '@/types/schema';
-
-/**
- * Preset schema templates with complete bundles (schema + rules + analytics)
- * These provide starting points for common call center QA scenarios
+ * Schema Templates Library
+ * Pre-built schema templates for common industries with fields, relationships, evaluation rules, and topics
  */
 
+import { 
+  SchemaDefinition, 
+  FieldDefinition, 
+  RelationshipDefinition, 
+  SchemaEvaluationRule, 
+  TopicDefinition 
+} from '@/types/schema';
+
 /**
- * Debt Collection Template
- * For collection agencies managing overdue accounts
+ * Schema template with complete industry configuration
  */
-export const DEBT_COLLECTION_TEMPLATE: SchemaBundle = {
+export interface SchemaTemplate {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  previewDescription: string;
+  version: string;
+  industry: 'debt-collection' | 'customer-support' | 'sales' | 'healthcare' | 'custom';
+  schema: Omit<SchemaDefinition, 'id' | 'createdAt' | 'updatedAt'>;
+  evaluationRules: Omit<SchemaEvaluationRule, 'id'>[];
+  isCustom?: boolean;
+}
+
+/**
+ * Custom template saved by user
+ */
+export interface CustomSchemaTemplate extends SchemaTemplate {
+  isCustom: true;
+  createdAt: string;
+  createdBy?: string;
+}
+
+// ============================================================================
+// DEBT COLLECTION TEMPLATE
+// ============================================================================
+export const DEBT_COLLECTION_TEMPLATE: SchemaTemplate = {
+  id: 'debt-collection',
+  name: 'Debt Collection',
+  icon: '💰',
+  description: 'For debt collection and recovery call centers',
+  previewDescription: 'Complete template for debt collection operations including borrower tracking, payment arrangements, compliance requirements, and risk assessment.',
+  version: '1.0.0',
+  industry: 'debt-collection',
   schema: {
-    id: 'debt-collection-template',
     name: 'Debt Collection',
     version: '1.0.0',
-    description: 'Template for collection agencies managing overdue accounts with borrowers',
-    businessContext: `This schema is designed for debt collection call centers that handle conversations between collection agents and borrowers regarding overdue payments. The business goals include:
-- Maximizing payment collection rates while maintaining regulatory compliance
-- Assessing borrower risk and payment probability
-- Tracking follow-up outcomes and escalation needs
-- Understanding cultural factors affecting collection success
-- Optimizing collection strategies based on product type and borrower profiles`,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    businessContext: 'Debt collection call center focused on recovering outstanding balances while maintaining compliance with regulations and treating borrowers fairly.',
     fields: [
       {
-        id: 'agentName',
-        displayName: 'Agent Name',
-        dataType: 'string',
-        semanticRole: 'participant_1',
-        columnMapping: ['Agent name', 'AgentName', 'agent_name', 'Agent'],
-        useInPrompt: true,
+        id: 'account_id',
+        name: 'account_id',
+        displayName: 'Account ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
         showInTable: true,
-        isRequired: true
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
       },
       {
-        id: 'borrowerName',
+        id: 'borrower_name',
+        name: 'borrower_name',
         displayName: 'Borrower Name',
-        dataType: 'string',
+        type: 'string',
         semanticRole: 'participant_2',
-        columnMapping: ['Borrower name', 'BorrowerName', 'borrower_name', 'Borrower', 'Customer name'],
-        useInPrompt: true,
+        participantLabel: 'Borrower',
+        required: true,
         showInTable: true,
-        isRequired: true
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Agent Name',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Collection Agent',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
       },
       {
         id: 'product',
+        name: 'product',
         displayName: 'Product',
-        dataType: 'string',
+        type: 'select',
         semanticRole: 'classification',
-        columnMapping: ['Product', 'product', 'Product Type'],
-        useInPrompt: true,
+        required: true,
         showInTable: true,
-        isRequired: true
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Personal Loan', 'Credit Card', 'Auto Loan', 'Mortgage', 'Line of Credit', 'Other'],
+        cardinalityHint: 'low',
       },
       {
-        id: 'followUpStatus',
-        displayName: 'Follow-up Status',
-        dataType: 'string',
-        semanticRole: 'classification',
-        columnMapping: ['Follow up status', 'FollowUpStatus', 'follow_up_status', 'Status', 'Outcome'],
-        useInPrompt: true,
+        id: 'due_amount',
+        name: 'due_amount',
+        displayName: 'Due Amount',
+        type: 'number',
+        semanticRole: 'metric',
+        required: true,
         showInTable: true,
-        isRequired: false
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'days_past_due',
+        name: 'days_past_due',
+        displayName: 'Days Past Due',
+        type: 'number',
+        semanticRole: 'metric',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
       },
       {
         id: 'nationality',
+        name: 'nationality',
         displayName: 'Nationality',
-        dataType: 'string',
+        type: 'string',
         semanticRole: 'dimension',
-        columnMapping: ['Nationality', 'nationality', 'Country'],
+        required: false,
+        showInTable: false,
         useInPrompt: true,
-        showInTable: true,
-        isRequired: false
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
       },
       {
-        id: 'daysPastDue',
-        displayName: 'Days Past Due',
-        dataType: 'number',
-        semanticRole: 'metric',
-        columnMapping: ['Days past due', 'DaysPastDue', 'days_past_due', 'DPD'],
+        id: 'follow_up_status',
+        name: 'follow_up_status',
+        displayName: 'Follow-up Status',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
         useInPrompt: true,
-        showInTable: true,
-        isRequired: false,
-        defaultValue: 0
+        enableAnalytics: true,
+        selectOptions: ['Promise to Pay', 'Payment Made', 'Refused', 'No Contact', 'Callback Scheduled', 'Dispute', 'Hardship'],
+        cardinalityHint: 'low',
       },
       {
-        id: 'dueAmount',
-        displayName: 'Due Amount',
-        dataType: 'number',
-        semanticRole: 'metric',
-        columnMapping: ['Due amount', 'DueAmount', 'due_amount', 'Amount Due', 'Outstanding Balance'],
+        id: 'escalated',
+        name: 'escalated',
+        displayName: 'Escalated',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
         useInPrompt: true,
-        showInTable: true,
-        isRequired: false,
-        defaultValue: 0
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
       },
       {
-        id: 'customerType',
-        displayName: 'Customer Type',
-        dataType: 'string',
-        semanticRole: 'dimension',
-        columnMapping: ['Customer type', 'CustomerType', 'customer_type', 'Type'],
-        useInPrompt: false,
-        showInTable: true,
-        isRequired: false
-      },
-      {
-        id: 'time',
-        displayName: 'Call Time',
-        dataType: 'date',
-        semanticRole: 'timestamp',
-        columnMapping: ['TITLE', 'Title', 'time', 'Call Time', 'Date'],
-        useInPrompt: false,
-        showInTable: true,
-        isRequired: false
-      },
-      {
-        id: 'billId',
-        displayName: 'Bill ID',
-        dataType: 'string',
-        semanticRole: 'identifier',
-        columnMapping: ['BILLID', 'BillId', 'Bill ID', 'bill_id'],
-        useInPrompt: false,
+        id: 'escalation_reason',
+        name: 'escalation_reason',
+        displayName: 'Escalation Reason',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
         showInTable: false,
-        isRequired: false
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Supervisor Request', 'Complaint', 'Legal Threat', 'Hardship Review', 'Dispute Resolution', 'Other'],
+        cardinalityHint: 'low',
+        dependsOn: {
+          fieldId: 'escalated',
+          operator: 'equals',
+          value: true,
+        },
+        dependsOnBehavior: 'show',
       },
-      {
-        id: 'orderId',
-        displayName: 'Order ID',
-        dataType: 'string',
-        semanticRole: 'identifier',
-        columnMapping: ['ORDERID', 'OrderId', 'Order ID', 'order_id'],
-        useInPrompt: false,
-        showInTable: false,
-        isRequired: false
-      },
-      {
-        id: 'userId',
-        displayName: 'User ID',
-        dataType: 'string',
-        semanticRole: 'identifier',
-        columnMapping: ['User_id', 'UserId', 'User ID', 'user_id'],
-        useInPrompt: false,
-        showInTable: false,
-        isRequired: false
-      },
-      {
-        id: 'fileTag',
-        displayName: 'File Tag',
-        dataType: 'string',
-        semanticRole: 'freeform',
-        columnMapping: ['File_tag', 'File tag', 'file_tag', 'FileTag'],
-        useInPrompt: false,
-        showInTable: false,
-        isRequired: false
-      },
-      {
-        id: 'audioUrl',
-        displayName: 'Audio URL',
-        dataType: 'string',
-        semanticRole: 'freeform',
-        columnMapping: ['audioUrl', 'audio_url', 'Audio URL'],
-        useInPrompt: false,
-        showInTable: false,
-        isRequired: false
-      }
     ],
     relationships: [
       {
-        type: 'simple',
-        description: 'Higher days past due typically correlates with higher risk tier',
-        involvedFields: ['daysPastDue']
+        id: 'risk_score',
+        type: 'complex',
+        description: 'Risk score based on days past due and amount',
+        formula: 'Math.min(100, (days_past_due / 90) * 50 + (due_amount / 10000) * 50)',
+        involvedFields: ['days_past_due', 'due_amount'],
+        displayName: 'Risk Score',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
       },
       {
+        id: 'dpd_amount_correlation',
         type: 'simple',
-        description: 'Product type influences collection strategy and success rate',
-        involvedFields: ['product', 'followUpStatus']
+        description: 'Higher amounts tend to have more days past due',
+        involvedFields: ['days_past_due', 'due_amount'],
+        useInPrompt: true,
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'payment-arrangement',
+        name: 'Payment Arrangements',
+        description: 'Discussions about setting up payment plans or settlements',
+        keywords: ['payment plan', 'arrangement', 'settle', 'installment', 'pay off'],
+        color: '#3b82f6',
       },
       {
-        type: 'simple',
-        description: 'Nationality may affect communication approach and success factors',
-        involvedFields: ['nationality', 'followUpStatus']
-      }
-    ]
+        id: 'hardship',
+        name: 'Financial Hardship',
+        description: 'Customer expressing financial difficulties',
+        keywords: ['hardship', 'cannot pay', 'lost job', 'medical', 'difficulty'],
+        color: '#ef4444',
+      },
+      {
+        id: 'dispute',
+        name: 'Dispute & Complaints',
+        description: 'Customer disputing charges or making complaints',
+        keywords: ['dispute', 'wrong', 'error', 'complaint', 'not mine'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'verification',
+        name: 'Identity Verification',
+        description: 'Verifying borrower identity and account details',
+        keywords: ['verify', 'confirm', 'identity', 'date of birth', 'address'],
+        color: '#8b5cf6',
+      },
+      {
+        id: 'promise-to-pay',
+        name: 'Promise to Pay',
+        description: 'Customer committing to make a payment',
+        keywords: ['will pay', 'promise', 'by friday', 'next week', 'payday'],
+        color: '#10b981',
+      },
+    ],
   },
   evaluationRules: [
     {
-      id: 1,
       type: 'Must Do',
-      name: 'Proper Identification',
-      definition: 'Agent must properly identify themselves and verify borrower identity at the start of the call',
-      evaluationCriteria: 'Check if agent states their name, company, and purpose of call. Verify borrower identity through security questions.',
-      scoringStandard: { passed: 10, failed: 0 },
-      examples: ['Agent: "This is John from ABC Collections. Am I speaking with Mr. Smith?"']
+      name: 'Proper Opening',
+      definition: 'Agent must properly identify themselves and the company within the first 30 seconds',
+      evaluationCriteria: 'Agent states name, company name, and purpose of call clearly',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Hi, this is John from ABC Collections calling about your account'],
     },
     {
-      id: 2,
       type: 'Must Do',
-      name: 'Account Details Disclosure',
-      definition: 'Agent must clearly state the outstanding amount and days past due',
-      evaluationCriteria: 'Verify that agent mentions specific dollar amount and number of days overdue',
+      name: 'Mini-Miranda Disclosure',
+      definition: 'Agent must provide the Mini-Miranda warning on every call',
+      evaluationCriteria: 'Agent states this is an attempt to collect a debt and information will be used for that purpose',
       scoringStandard: { passed: 10, failed: 0 },
-      examples: ['Agent: "Your account shows $500 overdue by 45 days"']
+      examples: ['This is an attempt to collect a debt and any information obtained will be used for that purpose'],
     },
     {
-      id: 3,
       type: 'Must Do',
-      name: 'Payment Options Offered',
-      definition: 'Agent must present clear payment options and methods',
-      evaluationCriteria: 'Check if agent offers multiple payment methods (online, phone, mail) and payment plans if applicable',
-      scoringStandard: { passed: 10, failed: 0 },
-      examples: ['Agent: "You can pay online, over the phone, or set up a payment plan"']
+      name: 'Identity Verification',
+      definition: 'Agent must verify they are speaking with the right party before discussing account details',
+      evaluationCriteria: 'Agent verifies at least 2 pieces of identifying information',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Can you please verify your date of birth and last four of your SSN?'],
     },
     {
-      id: 4,
+      type: 'Must Do',
+      name: 'Account Summary',
+      definition: 'Agent must clearly state the amount owed and any relevant account details',
+      evaluationCriteria: 'Agent mentions the current balance and account status',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Your current balance is $1,234.56 and the account is 45 days past due'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Payment Options',
+      definition: 'Agent must offer payment options or solutions',
+      evaluationCriteria: 'Agent presents at least one way for the customer to resolve the debt',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['You can pay in full today, or we can set up a payment arrangement'],
+    },
+    {
       type: 'Must Not Do',
-      name: 'No Threats or Harassment',
-      definition: 'Agent must not use threatening language or harassing tactics',
-      evaluationCriteria: 'Ensure no threatening language, excessive calling frequency mentions, or intimidation tactics',
+      name: 'No Harassment',
+      definition: 'Agent must not use threatening, harassing, or abusive language',
+      evaluationCriteria: 'No threats, profanity, or intimidating statements',
       scoringStandard: { passed: 10, failed: 0 },
-      examples: ['VIOLATION: "If you don\'t pay, we\'ll ruin your credit forever"']
+      examples: ['Avoid: "We will garnish your wages" or using raised voice'],
     },
     {
-      id: 5,
-      type: 'Must Do',
-      name: 'Compliance with Regulations',
-      definition: 'Agent must include required legal disclosures (mini-Miranda)',
-      evaluationCriteria: 'Verify that agent includes debt validation notice and identifies as debt collector',
-      scoringStandard: { passed: 10, failed: 0 },
-      examples: ['Agent: "This is an attempt to collect a debt. Any information obtained will be used for that purpose"']
-    },
-    {
-      id: 6,
-      type: 'Must Do',
-      name: 'Active Listening',
-      definition: 'Agent demonstrates active listening to borrower concerns',
-      evaluationCriteria: 'Agent acknowledges borrower statements, asks clarifying questions, shows empathy',
-      scoringStandard: { passed: 10, failed: 0, partial: 5 },
-      examples: ['Agent: "I understand this is a difficult situation. Can you tell me more about what happened?"']
-    },
-    {
-      id: 7,
-      type: 'Must Do',
-      name: 'Clear Next Steps',
-      definition: 'Agent clearly establishes next steps and follow-up',
-      evaluationCriteria: 'Check if agent confirms payment commitment, callback date, or other specific action items',
-      scoringStandard: { passed: 10, failed: 0, partial: 5 },
-      examples: ['Agent: "So you\'ll make a payment of $200 by Friday, and I\'ll call you next Monday to confirm"']
-    },
-    {
-      id: 8,
       type: 'Must Not Do',
       name: 'No False Statements',
       definition: 'Agent must not make false or misleading statements',
-      evaluationCriteria: 'Ensure agent does not misrepresent amount owed, legal consequences, or identity',
+      evaluationCriteria: 'All statements about account, consequences, and options are accurate',
       scoringStandard: { passed: 10, failed: 0 },
-      examples: ['VIOLATION: "This is the police department calling about your debt"']
-    }
+      examples: ['Avoid: "You will go to jail if you do not pay"'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Professional Tone',
+      definition: 'Agent maintains professional and respectful tone throughout the call',
+      evaluationCriteria: 'Agent is polite, patient, and does not escalate tension',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I understand this is a difficult situation, let me see how I can help'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Proper Closing',
+      definition: 'Agent must properly close the call with next steps',
+      evaluationCriteria: 'Agent summarizes any agreements and states what will happen next',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['So we have agreed to a payment of $200 on Friday. I will send you a confirmation'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Documentation Offer',
+      definition: 'Agent must offer to send written documentation when requested',
+      evaluationCriteria: 'Agent offers or agrees to send validation letter or payment confirmation',
+      scoringStandard: { passed: 5, failed: 0 },
+      examples: ['I can send you a letter confirming this arrangement'],
+    },
   ],
-  analyticsViews: [
-    {
-      id: 'performance-by-agent',
-      name: 'Performance by Agent',
-      description: 'Agent performance comparison showing average scores',
-      chartType: 'bar',
-      dimensionField: 'agentName',
-      aggregation: 'avg',
-      enabled: true
-    },
-    {
-      id: 'collection-by-product',
-      name: 'Collection Success by Product',
-      description: 'Success rates broken down by product type',
-      chartType: 'bar',
-      dimensionField: 'product',
-      aggregation: 'count',
-      enabled: true
-    },
-    {
-      id: 'risk-by-days-overdue',
-      name: 'Risk Distribution by Days Past Due',
-      description: 'Distribution of accounts by overdue period',
-      chartType: 'bar',
-      dimensionField: 'daysPastDue',
-      measureField: 'dueAmount',
-      aggregation: 'sum',
-      enabled: true
-    },
-    {
-      id: 'outcome-by-nationality',
-      name: 'Outcomes by Nationality',
-      description: 'Follow-up status distribution across nationalities',
-      chartType: 'bar',
-      dimensionField: 'nationality',
-      aggregation: 'count',
-      enabled: true
-    },
-    {
-      id: 'performance-trend',
-      name: 'Performance Trend Over Time',
-      description: 'Daily performance scores showing improvement trends',
-      chartType: 'trend',
-      dimensionField: 'time',
-      aggregation: 'avg',
-      enabled: true
-    },
-    {
-      id: 'amount-vs-dpd-correlation',
-      name: 'Due Amount vs Days Past Due',
-      description: 'Scatter plot showing relationship between amount owed and overdue period',
-      chartType: 'scatter',
-      dimensionField: 'daysPastDue',
-      measureField: 'dueAmount',
-      aggregation: 'avg',
-      enabled: true
-    }
-  ]
 };
 
-/**
- * Customer Support Template
- * For customer service centers handling support inquiries
- */
-export const CUSTOMER_SUPPORT_TEMPLATE: SchemaBundle = {
+// ============================================================================
+// CUSTOMER SUPPORT TEMPLATE
+// ============================================================================
+export const CUSTOMER_SUPPORT_TEMPLATE: SchemaTemplate = {
+  id: 'customer-support',
+  name: 'Customer Support',
+  icon: '🎧',
+  description: 'For customer service and technical support centers',
+  previewDescription: 'Comprehensive template for customer support operations including ticket management, issue resolution tracking, satisfaction measurement, and service quality evaluation.',
+  version: '1.0.0',
+  industry: 'customer-support',
   schema: {
-    id: 'customer-support-template',
     name: 'Customer Support',
     version: '1.0.0',
-    description: 'Template for customer service centers handling support and service inquiries',
-    businessContext: `This schema is designed for customer support call centers managing service inquiries, troubleshooting, and customer satisfaction. Business goals include:
-- Ensuring first-call resolution and customer satisfaction
-- Tracking issue types and resolution effectiveness
-- Optimizing support agent performance
-- Identifying training needs and knowledge gaps
-- Monitoring response times and service quality`,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    businessContext: 'Customer support center focused on resolving customer issues efficiently while maintaining high satisfaction and first-call resolution rates.',
     fields: [
       {
-        id: 'agentName',
-        displayName: 'Agent Name',
-        dataType: 'string',
-        semanticRole: 'participant_1',
-        columnMapping: ['Agent name', 'AgentName', 'agent', 'Representative'],
-        useInPrompt: true,
+        id: 'ticket_id',
+        name: 'ticket_id',
+        displayName: 'Ticket ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
         showInTable: true,
-        isRequired: true
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
       },
       {
-        id: 'customerName',
+        id: 'customer_name',
+        name: 'customer_name',
         displayName: 'Customer Name',
-        dataType: 'string',
+        type: 'string',
         semanticRole: 'participant_2',
-        columnMapping: ['Customer name', 'CustomerName', 'customer', 'Caller'],
-        useInPrompt: true,
+        participantLabel: 'Customer',
+        required: true,
         showInTable: true,
-        isRequired: true
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
       },
       {
-        id: 'issueType',
-        displayName: 'Issue Type',
-        dataType: 'string',
-        semanticRole: 'classification',
-        columnMapping: ['Issue Type', 'IssueType', 'issue', 'Category', 'Problem Type'],
-        useInPrompt: true,
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Agent Name',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Support Agent',
+        required: false,
         showInTable: true,
-        isRequired: true
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
       },
       {
-        id: 'resolutionStatus',
-        displayName: 'Resolution Status',
-        dataType: 'string',
+        id: 'issue_category',
+        name: 'issue_category',
+        displayName: 'Issue Category',
+        type: 'select',
         semanticRole: 'classification',
-        columnMapping: ['Resolution Status', 'Status', 'Outcome', 'Result'],
-        useInPrompt: true,
+        required: true,
         showInTable: true,
-        isRequired: false
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Billing', 'Technical', 'Account', 'Product', 'Shipping', 'Returns', 'General Inquiry', 'Complaint'],
+        cardinalityHint: 'low',
       },
       {
         id: 'priority',
-        displayName: 'Priority Level',
-        dataType: 'string',
-        semanticRole: 'dimension',
-        columnMapping: ['Priority', 'Level', 'Urgency'],
-        useInPrompt: true,
-        showInTable: true,
-        isRequired: false
-      },
-      {
-        id: 'callDuration',
-        displayName: 'Call Duration (seconds)',
-        dataType: 'number',
-        semanticRole: 'metric',
-        columnMapping: ['Call Duration', 'Duration', 'call_duration', 'Time'],
-        useInPrompt: false,
-        showInTable: true,
-        isRequired: false,
-        defaultValue: 0
-      },
-      {
-        id: 'ticketId',
-        displayName: 'Ticket ID',
-        dataType: 'string',
-        semanticRole: 'identifier',
-        columnMapping: ['Ticket ID', 'TicketId', 'ticket', 'Case Number'],
-        useInPrompt: false,
-        showInTable: true,
-        isRequired: false
-      },
-      {
-        id: 'productService',
-        displayName: 'Product/Service',
-        dataType: 'string',
-        semanticRole: 'dimension',
-        columnMapping: ['Product', 'Service', 'Product/Service'],
-        useInPrompt: true,
-        showInTable: true,
-        isRequired: false
-      },
-      {
-        id: 'callTime',
-        displayName: 'Call Time',
-        dataType: 'date',
-        semanticRole: 'timestamp',
-        columnMapping: ['Call Time', 'Timestamp', 'Date', 'time'],
-        useInPrompt: false,
-        showInTable: true,
-        isRequired: false
-      }
-    ],
-    relationships: [
-      {
-        type: 'simple',
-        description: 'Issue type affects average resolution time and success rate',
-        involvedFields: ['issueType', 'resolutionStatus']
-      },
-      {
-        type: 'simple',
-        description: 'Priority level correlates with expected resolution speed',
-        involvedFields: ['priority', 'callDuration']
-      }
-    ]
-  },
-  evaluationRules: [
-    {
-      id: 1,
-      type: 'Must Do',
-      name: 'Professional Greeting',
-      definition: 'Agent must greet customer professionally and introduce themselves',
-      evaluationCriteria: 'Check if agent provides name, company, and offers assistance',
-      scoringStandard: { passed: 10, failed: 0 },
-      examples: ['Agent: "Thank you for calling XYZ Support. This is Sarah. How can I help you today?"']
-    },
-    {
-      id: 2,
-      type: 'Must Do',
-      name: 'Issue Understanding',
-      definition: 'Agent must demonstrate clear understanding of the customer issue',
-      evaluationCriteria: 'Verify agent asks clarifying questions and paraphrases problem',
-      scoringStandard: { passed: 10, failed: 0, partial: 5 },
-      examples: ['Agent: "So if I understand correctly, your internet has been disconnected since yesterday?"']
-    },
-    {
-      id: 3,
-      type: 'Must Do',
-      name: 'Solution Provided',
-      definition: 'Agent must provide clear solution or next steps',
-      evaluationCriteria: 'Check if agent explains resolution steps or timeline clearly',
-      scoringStandard: { passed: 10, failed: 0, partial: 5 },
-      examples: ['Agent: "I\'ll reset your connection now. You should see service restored in 2-3 minutes"']
-    },
-    {
-      id: 4,
-      type: 'Must Do',
-      name: 'Confirmation of Resolution',
-      definition: 'Agent must verify issue is resolved before ending call',
-      evaluationCriteria: 'Agent asks if customer is satisfied and if issue is fixed',
-      scoringStandard: { passed: 10, failed: 0 },
-      examples: ['Agent: "Is everything working correctly now? Do you have any other questions?"']
-    },
-    {
-      id: 5,
-      type: 'Must Do',
-      name: 'Empathy and Patience',
-      definition: 'Agent shows empathy and patience with customer concerns',
-      evaluationCriteria: 'Agent uses empathetic language and maintains patience',
-      scoringStandard: { passed: 10, failed: 0, partial: 5 },
-      examples: ['Agent: "I understand how frustrating this must be. Let me help you resolve this right away"']
-    },
-    {
-      id: 6,
-      type: 'Must Not Do',
-      name: 'No Blame or Dismissiveness',
-      definition: 'Agent must not blame customer or dismiss concerns',
-      evaluationCriteria: 'Ensure agent doesn\'t use dismissive language or blame customer',
-      scoringStandard: { passed: 10, failed: 0 },
-      examples: ['VIOLATION: "This is your fault for not reading the instructions"']
-    }
-  ],
-  analyticsViews: [
-    {
-      id: 'performance-by-agent',
-      name: 'Agent Performance',
-      description: 'Support agent performance metrics',
-      chartType: 'bar',
-      dimensionField: 'agentName',
-      aggregation: 'avg',
-      enabled: true
-    },
-    {
-      id: 'issues-by-type',
-      name: 'Issues by Type',
-      description: 'Distribution of support issues by category',
-      chartType: 'pie',
-      dimensionField: 'issueType',
-      aggregation: 'count',
-      enabled: true
-    },
-    {
-      id: 'resolution-by-priority',
-      name: 'Resolution Success by Priority',
-      description: 'Resolution rates across priority levels',
-      chartType: 'bar',
-      dimensionField: 'priority',
-      aggregation: 'count',
-      enabled: true
-    },
-    {
-      id: 'call-duration-trend',
-      name: 'Average Call Duration Trend',
-      description: 'Daily average call handling time',
-      chartType: 'trend',
-      dimensionField: 'callTime',
-      measureField: 'callDuration',
-      aggregation: 'avg',
-      enabled: true
-    }
-  ]
-};
-
-/**
- * Sales QA Template
- * For sales call quality assurance and conversion tracking
- */
-export const SALES_QA_TEMPLATE: SchemaBundle = {
-  schema: {
-    id: 'sales-qa-template',
-    name: 'Sales QA',
-    version: '1.0.0',
-    description: 'Template for sales call quality assurance and conversion optimization',
-    businessContext: `This schema is designed for sales teams tracking call quality, conversion rates, and sales performance. Business goals include:
-- Maximizing conversion rates and deal closure
-- Ensuring compliance with sales regulations
-- Tracking sales methodology adherence
-- Identifying high-performing sales techniques
-- Optimizing pricing and objection handling`,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    fields: [
-      {
-        id: 'salesRep',
-        displayName: 'Sales Representative',
-        dataType: 'string',
-        semanticRole: 'participant_1',
-        columnMapping: ['Sales Rep', 'SalesRep', 'sales_rep', 'Agent', 'Representative'],
-        useInPrompt: true,
-        showInTable: true,
-        isRequired: true
-      },
-      {
-        id: 'prospectName',
-        displayName: 'Prospect Name',
-        dataType: 'string',
-        semanticRole: 'participant_2',
-        columnMapping: ['Prospect Name', 'ProspectName', 'prospect', 'Lead', 'Customer'],
-        useInPrompt: true,
-        showInTable: true,
-        isRequired: true
-      },
-      {
-        id: 'productOffered',
-        displayName: 'Product Offered',
-        dataType: 'string',
+        name: 'priority',
+        displayName: 'Priority',
+        type: 'select',
         semanticRole: 'classification',
-        columnMapping: ['Product', 'Product Offered', 'Offering', 'Solution'],
-        useInPrompt: true,
+        required: false,
         showInTable: true,
-        isRequired: true
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Low', 'Medium', 'High', 'Urgent'],
+        defaultValue: 'Medium',
+        cardinalityHint: 'low',
       },
       {
-        id: 'callOutcome',
-        displayName: 'Call Outcome',
-        dataType: 'string',
+        id: 'resolution_status',
+        name: 'resolution_status',
+        displayName: 'Resolution Status',
+        type: 'select',
         semanticRole: 'classification',
-        columnMapping: ['Outcome', 'Call Outcome', 'Result', 'Status'],
-        useInPrompt: true,
+        required: false,
         showInTable: true,
-        isRequired: false
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Resolved', 'Pending', 'Escalated', 'Follow-up Required', 'Transferred'],
+        cardinalityHint: 'low',
       },
       {
-        id: 'dealValue',
-        displayName: 'Deal Value',
-        dataType: 'number',
-        semanticRole: 'metric',
-        columnMapping: ['Deal Value', 'Value', 'Amount', 'Price'],
-        useInPrompt: true,
-        showInTable: true,
-        isRequired: false,
-        defaultValue: 0
-      },
-      {
-        id: 'leadSource',
-        displayName: 'Lead Source',
-        dataType: 'string',
+        id: 'customer_tier',
+        name: 'customer_tier',
+        displayName: 'Customer Tier',
+        type: 'select',
         semanticRole: 'dimension',
-        columnMapping: ['Lead Source', 'Source', 'Channel'],
-        useInPrompt: false,
-        showInTable: true,
-        isRequired: false
-      },
-      {
-        id: 'industry',
-        displayName: 'Industry',
-        dataType: 'string',
-        semanticRole: 'dimension',
-        columnMapping: ['Industry', 'Sector', 'Vertical'],
-        useInPrompt: true,
-        showInTable: true,
-        isRequired: false
-      },
-      {
-        id: 'callDate',
-        displayName: 'Call Date',
-        dataType: 'date',
-        semanticRole: 'timestamp',
-        columnMapping: ['Call Date', 'Date', 'Timestamp', 'time'],
-        useInPrompt: false,
-        showInTable: true,
-        isRequired: false
-      },
-      {
-        id: 'opportunityId',
-        displayName: 'Opportunity ID',
-        dataType: 'string',
-        semanticRole: 'identifier',
-        columnMapping: ['Opportunity ID', 'OpportunityId', 'Opp ID', 'Deal ID'],
-        useInPrompt: false,
+        required: false,
         showInTable: false,
-        isRequired: false
-      }
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Standard', 'Premium', 'VIP', 'Enterprise'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'csat_score',
+        name: 'csat_score',
+        displayName: 'CSAT Score',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: false,
+        enableAnalytics: true,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'escalated',
+        name: 'escalated',
+        displayName: 'Escalated',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'escalation_reason',
+        name: 'escalation_reason',
+        displayName: 'Escalation Reason',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Supervisor Request', 'Technical Complexity', 'Customer Dissatisfaction', 'Policy Exception', 'Complaint', 'Other'],
+        cardinalityHint: 'low',
+        dependsOn: {
+          fieldId: 'escalated',
+          operator: 'equals',
+          value: true,
+        },
+        dependsOnBehavior: 'show',
+      },
     ],
     relationships: [
       {
+        id: 'priority_impact',
         type: 'simple',
-        description: 'Product type affects deal value and conversion rate',
-        involvedFields: ['productOffered', 'dealValue']
+        description: 'Higher priority tickets are more likely to be escalated',
+        involvedFields: ['priority', 'escalated'],
+        useInPrompt: true,
       },
       {
+        id: 'resolution_satisfaction',
         type: 'simple',
-        description: 'Lead source influences conversion probability',
-        involvedFields: ['leadSource', 'callOutcome']
+        description: 'Resolution status correlates with customer satisfaction',
+        involvedFields: ['resolution_status', 'csat_score'],
+        useInPrompt: true,
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'billing-inquiry',
+        name: 'Billing & Payments',
+        description: 'Questions about charges, payments, refunds',
+        keywords: ['charge', 'bill', 'payment', 'refund', 'invoice'],
+        color: '#3b82f6',
       },
       {
-        type: 'simple',
-        description: 'Industry vertical may affect sales approach effectiveness',
-        involvedFields: ['industry', 'callOutcome']
-      }
-    ]
+        id: 'technical-issue',
+        name: 'Technical Issues',
+        description: 'Product malfunctions, errors, bugs',
+        keywords: ['not working', 'error', 'broken', 'bug', 'crash'],
+        color: '#ef4444',
+      },
+      {
+        id: 'account-management',
+        name: 'Account Management',
+        description: 'Account access, settings, profile changes',
+        keywords: ['password', 'login', 'account', 'profile', 'settings'],
+        color: '#8b5cf6',
+      },
+      {
+        id: 'product-info',
+        name: 'Product Information',
+        description: 'Questions about features, usage, compatibility',
+        keywords: ['how to', 'feature', 'compatible', 'works with', 'does it'],
+        color: '#10b981',
+      },
+      {
+        id: 'complaint',
+        name: 'Complaints & Feedback',
+        description: 'Customer complaints and negative feedback',
+        keywords: ['unhappy', 'disappointed', 'complaint', 'terrible', 'worst'],
+        color: '#f59e0b',
+      },
+    ],
   },
   evaluationRules: [
     {
-      id: 1,
       type: 'Must Do',
-      name: 'Needs Discovery',
-      definition: 'Sales rep must discover prospect needs through effective questioning',
-      evaluationCriteria: 'Check if rep asks open-ended questions about pain points, goals, and challenges',
+      name: 'Greeting & Introduction',
+      definition: 'Agent must greet the customer professionally and introduce themselves',
+      evaluationCriteria: 'Agent says greeting, their name, and offers assistance',
       scoringStandard: { passed: 10, failed: 0, partial: 5 },
-      examples: ['Rep: "What challenges are you currently facing with your current solution?"']
+      examples: ['Thank you for calling XYZ Support, my name is Sarah, how can I help you today?'],
     },
     {
-      id: 2,
-      type: 'Must Do',
-      name: 'Value Proposition',
-      definition: 'Sales rep clearly articulates value proposition aligned with needs',
-      evaluationCriteria: 'Verify rep connects product features to prospect\'s specific needs',
-      scoringStandard: { passed: 10, failed: 0, partial: 5 },
-      examples: ['Rep: "Based on your need for automation, our platform can save you 10 hours per week"']
-    },
-    {
-      id: 3,
-      type: 'Must Do',
-      name: 'Objection Handling',
-      definition: 'Sales rep effectively addresses objections and concerns',
-      evaluationCriteria: 'Rep acknowledges objections and provides thoughtful responses',
-      scoringStandard: { passed: 10, failed: 0, partial: 5 },
-      examples: ['Rep: "I understand budget is a concern. Let me show you the ROI calculation"']
-    },
-    {
-      id: 4,
-      type: 'Must Do',
-      name: 'Clear Call to Action',
-      definition: 'Sales rep establishes clear next steps or asks for the sale',
-      evaluationCriteria: 'Check if rep proposes specific next action (demo, meeting, purchase)',
-      scoringStandard: { passed: 10, failed: 0 },
-      examples: ['Rep: "Can we schedule a demo for next Tuesday at 2pm?"']
-    },
-    {
-      id: 5,
-      type: 'Must Not Do',
-      name: 'No Misleading Claims',
-      definition: 'Sales rep must not make false or exaggerated claims',
-      evaluationCriteria: 'Ensure all product claims are accurate and substantiated',
-      scoringStandard: { passed: 10, failed: 0 },
-      examples: ['VIOLATION: "We\'re the #1 solution in the world with 100% success rate"']
-    },
-    {
-      id: 6,
       type: 'Must Do',
       name: 'Active Listening',
-      definition: 'Sales rep demonstrates active listening to prospect responses',
-      evaluationCriteria: 'Rep acknowledges statements, asks follow-up questions, adapts pitch',
+      definition: 'Agent demonstrates active listening by acknowledging the customer\'s issue',
+      evaluationCriteria: 'Agent paraphrases or summarizes the issue to confirm understanding',
       scoringStandard: { passed: 10, failed: 0, partial: 5 },
-      examples: ['Rep: "You mentioned scalability is important. Tell me more about your growth plans"']
-    }
+      examples: ['So if I understand correctly, you are unable to log into your account since yesterday?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Empathy Statement',
+      definition: 'Agent expresses empathy for the customer\'s situation',
+      evaluationCriteria: 'Agent acknowledges the customer\'s frustration or concern',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I understand how frustrating this must be, and I am here to help resolve this for you'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Troubleshooting Steps',
+      definition: 'Agent follows proper troubleshooting methodology',
+      evaluationCriteria: 'Agent asks relevant questions and attempts to diagnose the issue',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Let me ask a few questions to better understand the issue. When did this start?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Clear Explanation',
+      definition: 'Agent explains the solution or next steps clearly',
+      evaluationCriteria: 'Agent provides clear, jargon-free explanation of the resolution',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['What I am going to do is reset your password, and then I will guide you through logging in'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Resolution Confirmation',
+      definition: 'Agent confirms the issue is resolved or explains next steps',
+      evaluationCriteria: 'Agent verifies the customer is satisfied or sets clear expectations',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Is there anything else I can help you with today?', 'You should receive an email within 24 hours'],
+    },
+    {
+      type: 'Must Not Do',
+      name: 'No Interrupting',
+      definition: 'Agent should not interrupt the customer while they are speaking',
+      evaluationCriteria: 'Agent waits for customer to finish before responding',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['Avoid cutting off the customer mid-sentence'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Professional Tone',
+      definition: 'Agent maintains professional and courteous tone throughout',
+      evaluationCriteria: 'Agent remains calm, polite, and helpful even with difficult customers',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I apologize for the inconvenience this has caused'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Proper Closing',
+      definition: 'Agent closes the call appropriately',
+      evaluationCriteria: 'Agent thanks the customer and offers further assistance',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Thank you for calling XYZ Support. Have a great day!'],
+    },
+    {
+      type: 'Must Do',
+      name: 'First Call Resolution Attempt',
+      definition: 'Agent attempts to resolve the issue on the first call',
+      evaluationCriteria: 'Agent makes genuine effort to resolve without unnecessary escalation',
+      scoringStandard: { passed: 5, failed: 0 },
+      examples: ['Let me see what I can do to fix this for you right now'],
+    },
   ],
-  analyticsViews: [
+};
+
+// ============================================================================
+// SALES TEMPLATE
+// ============================================================================
+export const SALES_TEMPLATE: SchemaTemplate = {
+  id: 'sales',
+  name: 'Sales',
+  icon: '📈',
+  description: 'For sales and lead qualification call centers',
+  previewDescription: 'Complete template for sales operations including lead tracking, deal management, competitor analysis, and sales performance evaluation.',
+  version: '1.0.0',
+  industry: 'sales',
+  schema: {
+    name: 'Sales',
+    version: '1.0.0',
+    businessContext: 'Sales call center focused on lead qualification, product demonstrations, closing deals, and maintaining high conversion rates.',
+    fields: [
+      {
+        id: 'lead_id',
+        name: 'lead_id',
+        displayName: 'Lead ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'prospect_name',
+        name: 'prospect_name',
+        displayName: 'Prospect Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Prospect',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'sales_rep',
+        name: 'sales_rep',
+        displayName: 'Sales Rep',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Sales Representative',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'company',
+        name: 'company',
+        displayName: 'Company',
+        type: 'string',
+        semanticRole: 'dimension',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'deal_value',
+        name: 'deal_value',
+        displayName: 'Deal Value',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'product_interest',
+        name: 'product_interest',
+        displayName: 'Product Interest',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Basic Plan', 'Professional Plan', 'Enterprise Plan', 'Custom Solution', 'Multiple Products'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'stage',
+        name: 'stage',
+        displayName: 'Pipeline Stage',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Qualification', 'Discovery', 'Demo', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'lead_source',
+        name: 'lead_source',
+        displayName: 'Lead Source',
+        type: 'select',
+        semanticRole: 'dimension',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Website', 'Referral', 'Cold Call', 'Trade Show', 'Advertisement', 'Partner', 'Other'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'competitor_mentioned',
+        name: 'competitor_mentioned',
+        displayName: 'Competitor Mentioned',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'competitor_name',
+        name: 'competitor_name',
+        displayName: 'Competitor Name',
+        type: 'string',
+        semanticRole: 'freeform',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+        dependsOn: {
+          fieldId: 'competitor_mentioned',
+          operator: 'equals',
+          value: true,
+        },
+        dependsOnBehavior: 'show',
+      },
+      {
+        id: 'next_action',
+        name: 'next_action',
+        displayName: 'Next Action',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Schedule Demo', 'Send Proposal', 'Follow-up Call', 'Send Information', 'Close Deal', 'No Further Action'],
+        cardinalityHint: 'low',
+      },
+    ],
+    relationships: [
+      {
+        id: 'deal_score',
+        type: 'complex',
+        description: 'Lead score based on deal value and stage progression',
+        formula: '(deal_value > 10000 ? 50 : deal_value / 200) + (stage === "Negotiation" ? 30 : stage === "Proposal" ? 20 : 10)',
+        involvedFields: ['deal_value', 'stage'],
+        displayName: 'Deal Score',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
+      },
+      {
+        id: 'value_stage_correlation',
+        type: 'simple',
+        description: 'Higher value deals tend to progress further in the pipeline',
+        involvedFields: ['deal_value', 'stage'],
+        useInPrompt: true,
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'pricing-discussion',
+        name: 'Pricing & Budget',
+        description: 'Discussions about pricing, discounts, budget constraints',
+        keywords: ['price', 'cost', 'budget', 'discount', 'afford'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'product-demo',
+        name: 'Product Demo',
+        description: 'Product demonstrations and feature explanations',
+        keywords: ['show me', 'demo', 'how does', 'feature', 'works'],
+        color: '#10b981',
+      },
+      {
+        id: 'objection-handling',
+        name: 'Objections',
+        description: 'Customer objections and concerns',
+        keywords: ['concern', 'worry', 'not sure', 'hesitant', 'problem'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'competitor-comparison',
+        name: 'Competitor Comparison',
+        description: 'Comparisons with competitor products',
+        keywords: ['competitor', 'alternative', 'compared to', 'versus', 'other option'],
+        color: '#ef4444',
+      },
+      {
+        id: 'closing',
+        name: 'Closing & Commitment',
+        description: 'Moving towards purchase decision',
+        keywords: ['ready', 'sign', 'proceed', 'start', 'next step'],
+        color: '#8b5cf6',
+      },
+    ],
+  },
+  evaluationRules: [
     {
-      id: 'conversion-by-rep',
-      name: 'Conversion Rate by Rep',
-      description: 'Sales conversion performance by representative',
-      chartType: 'bar',
-      dimensionField: 'salesRep',
-      aggregation: 'count',
-      enabled: true
+      type: 'Must Do',
+      name: 'Professional Introduction',
+      definition: 'Sales rep must introduce themselves and the company professionally',
+      evaluationCriteria: 'Rep states name, company, and establishes credibility',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Hi, this is Mike from Acme Solutions. We specialize in helping companies like yours...'],
     },
     {
-      id: 'revenue-by-product',
-      name: 'Revenue by Product',
-      description: 'Total deal value by product offered',
-      chartType: 'bar',
-      dimensionField: 'productOffered',
-      measureField: 'dealValue',
-      aggregation: 'sum',
-      enabled: true
+      type: 'Must Do',
+      name: 'Needs Discovery',
+      definition: 'Rep must ask discovery questions to understand prospect needs',
+      evaluationCriteria: 'Rep asks at least 3 open-ended questions about the prospect\'s situation',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['What challenges are you currently facing with...?', 'Tell me about your current process for...'],
     },
     {
-      id: 'outcomes-distribution',
-      name: 'Call Outcomes Distribution',
-      description: 'Distribution of call outcomes (won, lost, follow-up)',
-      chartType: 'pie',
-      dimensionField: 'callOutcome',
-      aggregation: 'count',
-      enabled: true
+      type: 'Must Do',
+      name: 'Value Proposition',
+      definition: 'Rep must clearly articulate the value proposition',
+      evaluationCriteria: 'Rep explains how the product/service addresses the prospect\'s specific needs',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Based on what you told me, our solution would help you reduce costs by...'],
     },
     {
-      id: 'conversion-by-source',
-      name: 'Conversion by Lead Source',
-      description: 'Conversion effectiveness across lead sources',
-      chartType: 'bar',
-      dimensionField: 'leadSource',
-      aggregation: 'count',
-      enabled: true
+      type: 'Must Do',
+      name: 'Objection Handling',
+      definition: 'Rep must address objections professionally',
+      evaluationCriteria: 'Rep acknowledges concerns and provides relevant responses',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I understand your concern about pricing. Let me explain the ROI you can expect...'],
     },
     {
-      id: 'revenue-trend',
-      name: 'Revenue Trend',
-      description: 'Daily revenue and deal closure trend',
-      chartType: 'trend',
-      dimensionField: 'callDate',
-      measureField: 'dealValue',
-      aggregation: 'sum',
-      enabled: true
-    }
-  ]
+      type: 'Must Do',
+      name: 'Competitor Handling',
+      definition: 'Rep must handle competitor mentions professionally without disparaging',
+      evaluationCriteria: 'Rep focuses on own strengths rather than competitor weaknesses',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['That is a good company. What sets us apart is our dedicated support team...'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Clear Next Steps',
+      definition: 'Rep must establish clear next steps',
+      evaluationCriteria: 'Call ends with specific action items and timeline',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Let\'s schedule a demo for next Tuesday at 2pm. I\'ll send you a calendar invite'],
+    },
+    {
+      type: 'Must Not Do',
+      name: 'No High Pressure',
+      definition: 'Rep must not use high-pressure sales tactics',
+      evaluationCriteria: 'Rep does not create false urgency or pressure prospect',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['Avoid: "This offer expires today" or "You need to decide now"'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Active Listening',
+      definition: 'Rep demonstrates active listening throughout the call',
+      evaluationCriteria: 'Rep references specific things the prospect said',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['You mentioned earlier that time savings is important to you...'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Qualification Questions',
+      definition: 'Rep must qualify the prospect appropriately',
+      evaluationCriteria: 'Rep determines budget, authority, need, and timeline',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['What is your timeline for making a decision?', 'Who else would be involved in this decision?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Product Knowledge',
+      definition: 'Rep demonstrates strong product knowledge',
+      evaluationCriteria: 'Rep answers questions accurately and confidently',
+      scoringStandard: { passed: 5, failed: 0 },
+      examples: ['Our platform integrates with over 50 different CRM systems including...'],
+    },
+  ],
+};
+
+// ============================================================================
+// HEALTHCARE TEMPLATE
+// ============================================================================
+export const HEALTHCARE_TEMPLATE: SchemaTemplate = {
+  id: 'healthcare',
+  name: 'Healthcare',
+  icon: '🏥',
+  description: 'For healthcare and medical service call centers',
+  previewDescription: 'HIPAA-compliant template for healthcare operations including patient scheduling, insurance verification, medical inquiries, and compliance-focused evaluation rules.',
+  version: '1.0.0',
+  industry: 'healthcare',
+  schema: {
+    name: 'Healthcare',
+    version: '1.0.0',
+    businessContext: 'Healthcare call center focused on patient services, appointment scheduling, insurance verification, and medical inquiries while maintaining HIPAA compliance.',
+    fields: [
+      {
+        id: 'patient_id',
+        name: 'patient_id',
+        displayName: 'Patient ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'patient_name',
+        name: 'patient_name',
+        displayName: 'Patient Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Patient',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Agent Name',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Healthcare Representative',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'call_type',
+        name: 'call_type',
+        displayName: 'Call Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Appointment Scheduling', 'Appointment Change', 'Insurance Verification', 'Medical Question', 'Prescription Refill', 'Test Results', 'Billing Inquiry', 'Referral Request'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'department',
+        name: 'department',
+        displayName: 'Department',
+        type: 'select',
+        semanticRole: 'dimension',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Primary Care', 'Cardiology', 'Orthopedics', 'Pediatrics', 'OB/GYN', 'Neurology', 'Oncology', 'General'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'insurance_status',
+        name: 'insurance_status',
+        displayName: 'Insurance Status',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Verified', 'Pending Verification', 'Not Covered', 'Self-Pay', 'Unknown'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'urgency',
+        name: 'urgency',
+        displayName: 'Urgency',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Routine', 'Urgent', 'Emergency Referral'],
+        defaultValue: 'Routine',
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'resolution_status',
+        name: 'resolution_status',
+        displayName: 'Resolution Status',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Resolved', 'Transferred to Nurse', 'Transferred to Provider', 'Callback Required', 'Pending'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'follow_up_required',
+        name: 'follow_up_required',
+        displayName: 'Follow-up Required',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'follow_up_date',
+        name: 'follow_up_date',
+        displayName: 'Follow-up Date',
+        type: 'date',
+        semanticRole: 'timestamp',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+        dependsOn: {
+          fieldId: 'follow_up_required',
+          operator: 'equals',
+          value: true,
+        },
+        dependsOnBehavior: 'require',
+      },
+      {
+        id: 'hipaa_compliant',
+        name: 'hipaa_compliant',
+        displayName: 'HIPAA Compliant',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: false,
+        enableAnalytics: true,
+        defaultValue: true,
+        cardinalityHint: 'low',
+      },
+    ],
+    relationships: [
+      {
+        id: 'urgency_resolution',
+        type: 'simple',
+        description: 'Urgent calls require faster resolution paths',
+        involvedFields: ['urgency', 'resolution_status'],
+        useInPrompt: true,
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'appointment-scheduling',
+        name: 'Appointment Scheduling',
+        description: 'Booking, changing, or canceling appointments',
+        keywords: ['appointment', 'schedule', 'book', 'cancel', 'reschedule'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'insurance-billing',
+        name: 'Insurance & Billing',
+        description: 'Insurance coverage, billing questions, payments',
+        keywords: ['insurance', 'coverage', 'bill', 'payment', 'copay'],
+        color: '#10b981',
+      },
+      {
+        id: 'medical-inquiry',
+        name: 'Medical Inquiries',
+        description: 'Medical questions and health concerns',
+        keywords: ['symptoms', 'medication', 'side effects', 'condition', 'treatment'],
+        color: '#8b5cf6',
+      },
+      {
+        id: 'prescription',
+        name: 'Prescriptions & Refills',
+        description: 'Prescription refills and medication questions',
+        keywords: ['prescription', 'refill', 'medication', 'pharmacy', 'dosage'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'test-results',
+        name: 'Test Results',
+        description: 'Lab results, imaging results, test inquiries',
+        keywords: ['results', 'lab', 'test', 'bloodwork', 'scan'],
+        color: '#ef4444',
+      },
+    ],
+  },
+  evaluationRules: [
+    {
+      type: 'Must Do',
+      name: 'HIPAA Identity Verification',
+      definition: 'Agent must verify patient identity before discussing any health information',
+      evaluationCriteria: 'Agent verifies at least 2 pieces of identifying information (DOB, last 4 SSN, address)',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['Before I can discuss your account, can you please verify your date of birth and address?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Professional Greeting',
+      definition: 'Agent must greet patient professionally',
+      evaluationCriteria: 'Agent identifies themselves and the healthcare organization',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Thank you for calling ABC Medical Center, this is Sarah speaking, how may I help you?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Empathetic Response',
+      definition: 'Agent must show empathy and understanding',
+      evaluationCriteria: 'Agent acknowledges patient concerns with appropriate empathy',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I understand you are concerned about your symptoms. Let me help you get the care you need'],
+    },
+    {
+      type: 'Must Not Do',
+      name: 'No Medical Advice',
+      definition: 'Agent must not provide medical advice or diagnosis',
+      evaluationCriteria: 'Agent refers medical questions to appropriate clinical staff',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['I am not able to advise on that, but I can transfer you to our nurse line'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Accurate Information',
+      definition: 'Agent provides accurate appointment and insurance information',
+      evaluationCriteria: 'Agent confirms details and reads back important information',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Your appointment is scheduled for Monday, March 15th at 2:30 PM with Dr. Smith. Is that correct?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Clear Next Steps',
+      definition: 'Agent must provide clear next steps and expectations',
+      evaluationCriteria: 'Agent explains what will happen next and any patient responsibilities',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Please arrive 15 minutes early and bring your insurance card and photo ID'],
+    },
+    {
+      type: 'Must Not Do',
+      name: 'No PHI Disclosure',
+      definition: 'Agent must not disclose PHI to unauthorized individuals',
+      evaluationCriteria: 'Agent does not share health information without proper verification',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['Verify authorization before discussing any patient information with third parties'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Urgency Assessment',
+      definition: 'Agent must properly assess urgency of medical situations',
+      evaluationCriteria: 'Agent asks appropriate questions to determine if immediate care is needed',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Are you experiencing any chest pain, difficulty breathing, or severe symptoms right now?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Proper Documentation',
+      definition: 'Agent must document the call properly',
+      evaluationCriteria: 'Agent mentions documenting the conversation or creating a record',
+      scoringStandard: { passed: 5, failed: 0 },
+      examples: ['I have noted this in your record', 'I am documenting this request'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Professional Closing',
+      definition: 'Agent must close the call professionally',
+      evaluationCriteria: 'Agent confirms resolution and offers further assistance',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Is there anything else I can help you with today? Thank you for calling ABC Medical Center'],
+    },
+  ],
+};
+
+// ============================================================================
+// TEMPLATE REGISTRY
+// ============================================================================
+
+/**
+ * All available built-in templates
+ */
+export const SCHEMA_TEMPLATES: Record<string, SchemaTemplate> = {
+  'debt-collection': DEBT_COLLECTION_TEMPLATE,
+  'customer-support': CUSTOMER_SUPPORT_TEMPLATE,
+  'sales': SALES_TEMPLATE,
+  'healthcare': HEALTHCARE_TEMPLATE,
 };
 
 /**
- * Get all available schema templates
+ * Get all templates including custom user templates
  */
-export function getAllTemplates(): SchemaBundle[] {
-  return [
-    DEBT_COLLECTION_TEMPLATE,
-    CUSTOMER_SUPPORT_TEMPLATE,
-    SALES_QA_TEMPLATE
-  ];
+export function getAllTemplates(): SchemaTemplate[] {
+  const builtIn = Object.values(SCHEMA_TEMPLATES);
+  const custom = getCustomTemplates();
+  return [...builtIn, ...custom];
 }
 
 /**
- * Get template by ID
+ * Get a template by ID
  */
-export function getTemplateById(id: string): SchemaBundle | null {
-  const templates = getAllTemplates();
-  return templates.find(t => t.schema.id === id) || null;
+export function getTemplateById(id: string): SchemaTemplate | undefined {
+  return SCHEMA_TEMPLATES[id] || getCustomTemplates().find(t => t.id === id);
 }
 
 /**
- * Get template names for selection UI
+ * Check if a template has updates available
  */
-export function getTemplateNames(): Array<{ id: string; name: string; description: string }> {
-  return getAllTemplates().map(t => ({
-    id: t.schema.id,
-    name: t.schema.name,
-    description: t.schema.description
-  }));
+export function hasTemplateUpdate(schemaTemplateId: string | undefined, schemaTemplateVersion: string | undefined): boolean {
+  if (!schemaTemplateId || !schemaTemplateVersion) return false;
+  const template = SCHEMA_TEMPLATES[schemaTemplateId];
+  if (!template) return false;
+  return template.version !== schemaTemplateVersion;
+}
+
+/**
+ * Get the current version of a template
+ */
+export function getTemplateVersion(templateId: string): string | undefined {
+  return SCHEMA_TEMPLATES[templateId]?.version;
+}
+
+// ============================================================================
+// CUSTOM TEMPLATE STORAGE
+// ============================================================================
+
+const CUSTOM_TEMPLATES_KEY = 'custom-schema-templates';
+
+/**
+ * Get all custom templates saved by the user
+ */
+export function getCustomTemplates(): CustomSchemaTemplate[] {
+  try {
+    const stored = localStorage.getItem(CUSTOM_TEMPLATES_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Save a schema as a custom template
+ */
+export function saveCustomTemplate(
+  schema: SchemaDefinition,
+  evaluationRules: Omit<SchemaEvaluationRule, 'id'>[],
+  name: string,
+  description: string
+): CustomSchemaTemplate {
+  const templates = getCustomTemplates();
+  
+  const newTemplate: CustomSchemaTemplate = {
+    id: `custom-${Date.now()}`,
+    name,
+    icon: '⭐',
+    description,
+    previewDescription: description,
+    version: '1.0.0',
+    industry: 'custom',
+    isCustom: true,
+    createdAt: new Date().toISOString(),
+    schema: {
+      name: schema.name,
+      version: schema.version,
+      businessContext: schema.businessContext,
+      fields: schema.fields,
+      relationships: schema.relationships,
+      topicTaxonomy: schema.topicTaxonomy,
+    },
+    evaluationRules,
+  };
+  
+  templates.push(newTemplate);
+  localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
+  
+  return newTemplate;
+}
+
+/**
+ * Delete a custom template
+ */
+export function deleteCustomTemplate(templateId: string): boolean {
+  const templates = getCustomTemplates();
+  const filtered = templates.filter(t => t.id !== templateId);
+  
+  if (filtered.length === templates.length) return false;
+  
+  localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(filtered));
+  return true;
+}
+
+/**
+ * Create a schema from a template
+ */
+export function createSchemaFromTemplate(template: SchemaTemplate): SchemaDefinition {
+  return {
+    id: `schema-${Date.now()}`,
+    name: template.schema.name,
+    version: template.schema.version,
+    createdAt: new Date().toISOString(),
+    businessContext: template.schema.businessContext,
+    fields: JSON.parse(JSON.stringify(template.schema.fields)), // Deep clone
+    relationships: JSON.parse(JSON.stringify(template.schema.relationships || [])),
+    topicTaxonomy: JSON.parse(JSON.stringify(template.schema.topicTaxonomy || [])),
+    templateId: template.id,
+    templateVersion: template.version,
+  };
 }

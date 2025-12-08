@@ -45,8 +45,10 @@ import {
   FloppyDisk,
   ArrowUp,
   ArrowDown,
+  Sparkle,
+  BookBookmark,
 } from '@phosphor-icons/react';
-import { SchemaDefinition, FieldDefinition, RelationshipDefinition, SemanticRole, FieldType, TopicDefinition } from '@/types/schema';
+import { SchemaDefinition, FieldDefinition, RelationshipDefinition, SemanticRole, FieldType, TopicDefinition, FieldDependency, DependencyOperator } from '@/types/schema';
 import {
   getAllSchemas,
   getSchemaById,
@@ -63,6 +65,11 @@ import { CallRecord } from '@/types/call';
 import { toast } from 'sonner';
 import { executeFormula } from '@/lib/formula-executor';
 import { TopicTaxonomyWizard } from '@/components/TopicTaxonomyWizard';
+import { SchemaTemplateSelector } from '@/components/SchemaTemplateSelector';
+import { AISchemaEnhancer } from '@/components/AISchemaEnhancer';
+import { SyntheticMetadataWizard } from '@/components/SyntheticMetadataWizard';
+import { SchemaTemplate, saveCustomTemplate, hasTemplateUpdate, getTemplateById } from '@/lib/schema-templates';
+import { SchemaEvaluationRule } from '@/types/schema';
 
 interface SchemaManagerDialogProps {
   trigger?: React.ReactNode;
@@ -120,6 +127,22 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'schema' | 'field' | 'relationship'; id: string } | null>(null);
 
+  // Template update notification
+  const [templateUpdate, setTemplateUpdate] = useState<{ templateId: string; currentVersion: string; latestVersion: string } | null>(null);
+
+  // Create from template dialog
+  const [showCreateFromTemplate, setShowCreateFromTemplate] = useState(false);
+  
+  // Synthetic metadata wizard
+  const [showSyntheticWizard, setShowSyntheticWizard] = useState(false);
+  
+  // Apply template confirmation (when overwriting existing schema)
+  const [pendingTemplateApply, setPendingTemplateApply] = useState<{
+    schema: SchemaDefinition;
+    rules: Omit<SchemaEvaluationRule, 'id'>[];
+    templateName: string;
+  } | null>(null);
+
   useEffect(() => {
     if (open !== undefined) {
       setIsOpen(open);
@@ -136,8 +159,26 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
     if (selectedSchemaId) {
       const schema = getSchemaById(selectedSchemaId);
       setSelectedSchema(schema);
+      
+      // Check for template updates if schema is based on a template
+      if (schema?.templateId && schema?.templateVersion) {
+        const hasUpdate = hasTemplateUpdate(schema.templateId, schema.templateVersion);
+        if (hasUpdate) {
+          const latestTemplate = getTemplateById(schema.templateId);
+          setTemplateUpdate({
+            templateId: schema.templateId,
+            currentVersion: schema.templateVersion,
+            latestVersion: latestTemplate?.version || 'unknown',
+          });
+        } else {
+          setTemplateUpdate(null);
+        }
+      } else {
+        setTemplateUpdate(null);
+      }
     } else {
       setSelectedSchema(null);
+      setTemplateUpdate(null);
     }
   }, [selectedSchemaId]);
 
@@ -394,6 +435,234 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
     }
   };
 
+  const handleApplyTemplate = (template: SchemaTemplate) => {
+    if (!selectedSchema) return;
+
+    try {
+      const updatedSchema: SchemaDefinition = {
+        ...selectedSchema,
+        fields: template.schema.fields,
+        relationships: template.schema.relationships || [],
+        topicTaxonomy: template.schema.topicTaxonomy || [],
+        templateId: template.id,
+        templateVersion: template.version,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      saveSchema(updatedSchema);
+      setSelectedSchema(updatedSchema);
+      loadSchemas();
+      setTemplateUpdate(null);
+      toast.success(`Applied "${template.name}" template successfully`);
+    } catch (error) {
+      toast.error('Failed to apply template');
+      console.error(error);
+    }
+  };
+
+  const handleSaveAsTemplate = () => {
+    if (!selectedSchema) return;
+
+    try {
+      // Get evaluation rules from localStorage if available
+      const rulesKey = `evaluation-criteria-${selectedSchema.id}`;
+      const storedRules = localStorage.getItem(rulesKey);
+      const evaluationRules: Omit<SchemaEvaluationRule, 'id'>[] = storedRules 
+        ? JSON.parse(storedRules).map((r: SchemaEvaluationRule) => {
+            const { id, ...rest } = r;
+            return rest;
+          })
+        : [];
+      
+      saveCustomTemplate(
+        selectedSchema,
+        evaluationRules,
+        `${selectedSchema.name} Template`,
+        selectedSchema.businessContext || 'Custom template based on existing schema'
+      );
+      toast.success('Schema saved as custom template');
+    } catch (error) {
+      toast.error('Failed to save as template');
+      console.error(error);
+    }
+  };
+
+  // Create a new schema from a template
+  const handleCreateFromTemplate = (
+    templateSchema: SchemaDefinition,
+    rules: Omit<SchemaEvaluationRule, 'id'>[],
+    templateName: string
+  ) => {
+    try {
+      // Create new schema with unique ID
+      const newSchema: SchemaDefinition = {
+        ...templateSchema,
+        id: `schema_${Date.now()}`,
+        name: `${templateName} Schema`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      saveSchema(newSchema);
+      
+      // Save evaluation rules
+      if (rules.length > 0) {
+        const rulesKey = `evaluation-criteria-${newSchema.id}`;
+        const rulesWithIds = rules.map((r, i) => ({
+          ...r,
+          id: `rule_${Date.now()}_${i}`,
+        }));
+        localStorage.setItem(rulesKey, JSON.stringify(rulesWithIds));
+      }
+      
+      loadSchemas();
+      setSelectedSchemaId(newSchema.id);
+      setShowCreateFromTemplate(false);
+      toast.success(`Created new schema from "${templateName}" template`);
+    } catch (error) {
+      toast.error('Failed to create schema from template');
+      console.error(error);
+    }
+  };
+
+  // Apply template to existing schema (with confirmation)
+  const handleApplyTemplateToExisting = (
+    templateSchema: SchemaDefinition,
+    rules: Omit<SchemaEvaluationRule, 'id'>[],
+    templateName: string
+  ) => {
+    // Show confirmation dialog
+    setPendingTemplateApply({ schema: templateSchema, rules, templateName });
+  };
+
+  // Confirm applying template to existing schema
+  const confirmApplyTemplate = () => {
+    if (!pendingTemplateApply || !selectedSchema) return;
+
+    const { schema: templateSchema, rules, templateName } = pendingTemplateApply;
+
+    const updatedSchema: SchemaDefinition = {
+      ...selectedSchema,
+      fields: templateSchema.fields,
+      relationships: templateSchema.relationships || [],
+      topicTaxonomy: templateSchema.topicTaxonomy || [],
+      templateId: templateSchema.templateId,
+      templateVersion: templateSchema.templateVersion,
+      businessContext: templateSchema.businessContext || selectedSchema.businessContext,
+      updatedAt: new Date().toISOString(),
+    };
+
+    saveSchema(updatedSchema);
+    setSelectedSchema(updatedSchema);
+    loadSchemas();
+
+    // Save evaluation rules
+    if (rules.length > 0) {
+      const rulesKey = `evaluation-criteria-${selectedSchema.id}`;
+      const rulesWithIds = rules.map((r, i) => ({
+        ...r,
+        id: `rule_${Date.now()}_${i}`,
+      }));
+      localStorage.setItem(rulesKey, JSON.stringify(rulesWithIds));
+    }
+
+    setTemplateUpdate(null);
+    setPendingTemplateApply(null);
+    toast.success(`Applied "${templateName}" template successfully`);
+  };
+
+  const handleApplyAISuggestions = (
+    fields: FieldDefinition[],
+    rules: Omit<SchemaEvaluationRule, 'id'>[],
+    topics: TopicDefinition[],
+    relationships: RelationshipDefinition[]
+  ) => {
+    if (!selectedSchema) return;
+
+    try {
+      let updatedFields = [...selectedSchema.fields];
+      let updatedTopics = [...(selectedSchema.topicTaxonomy || [])];
+      let updatedRelationships = [...(selectedSchema.relationships || [])];
+
+      // Add new fields (avoid duplicates by name)
+      if (fields && fields.length > 0) {
+        const existingFieldNames = new Set(selectedSchema.fields.map(f => f.name.toLowerCase()));
+        const newFields = fields.filter(
+          f => !existingFieldNames.has(f.name.toLowerCase())
+        );
+        updatedFields = [...updatedFields, ...newFields];
+      }
+
+      // Add new topics (avoid duplicates by id)
+      if (topics && topics.length > 0) {
+        const existingTopicIds = new Set((selectedSchema.topicTaxonomy || []).map(t => t.id.toLowerCase()));
+        const newTopics = topics.filter(
+          t => !existingTopicIds.has(t.id.toLowerCase())
+        );
+        updatedTopics = [...updatedTopics, ...newTopics];
+      }
+
+      // Add new relationships (avoid duplicates by id)
+      if (relationships && relationships.length > 0) {
+        const existingRelIds = new Set((selectedSchema.relationships || []).map(r => r.id.toLowerCase()));
+        const newRels = relationships.filter(
+          r => !existingRelIds.has(r.id.toLowerCase())
+        );
+        updatedRelationships = [...updatedRelationships, ...newRels];
+      }
+
+      const updatedSchema = {
+        ...selectedSchema,
+        fields: updatedFields,
+        topicTaxonomy: updatedTopics,
+        relationships: updatedRelationships,
+        updatedAt: new Date().toISOString(),
+      };
+
+      saveSchema(updatedSchema);
+      setSelectedSchema(updatedSchema);
+      loadSchemas();
+
+      // Save evaluation rules separately if provided
+      if (rules && rules.length > 0) {
+        const rulesKey = `evaluation-criteria-${selectedSchema.id}`;
+        const existingRules = localStorage.getItem(rulesKey);
+        const existingRulesList: SchemaEvaluationRule[] = existingRules ? JSON.parse(existingRules) : [];
+        const newRulesWithIds = rules.map((r, i) => ({
+          ...r,
+          id: `rule_${Date.now()}_${i}`,
+        }));
+        localStorage.setItem(rulesKey, JSON.stringify([...existingRulesList, ...newRulesWithIds]));
+      }
+
+      const addedCount = 
+        (fields?.length || 0) + 
+        (topics?.length || 0) +
+        (relationships?.length || 0) +
+        (rules?.length || 0);
+      toast.success(`Applied ${addedCount} AI suggestion(s) to schema`);
+    } catch (error) {
+      toast.error('Failed to apply AI suggestions');
+      console.error(error);
+    }
+  };
+
+  const handleUpdateToLatestTemplate = () => {
+    if (!selectedSchema || !templateUpdate) return;
+
+    const latestTemplate = getTemplateById(templateUpdate.templateId);
+    if (latestTemplate) {
+      handleApplyTemplate(latestTemplate);
+      toast.success(`Updated to template version ${latestTemplate.version}`);
+    }
+  };
+
+  // Handle synthetic records generated
+  const handleSyntheticRecordsGenerated = (newRecords: CallRecord[]) => {
+    // Add new records to existing calls
+    setCalls(prev => [...prev, ...newRecords]);
+  };
+
   const handleSaveField = (field: FieldDefinition) => {
     if (!selectedSchema) return;
 
@@ -502,8 +771,12 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="library">Library</TabsTrigger>
+              <TabsTrigger value="templates">
+                <BookBookmark className="h-4 w-4 mr-1" />
+                Templates
+              </TabsTrigger>
               <TabsTrigger value="fields" disabled={!selectedSchema}>Fields</TabsTrigger>
               <TabsTrigger value="relationships" disabled={!selectedSchema}>Relationships</TabsTrigger>
               <TabsTrigger value="topics" disabled={!selectedSchema}>Topics</TabsTrigger>
@@ -515,10 +788,26 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
             <TabsContent value="library" className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">{schemas.length} schema(s) available</p>
-                <Button onClick={handleImportSchema} variant="outline" size="sm">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import Schema
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => setShowCreateFromTemplate(true)} size="sm">
+                    <BookBookmark className="mr-2 h-4 w-4" />
+                    Create from Template
+                  </Button>
+                  <Button 
+                    onClick={() => setShowSyntheticWizard(true)} 
+                    variant="outline" 
+                    size="sm"
+                    disabled={!selectedSchema}
+                    title={selectedSchema ? 'Generate synthetic metadata' : 'Select a schema first'}
+                  >
+                    <Sparkle className="mr-2 h-4 w-4" />
+                    Synthetic Data
+                  </Button>
+                  <Button onClick={handleImportSchema} variant="outline" size="sm">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import Schema
+                  </Button>
+                </div>
               </div>
               
               <ScrollArea className="h-[400px] pr-4">
@@ -591,6 +880,104 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
               </ScrollArea>
             </TabsContent>
 
+            {/* Templates Tab */}
+            <TabsContent value="templates" className="space-y-4">
+              {/* Template Update Notification */}
+              {templateUpdate && selectedSchema && (
+                <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950/30">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkle className="h-4 w-4 text-amber-600" />
+                        <div>
+                          <p className="font-medium text-sm text-amber-900 dark:text-amber-100">
+                            Template Update Available
+                          </p>
+                          <p className="text-xs text-amber-700 dark:text-amber-300">
+                            v{templateUpdate.currentVersion} → v{templateUpdate.latestVersion}
+                          </p>
+                        </div>
+                      </div>
+                      <Button onClick={handleUpdateToLatestTemplate} variant="outline" size="sm"
+                        className="border-amber-500 text-amber-700 hover:bg-amber-100">
+                        Update Now
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="flex gap-4">
+                {/* Template Selector - Left Side */}
+                <div className="flex-1 border rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BookBookmark className="h-4 w-4" />
+                    <h3 className="font-semibold text-sm">Apply Template to Current Schema</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {selectedSchema 
+                      ? `Replace fields, rules, and topics in "${selectedSchema.name}" with template content`
+                      : 'Select a schema from the Library tab first'}
+                  </p>
+                  {selectedSchema ? (
+                    <>
+                      <SchemaTemplateSelector
+                        currentTemplateId={selectedSchema?.templateId}
+                        onSelectTemplate={handleApplyTemplateToExisting}
+                        onCancel={() => {}}
+                      />
+                      
+                      <div className="flex gap-2 mt-3">
+                        <Button variant="outline" size="sm" className="flex-1" onClick={handleSaveAsTemplate}>
+                          <FloppyDisk className="h-3 w-3 mr-1.5" />
+                          Save Schema as Reusable Template
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        This saves your current schema configuration for reuse in other projects
+                      </p>
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No schema selected</p>
+                      <p className="text-xs">Go to Library tab and select or create a schema</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* AI Schema Enhancer - Right Side */}
+                <div className="w-[340px] shrink-0 border rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkle className="h-4 w-4" />
+                    <h3 className="font-semibold text-sm">AI Schema Enhancement</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Get AI-powered suggestions to improve your schema
+                  </p>
+                  {selectedSchema ? (
+                    <AISchemaEnhancer
+                      schema={selectedSchema}
+                      existingRules={(() => {
+                        const rulesKey = `evaluation-criteria-${selectedSchema.id}`;
+                        const stored = localStorage.getItem(rulesKey);
+                        return stored ? JSON.parse(stored).map((r: SchemaEvaluationRule) => {
+                          const { id, ...rest } = r;
+                          return rest;
+                        }) : [];
+                      })()}
+                      onApplySuggestions={handleApplyAISuggestions}
+                      onSkip={() => {}}
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Select a schema from the Library tab first
+                    </p>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
             {/* Fields Tab */}
             <TabsContent value="fields" className="space-y-4">
               {selectedSchema && (
@@ -633,8 +1020,18 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
                                   <Badge variant="outline">{field.type}</Badge>
                                   <Badge variant="secondary">{field.semanticRole}</Badge>
                                   {field.required && <Badge variant="destructive">Required</Badge>}
+                                  {field.dependsOn && (
+                                    <Badge variant="outline" className="border-amber-500 text-amber-600">
+                                      Conditional
+                                    </Badge>
+                                  )}
                                 </div>
                                 <p className="text-sm text-muted-foreground">Field name: {field.name}</p>
+                                {field.dependsOn && (
+                                  <p className="text-xs text-amber-600 mt-1">
+                                    Depends on: {selectedSchema.fields.find(f => f.id === field.dependsOn?.fieldId)?.displayName || field.dependsOn.fieldId}
+                                  </p>
+                                )}
                                 <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
                                   {field.showInTable && <span>✓ Table</span>}
                                   {field.useInPrompt && <span>✓ Prompt</span>}
@@ -916,9 +1313,10 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
       </Dialog>
 
       {/* Field Editor Dialog */}
-      {editingField && (
+      {editingField && selectedSchema && (
         <FieldEditorDialog
           field={editingField}
+          schema={selectedSchema}
           isNew={isAddingField}
           onSave={handleSaveField}
           onCancel={() => {
@@ -959,6 +1357,61 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Apply Template Confirmation Dialog */}
+      <AlertDialog open={!!pendingTemplateApply} onOpenChange={() => setPendingTemplateApply(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply Template to Schema?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                This will replace the current fields, evaluation rules, and topics in 
+                <strong> "{selectedSchema?.name}"</strong> with content from the 
+                <strong> "{pendingTemplateApply?.templateName}"</strong> template.
+              </p>
+              <p className="text-amber-600 dark:text-amber-400">
+                ⚠️ This action will overwrite your current schema configuration.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmApplyTemplate}>
+              Apply Template
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Create Schema from Template Dialog */}
+      <Dialog open={showCreateFromTemplate} onOpenChange={setShowCreateFromTemplate}>
+        <DialogContent className="!max-w-[900px] max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookBookmark className="h-5 w-5" />
+              Create New Schema from Template
+            </DialogTitle>
+            <DialogDescription>
+              Choose a template to create a new schema with pre-configured fields, rules, and topics
+            </DialogDescription>
+          </DialogHeader>
+          <SchemaTemplateSelector
+            onSelectTemplate={handleCreateFromTemplate}
+            onCancel={() => setShowCreateFromTemplate(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Synthetic Metadata Wizard */}
+      {selectedSchema && (
+        <SyntheticMetadataWizard
+          open={showSyntheticWizard}
+          onOpenChange={setShowSyntheticWizard}
+          schema={selectedSchema}
+          existingCalls={calls}
+          onRecordsGenerated={handleSyntheticRecordsGenerated}
+        />
+      )}
     </>
   );
 }
@@ -966,13 +1419,54 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
 /* Field Editor Dialog Component */
 interface FieldEditorDialogProps {
   field: FieldDefinition;
+  schema: SchemaDefinition;
   isNew: boolean;
   onSave: (field: FieldDefinition) => void;
   onCancel: () => void;
 }
 
-function FieldEditorDialog({ field, isNew, onSave, onCancel }: FieldEditorDialogProps) {
+const DEPENDENCY_OPERATORS: { value: DependencyOperator; label: string; description: string }[] = [
+  { value: 'equals', label: 'Equals', description: 'Field value equals specified value' },
+  { value: 'notEquals', label: 'Not Equals', description: 'Field value does not equal specified value' },
+  { value: 'contains', label: 'Contains', description: 'Field value contains specified text' },
+  { value: 'greaterThan', label: 'Greater Than', description: 'Field value is greater than specified value' },
+  { value: 'lessThan', label: 'Less Than', description: 'Field value is less than specified value' },
+  { value: 'isEmpty', label: 'Is Empty', description: 'Field has no value' },
+  { value: 'isNotEmpty', label: 'Is Not Empty', description: 'Field has a value' },
+];
+
+function FieldEditorDialog({ field, schema, isNew, onSave, onCancel }: FieldEditorDialogProps) {
   const [formData, setFormData] = useState(field);
+  const [hasDependency, setHasDependency] = useState(!!field.dependsOn);
+  const [dependsOnFieldId, setDependsOnFieldId] = useState(field.dependsOn?.fieldId || '');
+  const [dependsOnOperator, setDependsOnOperator] = useState<DependencyOperator>(field.dependsOn?.operator || 'equals');
+  const [dependsOnValue, setDependsOnValue] = useState<string | number | boolean>(field.dependsOn?.value ?? '');
+  const [dependsOnBehavior, setDependsOnBehavior] = useState<'show' | 'require'>(field.dependsOnBehavior || 'show');
+  
+  // Get available fields for dependency (exclude current field)
+  const availableFields = schema.fields.filter(f => f.id !== field.id);
+  const selectedDependentField = availableFields.find(f => f.id === dependsOnFieldId);
+
+  const handleSave = () => {
+    let updatedField = { ...formData };
+    
+    if (hasDependency && dependsOnFieldId) {
+      updatedField.dependsOn = {
+        fieldId: dependsOnFieldId,
+        operator: dependsOnOperator,
+        value: dependsOnValue,
+      };
+      updatedField.dependsOnBehavior = dependsOnBehavior;
+    } else {
+      delete updatedField.dependsOn;
+      delete updatedField.dependsOnBehavior;
+    }
+    
+    onSave(updatedField);
+  };
+
+  // Determine if operator needs a value input
+  const operatorNeedsValue = !['isEmpty', 'isNotEmpty'].includes(dependsOnOperator);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
@@ -1090,11 +1584,165 @@ function FieldEditorDialog({ field, isNew, onSave, onCancel }: FieldEditorDialog
             </div>
           </div>
 
+          {/* Field Dependency Section */}
+          <Separator />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="hasDependency" className="text-base font-semibold">
+                  Conditional Field
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Show or require this field based on another field's value
+                </p>
+              </div>
+              <Switch
+                id="hasDependency"
+                checked={hasDependency}
+                onCheckedChange={(checked) => {
+                  setHasDependency(checked);
+                  if (!checked) {
+                    setDependsOnFieldId('');
+                    setDependsOnOperator('equals');
+                    setDependsOnValue('');
+                  }
+                }}
+              />
+            </div>
+
+            {hasDependency && (
+              <Card className="border-dashed">
+                <CardContent className="pt-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Depends On Field</Label>
+                      <Select
+                        value={dependsOnFieldId}
+                        onValueChange={setDependsOnFieldId}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a field..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableFields.map(f => (
+                            <SelectItem key={f.id} value={f.id}>
+                              {f.displayName} ({f.type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Condition</Label>
+                      <Select
+                        value={dependsOnOperator}
+                        onValueChange={(v) => setDependsOnOperator(v as DependencyOperator)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DEPENDENCY_OPERATORS.map(op => (
+                            <SelectItem key={op.value} value={op.value}>
+                              {op.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {operatorNeedsValue && (
+                    <div className="space-y-2">
+                      <Label>Value</Label>
+                      {selectedDependentField?.type === 'boolean' ? (
+                        <Select
+                          value={String(dependsOnValue)}
+                          onValueChange={(v) => setDependsOnValue(v === 'true')}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select value..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="true">True</SelectItem>
+                            <SelectItem value="false">False</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : selectedDependentField?.type === 'select' && selectedDependentField.selectOptions ? (
+                        <Select
+                          value={String(dependsOnValue)}
+                          onValueChange={setDependsOnValue}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select value..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {selectedDependentField.selectOptions.map(opt => (
+                              <SelectItem key={opt} value={opt}>
+                                {opt}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : selectedDependentField?.type === 'number' ? (
+                        <Input
+                          type="number"
+                          value={dependsOnValue as number}
+                          onChange={(e) => setDependsOnValue(parseFloat(e.target.value) || 0)}
+                          placeholder="Enter a number..."
+                        />
+                      ) : (
+                        <Input
+                          value={String(dependsOnValue)}
+                          onChange={(e) => setDependsOnValue(e.target.value)}
+                          placeholder="Enter value..."
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>Behavior When Condition Is Met</Label>
+                    <Select
+                      value={dependsOnBehavior}
+                      onValueChange={(v) => setDependsOnBehavior(v as 'show' | 'require')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="show">
+                          Show Field - Display this field when condition is true
+                        </SelectItem>
+                        <SelectItem value="require">
+                          Require Field - Make this field required when condition is true
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {dependsOnFieldId && (
+                    <div className="bg-muted/50 rounded-md p-3 text-sm">
+                      <span className="font-medium">Preview: </span>
+                      <span className="text-muted-foreground">
+                        This field will be {dependsOnBehavior === 'show' ? 'shown' : 'required'} when "
+                        {availableFields.find(f => f.id === dependsOnFieldId)?.displayName}"
+                        {' '}{dependsOnOperator}{' '}
+                        {operatorNeedsValue ? `"${dependsOnValue}"` : ''}
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={onCancel}>
               Cancel
             </Button>
-            <Button onClick={() => onSave(formData)}>
+            <Button onClick={handleSave}>
               <FloppyDisk className="mr-2 h-4 w-4" />
               {isNew ? 'Add Field' : 'Save Changes'}
             </Button>

@@ -774,6 +774,294 @@ ${topicsText}
     return results;
   }
 
+  /**
+   * Generate synthetic metadata records using LLM
+   * @param prompt - The generation prompt with schema and instructions
+   * @param recordCount - Number of records to generate
+   * @returns Object with records array containing generated metadata
+   */
+  async generateSyntheticData(
+    prompt: string,
+    recordCount: number
+  ): Promise<{ records: Record<string, any>[] }> {
+    if (!this.llmCaller) {
+      throw new Error('Azure OpenAI is not configured. Please configure the service in Settings.');
+    }
+
+    console.log(`🎲 Generating ${recordCount} synthetic records...`);
+
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: 'You are a data generation assistant that creates realistic synthetic data based on schema definitions. Always respond with valid JSON containing a "records" array.',
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ];
+
+    try {
+      const response = await this.llmCaller.callWithJsonValidation<{ records: Record<string, any>[] }>(
+        messages,
+        {
+          useJsonMode: true,
+          maxRetries: 3,
+          retryDelay: 2000,
+        }
+      );
+
+      // Validate response structure
+      if (!response.parsed || !Array.isArray(response.parsed.records)) {
+        console.error('Invalid synthetic data response:', response);
+        throw new Error('Invalid response format: expected { records: [...] }');
+      }
+
+      console.log(`✓ Generated ${response.parsed.records.length} synthetic records`);
+      return response.parsed;
+    } catch (error: any) {
+      console.error('Synthetic data generation error:', error);
+      throw new Error(`Failed to generate synthetic data: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate a synthetic call transcription using LLM
+   * Returns structured data matching the TranscriptionResult format for UI display
+   * @param callMetadata - The call metadata to base the transcription on
+   * @param schema - The schema definition for context
+   * @returns Generated transcription with structured phrases and sentiment
+   */
+  async generateSyntheticTranscription(
+    callMetadata: Record<string, any>,
+    schema: SchemaDefinition
+  ): Promise<{
+    transcript: string;
+    phrases: TranscriptPhrase[];
+    durationMilliseconds: number;
+    speakerCount: number;
+    locale: string;
+    sentimentSegments: CallSentimentSegment[];
+    overallSentiment: SentimentLabel;
+  }> {
+    if (!this.llmCaller) {
+      throw new Error('Azure OpenAI is not configured. Please configure the service in Settings.');
+    }
+
+    console.log(`📝 Generating synthetic transcription for call...`);
+
+    // Build context about the business and call type
+    const businessContext = schema.businessContext || 'call center';
+    const callType = callMetadata.callType || callMetadata.call_type || 'general inquiry';
+    const outcome = callMetadata.outcome || callMetadata.call_outcome || 'completed';
+    const duration = callMetadata.duration || callMetadata.callDuration || '5 minutes';
+    
+    // Get participant names from schema semantic roles
+    const participant1Field = schema.fields.find(f => f.semanticRole === 'participant_1');
+    const participant2Field = schema.fields.find(f => f.semanticRole === 'participant_2');
+    
+    const agentLabel = participant1Field?.participantLabel || 'Agent';
+    const customerLabel = participant2Field?.participantLabel || 'Customer';
+    const agentName = participant1Field ? (callMetadata[participant1Field.name] || callMetadata[participant1Field.id] || agentLabel) : 'Agent';
+    const customerName = participant2Field ? (callMetadata[participant2Field.name] || callMetadata[participant2Field.id] || customerLabel) : 'Customer';
+    
+    // Extract any other relevant metadata
+    const relevantFields = Object.entries(callMetadata)
+      .filter(([key, value]) => 
+        value !== undefined && 
+        value !== null && 
+        !['id', 'transcription', 'status', 'evaluation'].includes(key)
+      )
+      .map(([key, value]) => `- ${key}: ${JSON.stringify(value)}`)
+      .join('\n');
+
+    const prompt = `Generate a realistic call center transcription as a JSON array of dialogue turns.
+
+Business Type: ${businessContext}
+Call Type: ${callType}
+Call Outcome: ${outcome}
+Approximate Duration: ${duration}
+
+Participants:
+- ${agentLabel}: ${agentName} (speaker 1)
+- ${customerLabel}: ${customerName} (speaker 2)
+
+Call Metadata:
+${relevantFields}
+
+Generate a JSON object with:
+{
+  "turns": [
+    { "speaker": 1, "text": "Hello, thank you for calling..." },
+    { "speaker": 2, "text": "Hi, I'm calling about..." },
+    ...
+  ]
+}
+
+Requirements:
+1. speaker 1 = ${agentLabel} (${agentName}), speaker 2 = ${customerLabel} (${customerName})
+2. Create 10-20 natural dialogue turns
+3. Include appropriate greeting, conversation flow, and closing
+4. Make the conversation match the call type and outcome
+5. Include realistic acknowledgments and natural language
+6. Each turn should be a single speaker's complete statement
+7. Make it feel authentic and professional
+
+Return ONLY the JSON object, no other text.`;
+
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: 'You are an expert at creating realistic call center transcriptions. Generate natural, professional conversations as structured JSON. Always respond with valid JSON only.',
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ];
+
+    try {
+      const response = await this.llmCaller.callWithJsonValidation<{ turns: { speaker: number; text: string }[] }>(
+        messages,
+        {
+          useJsonMode: true,
+          maxTokens: 2000,
+        }
+      );
+
+      if (!response.parsed || !Array.isArray(response.parsed.turns)) {
+        throw new Error('Invalid response format: expected { turns: [...] }');
+      }
+
+      const turns = response.parsed.turns;
+      
+      // Convert turns to TranscriptPhrase[] with simulated timing
+      const averageTurnDuration = 5000; // 5 seconds per turn average
+      let currentOffset = 0;
+      const phrases: TranscriptPhrase[] = turns.map((turn, index) => {
+        // Estimate duration based on text length (roughly 150 words per minute)
+        const wordCount = turn.text.split(/\s+/).length;
+        const estimatedDuration = Math.max(2000, Math.min(15000, (wordCount / 150) * 60 * 1000));
+        
+        const phrase: TranscriptPhrase = {
+          text: turn.text,
+          speaker: turn.speaker,
+          offsetMilliseconds: currentOffset,
+          durationMilliseconds: estimatedDuration,
+          confidence: 0.95 + Math.random() * 0.05, // 95-100% confidence for synthetic
+          locale: 'en-US', // Default locale for synthetic
+        };
+        
+        currentOffset += estimatedDuration + 500; // Add 500ms gap between turns
+        return phrase;
+      });
+
+      // Build full transcript string
+      const transcript = turns.map(turn => {
+        const speakerName = turn.speaker === 1 ? agentName : customerName;
+        return `${speakerName}: ${turn.text}`;
+      }).join('\n\n');
+
+      const totalDuration = currentOffset;
+      
+      // Generate sentiment segments based on conversation content
+      const sentimentSegments = this.generateSyntheticSentiment(phrases, totalDuration);
+      const overallSentiment = this.calculateOverallSentiment(sentimentSegments);
+      
+      console.log(`✓ Generated synthetic transcription: ${turns.length} turns, ${totalDuration}ms duration, ${sentimentSegments.length} sentiment segments`);
+      
+      return {
+        transcript,
+        phrases,
+        durationMilliseconds: totalDuration,
+        speakerCount: 2,
+        locale: 'en-US',
+        sentimentSegments,
+        overallSentiment,
+      };
+    } catch (error: any) {
+      console.error('Synthetic transcription generation error:', error);
+      throw new Error(`Failed to generate synthetic transcription: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Generate synthetic sentiment segments based on transcript phrases
+   * Uses simple keyword-based sentiment analysis for simulation
+   */
+  private generateSyntheticSentiment(phrases: TranscriptPhrase[], totalDuration: number): CallSentimentSegment[] {
+    const segments: CallSentimentSegment[] = [];
+    
+    // Positive indicators
+    const positiveWords = [
+      'thank', 'thanks', 'great', 'excellent', 'perfect', 'wonderful', 'happy', 'pleased',
+      'appreciate', 'helpful', 'good', 'yes', 'sure', 'absolutely', 'definitely', 'agree',
+      'understand', 'glad', 'nice', 'love', 'amazing', 'fantastic', 'resolved', 'solved'
+    ];
+    
+    // Negative indicators
+    const negativeWords = [
+      'problem', 'issue', 'sorry', 'unfortunately', 'can\'t', 'cannot', 'won\'t', 'frustrated',
+      'angry', 'upset', 'disappointed', 'complaint', 'wrong', 'error', 'fail', 'bad',
+      'terrible', 'horrible', 'refuse', 'never', 'hate', 'annoyed', 'difficult', 'impossible'
+    ];
+    
+    // Analyze each phrase
+    for (const phrase of phrases) {
+      const textLower = phrase.text.toLowerCase();
+      
+      let positiveScore = 0;
+      let negativeScore = 0;
+      
+      positiveWords.forEach(word => {
+        if (textLower.includes(word)) positiveScore++;
+      });
+      
+      negativeWords.forEach(word => {
+        if (textLower.includes(word)) negativeScore++;
+      });
+      
+      // Determine sentiment
+      let sentiment: SentimentLabel;
+      if (positiveScore > negativeScore) {
+        sentiment = 'positive';
+      } else if (negativeScore > positiveScore) {
+        sentiment = 'negative';
+      } else {
+        sentiment = 'neutral';
+      }
+      
+      // Create segment
+      segments.push({
+        startMilliseconds: phrase.offsetMilliseconds,
+        endMilliseconds: phrase.offsetMilliseconds + phrase.durationMilliseconds,
+        speaker: phrase.speaker,
+        sentiment,
+        confidence: 0.85 + Math.random() * 0.15, // 85-100% confidence
+      });
+    }
+    
+    return segments;
+  }
+  
+  /**
+   * Calculate overall sentiment from segments
+   */
+  private calculateOverallSentiment(segments: CallSentimentSegment[]): SentimentLabel {
+    if (segments.length === 0) return 'neutral';
+    
+    const counts = { positive: 0, neutral: 0, negative: 0 };
+    segments.forEach(s => counts[s.sentiment]++);
+    
+    // Weight: positive counts more if it's the majority
+    if (counts.positive > counts.negative && counts.positive >= counts.neutral) {
+      return 'positive';
+    } else if (counts.negative > counts.positive && counts.negative > counts.neutral) {
+      return 'negative';
+    }
+    return 'neutral';
+  }
+
   validateConfig(): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 

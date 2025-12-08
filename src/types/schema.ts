@@ -35,6 +35,27 @@ export type SemanticRole =
 export type FieldType = 'string' | 'number' | 'date' | 'boolean' | 'select';
 
 /**
+ * Dependency operators for conditional field display
+ */
+export type DependencyOperator = 
+  | 'equals' 
+  | 'notEquals' 
+  | 'contains' 
+  | 'greaterThan' 
+  | 'lessThan' 
+  | 'isEmpty' 
+  | 'isNotEmpty';
+
+/**
+ * Field dependency configuration for conditional display/validation
+ */
+export interface FieldDependency {
+  fieldId: string;                 // ID of the field this depends on
+  operator: DependencyOperator;    // Comparison operator
+  value: any;                      // Value to compare against (ignored for isEmpty/isNotEmpty)
+}
+
+/**
  * Relationship types discovered by LLM
  */
 export type RelationshipType = 'simple' | 'complex';
@@ -56,6 +77,10 @@ export interface FieldDefinition {
   selectOptions?: string[];        // Options for select type fields
   cardinalityHint?: 'low' | 'medium' | 'high';  // Approximate unique value count
   defaultValue?: any;              // Default value if not provided
+  
+  // Conditional field dependencies (single-level)
+  dependsOn?: FieldDependency;     // Condition for when this field is visible
+  dependsOnBehavior?: 'show' | 'require';  // 'show' = visibility only, 'require' = also makes field required when visible
 }
 
 /**
@@ -91,6 +116,10 @@ export interface SchemaDefinition {
   fields: FieldDefinition[];       // Field definitions
   relationships: RelationshipDefinition[];  // Discovered relationships
   topicTaxonomy?: TopicDefinition[];  // Hierarchical topic taxonomy for call classification
+  
+  // Template tracking for versioning and updates
+  templateId?: string;             // ID of the template this schema was created from
+  templateVersion?: string;        // Version of the template when schema was created
 }
 
 /**

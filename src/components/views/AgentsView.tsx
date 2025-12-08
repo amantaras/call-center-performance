@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { CallRecord } from '@/types/call';
 import { SchemaDefinition } from '@/types/schema';
@@ -14,10 +14,16 @@ interface AgentsViewProps {
 }
 
 export function AgentsView({ activeSchema, schemaLoading }: AgentsViewProps) {
-  const [calls] = useLocalStorage<CallRecord[]>('calls', []);
+  const [allCalls] = useLocalStorage<CallRecord[]>('calls', []);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
-  const agentPerformances = calculateAgentPerformance(calls || []);
+  // Filter calls by active schema
+  const calls = useMemo(() => {
+    if (!activeSchema) return allCalls || [];
+    return (allCalls || []).filter(call => call.schemaId === activeSchema.id);
+  }, [allCalls, activeSchema]);
+
+  const agentPerformances = calculateAgentPerformance(calls);
 
   if (!agentPerformances.length) {
     return (

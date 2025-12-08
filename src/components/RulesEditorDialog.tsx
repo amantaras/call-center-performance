@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
 import {
   Dialog,
   DialogContent,
@@ -19,29 +18,44 @@ import { Badge } from '@/components/ui/badge';
 import { Upload, Plus, Trash, PlayCircle, MinusCircle } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { EvaluationCriterion } from '@/types/call';
+import { SchemaDefinition } from '@/types/schema';
 import { EVALUATION_CRITERIA } from '@/lib/evaluation-criteria';
+import { loadRulesForSchema, saveRulesForSchema } from '@/services/rules-generator';
 
 interface RulesEditorDialogProps {
   onRulesUpdate?: (rules: EvaluationCriterion[]) => void;
+  activeSchema?: SchemaDefinition | null;
 }
 
-export function RulesEditorDialog({ onRulesUpdate }: RulesEditorDialogProps) {
-  const [customRules, setCustomRules] = useLocalStorage<EvaluationCriterion[]>(
-    'evaluation-criteria-custom',
-    []
-  );
-
+export function RulesEditorDialog({ onRulesUpdate, activeSchema }: RulesEditorDialogProps) {
   const [open, setOpen] = useState(false);
-  const [rules, setRules] = useState<EvaluationCriterion[]>(
-    customRules && customRules.length > 0 ? customRules : EVALUATION_CRITERIA
-  );
+  const [rules, setRules] = useState<EvaluationCriterion[]>(EVALUATION_CRITERIA);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
+  // Load schema-specific rules when dialog opens or schema changes
   useEffect(() => {
-    if (customRules && customRules.length > 0) {
-      setRules(customRules);
+    if (activeSchema) {
+      const schemaRules = loadRulesForSchema(activeSchema.id);
+      if (schemaRules && schemaRules.length > 0) {
+        // Convert SchemaEvaluationRule to EvaluationCriterion format
+        const criteriaRules: EvaluationCriterion[] = schemaRules.map(rule => ({
+          id: typeof rule.id === 'number' ? rule.id : parseInt(rule.id) || 0,
+          type: rule.type,
+          name: rule.name,
+          definition: rule.definition,
+          evaluationCriteria: rule.evaluationCriteria,
+          scoringStandard: rule.scoringStandard,
+          examples: rule.examples
+        }));
+        setRules(criteriaRules);
+      } else {
+        // No schema-specific rules, use defaults
+        setRules([...EVALUATION_CRITERIA]);
+      }
+    } else {
+      setRules([...EVALUATION_CRITERIA]);
     }
-  }, [customRules]);
+  }, [activeSchema, open]);
 
   useEffect(() => {
     if (open) {
@@ -63,7 +77,11 @@ export function RulesEditorDialog({ onRulesUpdate }: RulesEditorDialogProps) {
       id: index + 1,
     }));
     
-    setCustomRules(rulesWithIds);
+    // Save to schema-specific key if schema is available
+    if (activeSchema) {
+      saveRulesForSchema(activeSchema.id, rulesWithIds);
+    }
+    
     onRulesUpdate?.(rulesWithIds);
     toast.success('Evaluation rules saved successfully');
     setOpen(false);

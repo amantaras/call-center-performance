@@ -2,10 +2,14 @@ import { CallRecord } from '@/types/call';
 import { v4 as uuidv4 } from 'uuid';
 
 const BASE_AUDIO_URL = 'https://sttclicallscenter.blob.core.windows.net/callsaudiofiles/';
+const DEFAULT_SCHEMA_ID = 'debt-collection-v1';
+const DEFAULT_SCHEMA_VERSION = '1.0.0';
 
 export const defaultCalls: CallRecord[] = [
   {
     id: uuidv4(),
+    schemaId: DEFAULT_SCHEMA_ID,
+    schemaVersion: DEFAULT_SCHEMA_VERSION,
     status: 'uploaded',
     createdAt: '2025-09-03T17:52:08.000Z',
     updatedAt: '2025-09-03T17:52:08.000Z',
@@ -22,6 +26,8 @@ export const defaultCalls: CallRecord[] = [
   },
   {
     id: uuidv4(),
+    schemaId: DEFAULT_SCHEMA_ID,
+    schemaVersion: DEFAULT_SCHEMA_VERSION,
     status: 'uploaded',
     createdAt: '2025-09-04T09:33:57.000Z',
     updatedAt: '2025-09-04T09:33:57.000Z',
@@ -38,6 +44,8 @@ export const defaultCalls: CallRecord[] = [
   },
   {
     id: uuidv4(),
+    schemaId: DEFAULT_SCHEMA_ID,
+    schemaVersion: DEFAULT_SCHEMA_VERSION,
     status: 'uploaded',
     createdAt: '2025-09-06T08:59:49.000Z',
     updatedAt: '2025-09-06T08:59:49.000Z',
@@ -54,6 +62,8 @@ export const defaultCalls: CallRecord[] = [
   },
   {
     id: uuidv4(),
+    schemaId: DEFAULT_SCHEMA_ID,
+    schemaVersion: DEFAULT_SCHEMA_VERSION,
     status: 'uploaded',
     createdAt: '2025-09-04T09:11:06.000Z',
     updatedAt: '2025-09-04T09:11:06.000Z',
@@ -70,6 +80,8 @@ export const defaultCalls: CallRecord[] = [
   },
   {
     id: uuidv4(),
+    schemaId: DEFAULT_SCHEMA_ID,
+    schemaVersion: DEFAULT_SCHEMA_VERSION,
     status: 'uploaded',
     createdAt: '2025-08-29T08:38:56.000Z',
     updatedAt: '2025-08-29T08:38:56.000Z',
@@ -86,6 +98,8 @@ export const defaultCalls: CallRecord[] = [
   },
   {
     id: uuidv4(),
+    schemaId: DEFAULT_SCHEMA_ID,
+    schemaVersion: DEFAULT_SCHEMA_VERSION,
     status: 'uploaded',
     createdAt: '2025-08-30T15:36:07.000Z',
     updatedAt: '2025-08-30T15:36:07.000Z',
@@ -102,6 +116,8 @@ export const defaultCalls: CallRecord[] = [
   },
   {
     id: uuidv4(),
+    schemaId: DEFAULT_SCHEMA_ID,
+    schemaVersion: DEFAULT_SCHEMA_VERSION,
     status: 'uploaded',
     createdAt: '2025-07-09T09:27:51.000Z',
     updatedAt: '2025-07-09T09:27:51.000Z',
@@ -118,6 +134,8 @@ export const defaultCalls: CallRecord[] = [
   },
   {
     id: uuidv4(),
+    schemaId: DEFAULT_SCHEMA_ID,
+    schemaVersion: DEFAULT_SCHEMA_VERSION,
     status: 'uploaded',
     createdAt: '2025-08-12T17:02:54.000Z',
     updatedAt: '2025-08-12T17:02:54.000Z',
@@ -134,6 +152,8 @@ export const defaultCalls: CallRecord[] = [
   },
   {
     id: uuidv4(),
+    schemaId: DEFAULT_SCHEMA_ID,
+    schemaVersion: DEFAULT_SCHEMA_VERSION,
     status: 'uploaded',
     createdAt: '2025-07-30T15:23:21.000Z',
     updatedAt: '2025-07-30T15:23:21.000Z',
@@ -150,6 +170,8 @@ export const defaultCalls: CallRecord[] = [
   },
   {
     id: uuidv4(),
+    schemaId: DEFAULT_SCHEMA_ID,
+    schemaVersion: DEFAULT_SCHEMA_VERSION,
     status: 'uploaded',
     createdAt: '2025-09-03T09:57:25.000Z',
     updatedAt: '2025-09-03T09:57:25.000Z',

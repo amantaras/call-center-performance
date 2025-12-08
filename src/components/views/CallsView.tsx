@@ -5,13 +5,14 @@ import { CallRecord } from '@/types/call';
 import { SchemaDefinition } from '@/types/schema';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Upload, MagnifyingGlass, ArrowCounterClockwise, Microphone, FileCsv } from '@phosphor-icons/react';
+import { Upload, MagnifyingGlass, ArrowCounterClockwise, Microphone, FileCsv, Sparkle } from '@phosphor-icons/react';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { CallsTable } from '@/components/CallsTable';
 import { UploadDialog } from '@/components/UploadDialog';
 import { CallDetailDialog } from '@/components/CallDetailDialog';
 import { ImportCSVDialog } from '@/components/ImportCSVDialog';
+import { SyntheticMetadataWizard } from '@/components/SyntheticMetadataWizard';
 import { transcriptionService } from '@/services/transcription';
 import { azureOpenAIService } from '@/services/azure-openai';
 import { restoreAudioFilesFromStorage } from '@/lib/csv-parser';
@@ -49,6 +50,7 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [importCSVOpen, setImportCSVOpen] = useState(false);
+  const [syntheticWizardOpen, setSyntheticWizardOpen] = useState(false);
   const [selectedCall, setSelectedCall] = useState<CallRecord | null>(null);
   const [transcribingIds, setTranscribingIds] = useState<Set<string>>(new Set());
   const [evaluatingIds, setEvaluatingIds] = useState<Set<string>>(new Set());
@@ -85,7 +87,8 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
     try {
       const updatedCall = await transcriptionService.transcribeCall(
         call,
-        {}, // Let transcription service use auto-detection with candidate locales
+        activeSchema,
+        {}, // Default STT options
         (status) => {
           console.log(`Transcription progress: ${status}`);
         },
@@ -128,6 +131,7 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
       const evaluation = await azureOpenAIService.evaluateCall(
         call.transcript,
         call.metadata,
+        activeSchema || {} as SchemaDefinition,
         call.id,
       );
 
@@ -381,6 +385,15 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
             Import Metadata
           </Button>
           <Button 
+            onClick={() => setSyntheticWizardOpen(true)} 
+            variant="outline"
+            disabled={!activeSchema}
+            title={!activeSchema ? "Please select a schema first" : "Generate synthetic metadata records using AI"}
+          >
+            <Sparkle className="mr-2" size={18} />
+            Synthetic Data
+          </Button>
+          <Button 
             onClick={() => setUploadOpen(true)}
             disabled={!activeSchema}
             title={!activeSchema ? "Please select a schema first" : "Upload audio files to attach to existing records"}
@@ -458,6 +471,7 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
           setCalls(importedCalls);
           setImportCSVOpen(false);
         }}
+        activeSchema={activeSchema}
       />
 
       {selectedCall && activeSchema && (
@@ -471,6 +485,18 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
               (prevCalls || []).map((c) => (c.id === updatedCall.id ? updatedCall : c))
             );
             setSelectedCall(updatedCall);
+          }}
+        />
+      )}
+
+      {activeSchema && (
+        <SyntheticMetadataWizard
+          open={syntheticWizardOpen}
+          onOpenChange={setSyntheticWizardOpen}
+          schema={activeSchema}
+          existingCalls={calls || []}
+          onRecordsGenerated={(newRecords) => {
+            setCalls((prev) => [...(prev || []), ...newRecords]);
           }}
         />
       )}
