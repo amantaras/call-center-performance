@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { CallRecord } from '@/types/call';
 import { SchemaDefinition, AnalyticsView } from '@/types/schema';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, ZAxis } from 'recharts';
 
 interface CustomAnalyticsChartProps {
   view: AnalyticsView;
@@ -198,6 +198,80 @@ export function CustomAnalyticsChart({ view, calls, schema }: CustomAnalyticsCha
           <Tooltip />
           <Legend />
         </PieChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  if (view.chartType === 'scatter') {
+    // For scatter, we need x and y values - use dimension as x index and measure as y
+    const scatterData = chartData.map((item, index) => ({
+      x: index + 1,
+      y: item.value,
+      name: item.name,
+      z: item.value // Size of bubble
+    }));
+
+    const dimensionField = schema.fields.find(f => f.id === view.dimensionField);
+    const xAxisLabel = dimensionField?.displayName || 'Category';
+
+    return (
+      <ResponsiveContainer width="100%" height={250}>
+        <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            type="number" 
+            dataKey="x" 
+            name={xAxisLabel}
+            label={{ value: xAxisLabel, position: 'bottom', offset: 40 }}
+          />
+          <YAxis 
+            type="number" 
+            dataKey="y" 
+            name={yAxisLabel}
+            label={{ value: yAxisLabel, angle: -90, position: 'insideLeft' }}
+          />
+          <ZAxis type="number" dataKey="z" range={[60, 400]} />
+          <Tooltip 
+            cursor={{ strokeDasharray: '3 3' }}
+            content={({ active, payload }) => {
+              if (active && payload && payload.length) {
+                const data = payload[0].payload;
+                return (
+                  <div className="bg-background border rounded p-2 shadow-lg">
+                    <p className="font-medium">{data.name}</p>
+                    <p className="text-sm text-muted-foreground">{yAxisLabel}: {data.y}</p>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+          <Scatter 
+            name={view.name} 
+            data={scatterData} 
+            fill="#8884d8"
+          >
+            {scatterData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Scatter>
+        </ScatterChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  // Handle 'trend' as line chart (alias)
+  if (view.chartType === 'trend') {
+    return (
+      <ResponsiveContainer width="100%" height={250}>
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
+          <YAxis label={{ value: yAxisLabel, angle: -90, position: 'insideLeft' }} />
+          <Tooltip />
+          <Legend />
+          <Line type="monotone" dataKey="value" stroke="#8884d8" strokeWidth={2} dot={{ fill: '#8884d8' }} />
+        </LineChart>
       </ResponsiveContainer>
     );
   }

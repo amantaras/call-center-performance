@@ -439,20 +439,25 @@ export function calculateAgentPerformance(calls: CallRecord[]): AgentPerformance
     const totalPercentage = scores.reduce((sum, s) => sum + s, 0);
     const averagePercentage = totalPercentage / totalCalls;
 
-    // Criteria scores
+    // Criteria scores - using index-based matching since AI returns 1-based IDs
+    // but stored criteria have string IDs like "rule_xxx_0"
     const criteriaScores: Record<number, number> = {};
     let totalCriteriaPassed = 0;
     let totalCriteriaEvaluated = 0;
     
-    activeCriteria.forEach((criterion) => {
+    activeCriteria.forEach((criterion, criterionIndex) => {
+      // AI returns 1-based criterionId, so we match by index (criterionId - 1)
+      const expectedCriterionId = criterionIndex + 1;
+      
       const results = agentCalls
-        .map((call) => call.evaluation?.results.find((r) => r.criterionId === criterion.id))
+        .map((call) => call.evaluation?.results.find((r) => r.criterionId === expectedCriterionId))
         .filter(r => r !== undefined);
       
       const avgScore = results.length > 0
         ? results.reduce((sum, r) => sum + (r?.score || 0), 0) / results.length
         : 0;
-      criteriaScores[criterion.id] = avgScore;
+      // Store by index for consistent lookup
+      criteriaScores[criterionIndex] = avgScore;
       
       totalCriteriaPassed += results.filter(r => r?.passed).length;
       totalCriteriaEvaluated += results.length;
@@ -683,10 +688,13 @@ export function calculateCriteriaAnalytics(calls: CallRecord[]): CriteriaAnalyti
   const evaluatedCalls = calls.filter((c) => c.evaluation);
   const activeCriteria = getActiveEvaluationCriteria();
 
-  const analytics: CriteriaAnalytics[] = activeCriteria.map((criterion) => {
+  const analytics: CriteriaAnalytics[] = activeCriteria.map((criterion, criterionIndex) => {
+    // AI returns 1-based criterionId, so we match by index (criterionId - 1)
+    const expectedCriterionId = criterionIndex + 1;
+    
     const results = evaluatedCalls
       .map((call) =>
-        call.evaluation?.results.find((r) => r.criterionId === criterion.id)
+        call.evaluation?.results.find((r) => r.criterionId === expectedCriterionId)
       )
       .filter((r) => r !== undefined);
 

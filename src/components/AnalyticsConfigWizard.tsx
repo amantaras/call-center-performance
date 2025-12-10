@@ -209,12 +209,17 @@ export function AnalyticsConfigWizard({
 
       const llmCaller = new LLMCaller(configManager);
 
-      // Build context from schema
+      // Build context from schema - USING ALL RICH DATA
       const dimensionFields = activeSchema.fields.filter(f => 
         f.semanticRole === 'dimension' || f.semanticRole === 'classification'
       );
       const measureFields = activeSchema.fields.filter(f => 
         f.semanticRole === 'metric'
+      );
+      
+      // Get participant fields with custom labels
+      const participantFields = activeSchema.fields.filter(f => 
+        f.semanticRole === 'participant_1' || f.semanticRole === 'participant_2'
       );
       
       // Get calculated fields from relationships
@@ -226,6 +231,72 @@ export function AnalyticsConfigWizard({
         description: rel.description,
         outputType: rel.outputType || 'number'
       })) || [];
+
+      // Build topic taxonomy context
+      const flattenTopics = (topics: any[], depth = 0): string[] => {
+        const result: string[] = [];
+        for (const topic of topics) {
+          const indent = '  '.repeat(depth);
+          const keywords = topic.keywords?.length > 0 ? ` (keywords: ${topic.keywords.join(', ')})` : '';
+          result.push(`${indent}- ${topic.name}: ${topic.description || 'No description'}${keywords}`);
+          if (topic.children?.length > 0) {
+            result.push(...flattenTopics(topic.children, depth + 1));
+          }
+        }
+        return result;
+      };
+      
+      const topicTaxonomyContext = activeSchema.topicTaxonomy?.length 
+        ? `\n**Topic Taxonomy (Call Classification Topics):**
+These topics are used to classify calls. Consider creating analytics that show distribution across these topics:
+${flattenTopics(activeSchema.topicTaxonomy).join('\n')}
+`
+        : '';
+
+      // Build insight categories context
+      const insightCategoriesContext = activeSchema.insightCategories?.filter(ic => ic.enabled).length
+        ? `\n**AI Insight Categories Being Tracked:**
+These insight areas are analyzed for each call - consider analytics that aggregate these:
+${activeSchema.insightCategories.filter(ic => ic.enabled).map(ic => 
+  `- ${ic.icon} ${ic.name}: ${ic.description} (outputs: ${ic.outputFields.map(f => f.name).join(', ')})`
+).join('\n')}
+`
+        : '';
+
+      // Build relationships context (for understanding data correlations)
+      const relationshipsContext = activeSchema.relationships?.length
+        ? `\n**Data Relationships & Correlations:**
+${activeSchema.relationships.map(rel => 
+  `- ${rel.displayName || rel.id}: ${rel.description}${rel.formula ? ` [Formula: ${rel.formula}]` : ''}`
+).join('\n')}
+`
+        : '';
+
+      // Try to load evaluation rules for additional context
+      let evaluationRulesContext = '';
+      try {
+        const rulesKey = `evaluation-rules-${activeSchema.id}`;
+        const savedRules = localStorage.getItem(rulesKey);
+        if (savedRules) {
+          const rules = JSON.parse(savedRules);
+          if (rules.length > 0) {
+            evaluationRulesContext = `\n**Evaluation Rules Being Applied:**
+These rules are used to score calls - consider analytics that track rule compliance:
+${rules.slice(0, 10).map((r: any) => `- [${r.type}] ${r.name}: ${r.definition}`).join('\n')}
+${rules.length > 10 ? `... and ${rules.length - 10} more rules` : ''}
+`;
+          }
+        }
+      } catch (e) {
+        // Ignore localStorage errors
+      }
+
+      // Build participant context
+      const participantContext = participantFields.length > 0
+        ? `\n**Conversation Participants:**
+${participantFields.map(f => `- ${f.participantLabel || f.displayName} (${f.semanticRole === 'participant_1' ? 'Primary' : 'Secondary'} participant)`).join('\n')}
+`
+        : '';
 
       // Build existing views context if there are any
       const existingViewsContext = views.length > 0 
@@ -241,18 +312,19 @@ ${views.map(v => `- "${v.name}": ${v.description || 'No description'} [${v.chart
 **Schema Context:**
 - Business Context: ${activeSchema.businessContext || 'Not specified'}
 - Schema Name: ${activeSchema.name}
-${existingViewsContext}
+${participantContext}${existingViewsContext}
 **Available Dimension/Classification Fields (use the ID in parentheses):**
-${dimensionFields.map(f => `- ID: "${f.id}" - Display Name: "${f.displayName}"`).join('\n')}
+${dimensionFields.map(f => `- ID: "${f.id}" - Display Name: "${f.displayName}"${f.selectOptions?.length ? ` [Options: ${f.selectOptions.slice(0, 5).join(', ')}${f.selectOptions.length > 5 ? '...' : ''}]` : ''}`).join('\n')}
 
 **Available Measure/Metric Fields (use the ID in parentheses):**
 ${measureFields.map(f => `- ID: "${f.id}" - Display Name: "${f.displayName}"`).join('\n')}
 ${calculatedFields.length > 0 ? `
 **Available Calculated Fields (computed from formulas - use the ID in parentheses):**
 ${calculatedFields.map(f => `- ID: "${f.id}" - Display Name: "${f.displayName}" - Description: ${f.description} [Type: ${f.outputType}]`).join('\n')}` : ''}
-
+${topicTaxonomyContext}${insightCategoriesContext}${relationshipsContext}${evaluationRulesContext}
 **Task:**
-Generate 5-8 meaningful, business-relevant analytics views that would provide valuable insights for this use case. Each view should combine dimensions and measures appropriately.
+Generate 5-8 meaningful, business-relevant analytics views that would provide valuable insights for this use case. 
+Use the rich context above (topics, insights, relationships, rules) to create views that answer important business questions.
 
 For each view, specify:
 1. **name**: Clear, business-friendly name (e.g., "Agent Performance by Product")
@@ -267,6 +339,9 @@ For each view, specify:
 **IMPORTANT: Calculated fields are especially valuable for analytics as they represent derived business metrics. Consider using them as measures in your views whenever appropriate.**
 
 **Important Guidelines:**
+- Use the Topic Taxonomy to suggest views that analyze calls by topic distribution
+- Use the Insight Categories to suggest views that track key business metrics being monitored
+- Use the Evaluation Rules to suggest compliance tracking views
 - Choose chart types that match the data: bar for categories, line for trends, pie for proportions
 - Create a mix of different view types for comprehensive analysis
 - Use meaningful combinations that answer business questions
