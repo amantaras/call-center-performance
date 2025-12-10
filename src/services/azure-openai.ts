@@ -23,10 +23,15 @@ export function getActiveEvaluationCriteria(): EvaluationCriterion[] {
  * Falls back to global custom criteria, then default criteria
  */
 export function getEvaluationCriteriaForSchema(schemaId: string): EvaluationCriterion[] {
+  console.log(`🔍 getEvaluationCriteriaForSchema called with schemaId: "${schemaId}"`);
+  
   // Try to load schema-specific rules first
   const schemaRules = loadRulesForSchema(schemaId);
+  console.log(`🔍 loadRulesForSchema returned:`, schemaRules ? `${schemaRules.length} rules` : 'null');
+  
   if (schemaRules && schemaRules.length > 0) {
-    console.log(`📋 Using ${schemaRules.length} rules for schema: ${schemaId}`);
+    console.log(`📋 Using ${schemaRules.length} schema-specific rules for: ${schemaId}`);
+    console.log(`📋 Rule names: ${schemaRules.map(r => r.name).join(', ')}`);
     return schemaRules.map(rule => ({
       id: rule.id,
       type: rule.type,
@@ -39,8 +44,10 @@ export function getEvaluationCriteriaForSchema(schemaId: string): EvaluationCrit
   }
   
   // Fall back to global custom criteria or defaults
-  console.log(`📋 No rules for schema ${schemaId}, using global criteria`);
-  return CUSTOM_EVALUATION_CRITERIA || EVALUATION_CRITERIA;
+  const fallbackRules = CUSTOM_EVALUATION_CRITERIA || EVALUATION_CRITERIA;
+  console.log(`⚠️ No rules for schema ${schemaId}, using ${CUSTOM_EVALUATION_CRITERIA ? 'global custom' : 'default'} criteria (${fallbackRules.length} rules)`);
+  console.log(`⚠️ Fallback rule names: ${fallbackRules.map(r => r.name).join(', ')}`);
+  return fallbackRules;
 }
 
 /**
@@ -127,8 +134,12 @@ export class AzureOpenAIService {
     metadata: Record<string, any>,
     schema: SchemaDefinition
   ): Promise<string> {
+    console.log(`📝 buildEvaluationPrompt for schema: "${schema.name}" (id: ${schema.id})`);
+    
     // Get criteria specific to this schema
     const activeCriteria = getEvaluationCriteriaForSchema(schema.id);
+    console.log(`📝 Using ${activeCriteria.length} criteria for evaluation`);
+    
     const criteriaText = activeCriteria.map((criterion) => {
       return `${criterion.id}. ${criterion.name} [${criterion.type}]
    Definition: ${criterion.definition}

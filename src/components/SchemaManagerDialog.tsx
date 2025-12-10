@@ -69,6 +69,7 @@ import { TopicTaxonomyWizard } from '@/components/TopicTaxonomyWizard';
 import { SchemaTemplateSelector } from '@/components/SchemaTemplateSelector';
 import { AISchemaEnhancer } from '@/components/AISchemaEnhancer';
 import { SyntheticMetadataWizard } from '@/components/SyntheticMetadataWizard';
+import { InsightCategoriesManager } from '@/components/InsightCategoriesManager';
 import { SchemaTemplate, saveCustomTemplate, hasTemplateUpdate, getTemplateById } from '@/lib/schema-templates';
 import { SchemaEvaluationRule } from '@/types/schema';
 
