@@ -177,13 +177,16 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
     // Get batch settings from config
     const azureConfig = loadAzureConfigFromCookie();
     const parallelBatches = azureConfig?.syntheticData?.parallelBatches ?? 3;
+    const totalBatchGroups = Math.ceil(callsToEvaluate.length / parallelBatches);
+
+    console.log(`📊 Evaluation batch settings: ${parallelBatches} parallel, ${callsToEvaluate.length} calls, ${totalBatchGroups} batch groups`);
 
     // Mark all calls as evaluating
     const callIdsToEvaluate = new Set(callsToEvaluate.map(c => c.id));
     setEvaluatingIds(callIdsToEvaluate);
 
     const startTime = Date.now();
-    toast.info(`🚀 Starting parallel evaluation for ${callsToEvaluate.length} call(s) with ${parallelBatches} parallel batches...`);
+    toast.info(`🚀 Starting evaluation: ${callsToEvaluate.length} calls in ${totalBatchGroups} batch group(s) (${parallelBatches} parallel)`);
 
     // Set up progress tracking
     setBatchProgress({ completed: 0, total: callsToEvaluate.length });
@@ -195,9 +198,14 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
     // Process in parallel batches
     for (let i = 0; i < callsToEvaluate.length; i += parallelBatches) {
       const batch = callsToEvaluate.slice(i, i + parallelBatches);
+      const batchGroupNum = Math.floor(i / parallelBatches) + 1;
       
-      // Process batch in parallel
+      console.log(`🔄 Starting batch group ${batchGroupNum}/${totalBatchGroups} with ${batch.length} parallel calls`);
+      toast.info(`Processing batch ${batchGroupNum}/${totalBatchGroups} (${batch.length} parallel calls)...`);
+      
+      // Process batch in parallel - all calls in this batch start simultaneously
       const batchPromises = batch.map(async (call) => {
+        console.log(`  ▶️ Starting evaluation for call ${call.id}`);
         try {
           const evaluation = await azureOpenAIService.evaluateCall(
             call.transcript!,
@@ -216,10 +224,11 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
           // Update the call immediately
           onUpdateCalls((prev) => (prev || []).map((c) => (c.id === call.id ? updatedCall : c)));
           
+          console.log(`  ✅ Completed evaluation for call ${call.id}: ${evaluation.percentage}%`);
           successCount++;
           return { success: true, call: updatedCall };
         } catch (error) {
-          console.error(`Evaluation error for ${call.id}:`, error);
+          console.error(`  ❌ Evaluation error for ${call.id}:`, error);
           failCount++;
           return { success: false, callId: call.id, error };
         } finally {
@@ -236,7 +245,9 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
       });
 
       // Wait for this batch to complete before starting the next
+      console.log(`⏳ Waiting for batch group ${batchGroupNum} to complete...`);
       await Promise.all(batchPromises);
+      console.log(`✅ Batch group ${batchGroupNum} completed`);
     }
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
