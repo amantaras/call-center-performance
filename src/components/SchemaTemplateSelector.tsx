@@ -111,16 +111,16 @@ export function SchemaTemplateSelector({
       }`}
       onClick={onClick}
     >
-      <div className={`p-1.5 rounded ${isSelected ? 'bg-primary/20' : 'bg-muted'}`}>
+      <div className={`p-1.5 rounded shrink-0 ${isSelected ? 'bg-primary/20' : 'bg-muted'}`}>
         {getTemplateIcon(template)}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span>{template.icon}</span>
-          <span className="font-medium text-sm truncate">{template.name}</span>
+          <span className="font-medium text-sm">{template.name}</span>
           <span className="text-[10px] text-muted-foreground">v{template.version}</span>
         </div>
-        <p className="text-[11px] text-muted-foreground truncate">{template.description}</p>
+        <p className="text-[11px] text-muted-foreground">{template.description}</p>
       </div>
       {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
     </div>
@@ -210,7 +210,7 @@ export function SchemaTemplateSelector({
   return (
     <div className="flex gap-3 h-[380px]">
       {/* Left: Template List */}
-      <div className="w-[260px] shrink-0 flex flex-col">
+      <div className="w-[320px] shrink-0 flex flex-col">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'builtin' | 'custom')} className="flex-1 flex flex-col">
           <TabsList className="w-full h-7 mb-2">
             <TabsTrigger value="builtin" className="flex-1 text-[10px] h-6">Industry Templates</TabsTrigger>

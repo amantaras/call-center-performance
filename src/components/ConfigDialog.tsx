@@ -134,6 +134,10 @@ export function ConfigDialog() {
         ...localConfig.speech,
         selectedLanguages: sanitizedLanguages,
       },
+      syntheticData: {
+        parallelBatches: localConfig.syntheticData?.parallelBatches ?? 3,
+        recordsPerBatch: localConfig.syntheticData?.recordsPerBatch ?? 5,
+      },
     };
 
     console.log('💾 ConfigDialog saving config with reasoningEffort:', configToPersist.openAI.reasoningEffort);
