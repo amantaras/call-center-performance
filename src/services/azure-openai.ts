@@ -146,6 +146,7 @@ export class AzureOpenAIService {
     // Get criteria specific to this schema
     const activeCriteria = getEvaluationCriteriaForSchema(schema.id);
     console.log(`📝 Using ${activeCriteria.length} criteria for evaluation`);
+    console.log(`📝 Criteria scores for this eval:`, activeCriteria.map(c => `${c.name}: ${c.scoringStandard.passed}pts`).join(', '));
     
     const criteriaText = activeCriteria.map((criterion) => {
       return `${criterion.id}. ${criterion.name} [${criterion.type}]

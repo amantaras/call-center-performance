@@ -272,24 +272,6 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
             <TabsTrigger value="improvement">Improvement</TabsTrigger>
           </TabsList>
 
-          <Button
-            onClick={() => setShowRegenerationDialog(true)}
-            disabled={isRegenerating || evaluatedCalls.length === 0}
-            variant="outline"
-            className="ml-4"
-          >
-            {isRegenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Regenerating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Regenerate Insights
-              </>
-            )}
-          </Button>
         </div>
 
         {/* Overview Tab */}

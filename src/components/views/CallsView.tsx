@@ -129,6 +129,7 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
     toast.info(`Starting evaluation for ${call.metadata.borrowerName}...`);
 
     try {
+      console.log(`🔄 Re-evaluating call ${call.id} with schema: ${activeSchema?.id || 'NO SCHEMA'}`);
       const evaluation = await azureOpenAIService.evaluateCall(
         call.transcript,
         call.metadata,
@@ -159,9 +160,9 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
   };
 
   const handleEvaluateSelected = async () => {
-    // Filter for selected calls that have transcripts but aren't yet evaluated
+    // Filter for selected calls that have transcripts (allow re-evaluation of already evaluated calls)
     const callsToEvaluate = (calls || []).filter(
-      (call) => selectedCallIds.has(call.id) && call.transcript && call.status !== 'evaluated'
+      (call) => selectedCallIds.has(call.id) && call.transcript
     );
 
     if (callsToEvaluate.length === 0) {
