@@ -23,9 +23,16 @@ export function executeFormula(
   }
 
   try {
+    // Normalize the formula - if it doesn't have a return statement, wrap it
+    let normalizedFormula = formula.trim();
+    if (!normalizedFormula.includes('return ')) {
+      // It's an expression, wrap it with return
+      normalizedFormula = `return (${normalizedFormula});`;
+    }
+    
     // Create a safe function with only Math and metadata access
     // Using Function constructor is safer than eval as it doesn't have access to local scope
-    const func = new Function('metadata', 'Math', formula);
+    const func = new Function('metadata', 'Math', normalizedFormula);
     
     // Execute with whitelisted Math object
     const result = func(metadata, Math);
