@@ -15,9 +15,8 @@ import { Progress } from '@/components/ui/progress';
 import { CallRecord } from '@/types/call';
 import { SchemaDefinition } from '@/types/schema';
 import { AzureServicesConfig } from '@/types/config';
-import { azureOpenAIService, getActiveEvaluationCriteria } from '@/services/azure-openai';
+import { azureOpenAIService, getActiveEvaluationCriteria, getEvaluationCriteriaForSchema } from '@/services/azure-openai';
 import { STTCaller } from '../STTCaller';
-import { getCriterionById } from '@/lib/evaluation-criteria';
 import { DynamicDetailView, DynamicDetailSummary } from '@/components/DynamicDetailView';
 import { toast } from 'sonner';
 import { CheckCircle, XCircle, MinusCircle, Sparkle, Microphone } from '@phosphor-icons/react';
@@ -25,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
 import { CallSentimentPlayer } from '@/components/call-player/CallSentimentPlayer';
 import { TranscriptConversation } from '@/components/TranscriptConversation';
+import { DynamicInsightGrid } from '@/components/DynamicInsightCard';
 import { DEFAULT_CALL_CENTER_LANGUAGES } from '@/lib/speech-languages';
 
 interface CallDetailDialogProps {
@@ -454,7 +454,7 @@ export function CallDetailDialog({
                   <div>
                     <h3 className="text-lg font-semibold">Ready to Evaluate</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Use AI to evaluate this call against {getActiveEvaluationCriteria().length} quality criteria
+                      Use AI to evaluate this call against {getEvaluationCriteriaForSchema(schema.id).length} quality criteria
                     </p>
                   </div>
                   <Button onClick={handleEvaluate} disabled={evaluating}>
@@ -477,8 +477,21 @@ export function CallDetailDialog({
 
                 <div className="space-y-3">
                   {call.evaluation.results.map((result) => {
-                    const criterion = getCriterionById(result.criterionId);
-                    if (!criterion) return null;
+                    // Get criteria for this call's schema
+                    const schemaCriteria = getEvaluationCriteriaForSchema(schema.id);
+                    
+                    // The AI returns criterionId as 1-based sequential numbers (1, 2, 3...)
+                    // but the actual IDs in storage are like "rule_1765352460817_0" (0-based suffix)
+                    // So we match by index position: criterionId 1 -> index 0, criterionId 2 -> index 1, etc.
+                    const criterionIndex = typeof result.criterionId === 'number' 
+                      ? result.criterionId - 1 
+                      : parseInt(String(result.criterionId), 10) - 1;
+                    const criterion = schemaCriteria[criterionIndex] || schemaCriteria.find(c => c.id === result.criterionId);
+                    
+                    // Show fallback if criterion not found
+                    const criterionName = criterion?.name || `Criterion #${result.criterionId}`;
+                    const criterionType = criterion?.type || 'Unknown';
+                    const maxScore = criterion?.scoringStandard?.passed || 10;
 
                     return (
                       <Card key={result.criterionId}>
@@ -508,9 +521,9 @@ export function CallDetailDialog({
                             <div className="flex-1 space-y-2">
                               <div className="flex items-start justify-between">
                                 <div>
-                                  <h4 className="font-semibold">{criterion.name}</h4>
+                                  <h4 className="font-semibold">{criterionName}</h4>
                                   <p className="text-xs text-muted-foreground mt-0.5">
-                                    {criterion.type}
+                                    {criterionType}
                                   </p>
                                 </div>
                                 <Badge
@@ -520,7 +533,7 @@ export function CallDetailDialog({
                                 </Badge>
                               </div>
                               <Progress
-                                value={(result.score / criterion.scoringStandard.passed) * 100}
+                                value={(result.score / maxScore) * 100}
                                 className="h-2"
                               />
                               <div className="text-sm">
@@ -549,7 +562,8 @@ export function CallDetailDialog({
           </TabsContent>
 
           <TabsContent value="insights" className="space-y-4">
-            {!call.evaluation?.productInsight && !call.evaluation?.riskInsight ? (
+            {/* Check if we have any insights (either schema-driven or legacy) */}
+            {!call.evaluation?.productInsight && !call.evaluation?.riskInsight && !call.evaluation?.schemaInsights ? (
               <Card className="p-8 text-center">
                 <div className="space-y-4">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-accent/20">
@@ -566,8 +580,20 @@ export function CallDetailDialog({
             ) : (
               <ScrollArea className="h-[500px]">
                 <div className="pr-4 space-y-3">
+                  {/* Dynamic Schema-Driven Insights */}
+                  {schema.insightCategories && schema.insightCategories.length > 0 && call.evaluation?.schemaInsights && (
+                    <DynamicInsightGrid
+                      categories={schema.insightCategories}
+                      insightData={call.evaluation.schemaInsights}
+                    />
+                  )}
+
+                  {/* Legacy Insights (for backward compatibility with existing data) */}
+                  {/* Only show legacy insights when schema has NO dynamic insight categories */}
+                  {(!schema.insightCategories || schema.insightCategories.length === 0) && (
+                    <>
                   {/* Risk Insight - Compact View */}
-                  {call.evaluation.riskInsight && (
+                  {call.evaluation?.riskInsight && (
                     <Card>
                       <CardHeader className="pb-3">
                         <CardTitle className="flex items-center justify-between text-base">
@@ -788,6 +814,8 @@ export function CallDetailDialog({
                       </Card>
                     )}
                   </div>
+                    </>
+                  )}
                 </div>
               </ScrollArea>
             )}

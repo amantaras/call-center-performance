@@ -1,6 +1,7 @@
 import { CallMetadata, CallEvaluation, EvaluationResult, EvaluationCriterion, TranscriptPhrase, CallSentimentSegment, SentimentLabel, ProductInsight, RiskInsight, NationalityInsight, OutcomeInsight, BorrowerInsight, RiskTier, CategorizedOutcome, CallRecord, TopicInsight, TopicsAndPhrasesInsight } from '@/types/call';
-import { SchemaDefinition, TopicDefinition } from '@/types/schema';
+import { SchemaDefinition, TopicDefinition, SchemaEvaluationRule } from '@/types/schema';
 import { EVALUATION_CRITERIA, getMaxScore } from '@/lib/evaluation-criteria';
+import { loadRulesForSchema } from '@/services/rules-generator';
 import type { AzureOpenAIConfig } from '@/configManager';
 import { LLMCaller, ChatMessage, LLMCallOptions } from '../llmCaller';
 import { preparePrompt } from '@/lib/prompt-loader';
@@ -14,6 +15,46 @@ export function setCustomEvaluationCriteria(criteria: EvaluationCriterion[] | nu
 
 export function getActiveEvaluationCriteria(): EvaluationCriterion[] {
   return CUSTOM_EVALUATION_CRITERIA || EVALUATION_CRITERIA;
+}
+
+/**
+ * Get evaluation criteria for a specific schema
+ * This loads rules directly from localStorage for the given schema ID
+ * Falls back to global custom criteria, then default criteria
+ */
+export function getEvaluationCriteriaForSchema(schemaId: string): EvaluationCriterion[] {
+  console.log(`🔍 getEvaluationCriteriaForSchema called with schemaId: "${schemaId}"`);
+  
+  // Debug: List all evaluation-criteria keys in localStorage
+  const allKeys = Object.keys(localStorage).filter(k => k.startsWith('evaluation-criteria'));
+  console.log(`🔍 All evaluation-criteria keys in localStorage:`, allKeys);
+  
+  // Try to load schema-specific rules first
+  const expectedKey = `evaluation-criteria-${schemaId}`;
+  console.log(`🔍 Looking for key: "${expectedKey}"`);
+  
+  const schemaRules = loadRulesForSchema(schemaId);
+  console.log(`🔍 loadRulesForSchema returned:`, schemaRules ? `${schemaRules.length} rules` : 'null');
+  
+  if (schemaRules && schemaRules.length > 0) {
+    console.log(`📋 Using ${schemaRules.length} schema-specific rules for: ${schemaId}`);
+    console.log(`📋 Rule names: ${schemaRules.map(r => r.name).join(', ')}`);
+    return schemaRules.map(rule => ({
+      id: rule.id,
+      type: rule.type,
+      name: rule.name,
+      definition: rule.definition,
+      evaluationCriteria: rule.evaluationCriteria,
+      scoringStandard: rule.scoringStandard,
+      examples: rule.examples
+    }));
+  }
+  
+  // Fall back to global custom criteria or defaults
+  const fallbackRules = CUSTOM_EVALUATION_CRITERIA || EVALUATION_CRITERIA;
+  console.log(`⚠️ No rules for schema ${schemaId}, using ${CUSTOM_EVALUATION_CRITERIA ? 'global custom' : 'DEFAULT HARDCODED'} criteria (${fallbackRules.length} rules)`);
+  console.log(`⚠️ Fallback rule names: ${fallbackRules.map(r => r.name).join(', ')}`);
+  return fallbackRules;
 }
 
 /**
@@ -100,7 +141,12 @@ export class AzureOpenAIService {
     metadata: Record<string, any>,
     schema: SchemaDefinition
   ): Promise<string> {
-    const activeCriteria = getActiveEvaluationCriteria();
+    console.log(`📝 buildEvaluationPrompt for schema: "${schema.name}" (id: ${schema.id})`);
+    
+    // Get criteria specific to this schema
+    const activeCriteria = getEvaluationCriteriaForSchema(schema.id);
+    console.log(`📝 Using ${activeCriteria.length} criteria for evaluation`);
+    
     const criteriaText = activeCriteria.map((criterion) => {
       return `${criterion.id}. ${criterion.name} [${criterion.type}]
    Definition: ${criterion.definition}
@@ -127,6 +173,25 @@ export class AzureOpenAIService {
     // Build topic taxonomy section if available
     const topicTaxonomySection = this.buildTopicTaxonomySection(schema.topicTaxonomy);
 
+    // Check if schema has custom insight categories - if so, use schema-driven prompt
+    const hasCustomInsights = schema.insightCategories && schema.insightCategories.length > 0;
+    
+    if (hasCustomInsights) {
+      console.log(`📝 Using schema-driven insights (${schema.insightCategories!.length} categories)`);
+      return this.buildSchemaBasedEvaluationPrompt(
+        transcript,
+        metadata,
+        schema,
+        activeCriteria,
+        criteriaText,
+        metadataFields,
+        businessContextSection,
+        topicTaxonomySection
+      );
+    }
+
+    // Fall back to legacy prompt for backward compatibility
+    console.log(`📝 Using legacy debt-collection insights (no custom categories)`);
     return await preparePrompt('call-evaluation', {
       schemaName: schema.name,
       criteriaCount: activeCriteria.length.toString(),
@@ -141,6 +206,127 @@ export class AzureOpenAIService {
       nationality: metadata.nationality || 'N/A',
       followUpStatus: metadata.followUpStatus || 'N/A'
     });
+  }
+
+  /**
+   * Build a schema-driven evaluation prompt with custom insight categories
+   */
+  private buildSchemaBasedEvaluationPrompt(
+    transcript: string,
+    metadata: Record<string, any>,
+    schema: SchemaDefinition,
+    activeCriteria: EvaluationCriterion[],
+    criteriaText: string,
+    metadataFields: string,
+    businessContextSection: string,
+    topicTaxonomySection: string
+  ): string {
+    // Build insight categories section
+    const insightInstructions = schema.insightCategories!.filter(c => c.enabled).map((category, idx) => {
+      const outputFieldsDescription = category.outputFields.map(field => {
+        let typeDesc: string = field.type;
+        if (field.type === 'enum' && field.enumValues) {
+          typeDesc = `one of: ${field.enumValues.map(v => `"${v}"`).join(', ')}`;
+        }
+        return `     - ${field.id} (${typeDesc}): ${field.description}`;
+      }).join('\n');
+
+      return `${idx + 1}. ${category.name.toUpperCase()} (${category.icon}):
+   ${category.description}
+   Instructions: ${category.promptInstructions}
+   Output fields:
+${outputFieldsDescription}`;
+    }).join('\n\n');
+
+    // Build insight JSON structure
+    const insightJsonStructure = schema.insightCategories!.filter(c => c.enabled).reduce((acc, category) => {
+      const fields: Record<string, string> = {};
+      category.outputFields.forEach(field => {
+        if (field.type === 'string' || field.type === 'text') {
+          fields[field.id] = 'string value';
+        } else if (field.type === 'number') {
+          fields[field.id] = '0-100';
+        } else if (field.type === 'boolean') {
+          fields[field.id] = 'true | false';
+        } else if (field.type === 'enum' && field.enumValues) {
+          fields[field.id] = field.enumValues.map(v => `"${v}"`).join(' | ');
+        } else if (field.type === 'tags') {
+          fields[field.id] = '["tag1", "tag2"]';
+        }
+      });
+      acc[category.id] = fields;
+      return acc;
+    }, {} as Record<string, Record<string, string>>);
+
+    const insightJsonExample = JSON.stringify(insightJsonStructure, null, 2)
+      .replace(/"string value"/g, '"your analysis here"')
+      .replace(/"0-100"/g, '75')
+      .replace(/"true \| false"/g, 'true')
+      .replace(/"\[.*?\]"/g, '["item1", "item2"]');
+
+    return `You are an expert call center quality assurance evaluator for: ${schema.name}.
+
+Analyze the following call transcript and evaluate it against the ${activeCriteria.length} quality criteria below. Additionally, generate detailed analytical insights for business intelligence.${businessContextSection}
+
+**IMPORTANT: You MUST provide ALL responses, insights, analysis, reasoning, feedback, and recommendations in ENGLISH language only, regardless of the language used in the transcript.**
+
+CALL METADATA:
+${metadataFields}
+
+TRANSCRIPT:
+${transcript}
+
+EVALUATION CRITERIA:
+${criteriaText}
+${topicTaxonomySection}
+For each criterion, provide:
+1. criterionId (number 1-${activeCriteria.length})
+2. score (exactly 0, 5, or 10 based on the scoring standard)
+3. passed (true if score >= 10, false otherwise)
+4. evidence (exact quote from transcript if found, or "Not found" if missing)
+5. reasoning (brief explanation IN ENGLISH of why this score was given)
+
+Also provide an overallFeedback string (2-3 sentences IN ENGLISH) highlighting key strengths and areas for improvement.
+
+IMPORTANT: Additionally, generate detailed analytical insights IN ENGLISH based on the call metadata and transcript.
+
+CUSTOM INSIGHT CATEGORIES FOR THIS SCHEMA:
+${insightInstructions}
+
+6. TOPICS AND KEY PHRASES INSIGHT:
+   - Classify the call into the most relevant topic(s) from the Topic Taxonomy provided (if available)
+   - For each matched topic, provide a confidence score (0-1) and assess the sentiment within that topic context
+   - Extract 5-10 significant key phrases from the transcript that capture the main discussion points
+
+Return your evaluation and insights as a valid JSON object with this exact structure:
+{
+  "results": [
+    {
+      "criterionId": 1,
+      "score": 10,
+      "passed": true,
+      "evidence": "exact quote from transcript or description",
+      "reasoning": "brief explanation"
+    }
+  ],
+  "overallFeedback": "2-3 sentence summary",
+  "insights": {
+    "schemaInsights": ${insightJsonExample},
+    "topicsAndPhrases": {
+      "topics": [
+        {
+          "topicId": "topic-id-from-taxonomy",
+          "topicName": "Topic Display Name",
+          "confidence": 0.85,
+          "sentiment": "positive" | "negative" | "neutral"
+        }
+      ],
+      "keyPhrases": ["key phrase 1", "key phrase 2", "important term"]
+    }
+  }
+}
+
+Be thorough, fair, and specific in your evaluation. Quote exact phrases when possible. Provide detailed, actionable insights IN ENGLISH LANGUAGE ONLY for all insight categories.`;
   }
 
   /**
@@ -214,12 +400,18 @@ ${topicsText}
     ];
 
     try {
+      // Check if schema has custom insight categories
+      const hasCustomInsights = schema.insightCategories && schema.insightCategories.length > 0;
+      
       // Use LLMCaller's JSON validation with retry logic
       // Do NOT use structuredOutputSchema - Azure Responses API doesn't support it the same way
       const response = await this.llmCaller.callWithJsonValidation<{
         results: EvaluationResult[];
         overallFeedback: string;
         insights?: {
+          // Schema-driven insights (new approach)
+          schemaInsights?: Record<string, Record<string, any>>;
+          // Legacy debt-collection specific insights (backward compatibility)
           product?: {
             productType: string;
             performanceFactors: string[];
@@ -271,8 +463,8 @@ ${topicsText}
         throw new Error('Invalid response format from AI - missing results array');
       }
 
-      // Calculate totals using active criteria
-      const activeCriteria = getActiveEvaluationCriteria();
+      // Calculate totals using criteria specific to this schema
+      const activeCriteria = getEvaluationCriteriaForSchema(schema.id);
 
       if (parsed.results.length !== activeCriteria.length) {
         console.warn(`⚠ Expected ${activeCriteria.length} results, got ${parsed.results.length}`);
@@ -295,68 +487,80 @@ ${topicsText}
       let outcomeInsight: OutcomeInsight | undefined;
       let borrowerInsight: BorrowerInsight | undefined;
       let topicsInsight: TopicsAndPhrasesInsight | undefined;
+      let schemaInsights: Record<string, Record<string, any>> | undefined;
 
       if (parsed.insights) {
-        // Product insight
-        if (parsed.insights.product) {
-          productInsight = {
-            productType: parsed.insights.product.productType || metadata.product,
-            performanceFactors: Array.isArray(parsed.insights.product.performanceFactors)
-              ? parsed.insights.product.performanceFactors
-              : [],
-            recommendedApproach: parsed.insights.product.recommendedApproach || '',
-          };
-        }
+        // Check if schema has custom insight categories - use schema-driven insights
+        if (hasCustomInsights && parsed.insights.schemaInsights) {
+          console.log('📊 Parsing schema-driven insights');
+          schemaInsights = parsed.insights.schemaInsights;
+          console.log(`✓ Schema insights categories: ${Object.keys(schemaInsights).join(', ')}`);
+        } 
+        // Only parse legacy insights if schema does NOT have custom insight categories
+        else if (!hasCustomInsights) {
+          console.log('📊 Parsing legacy debt-collection insights');
+          
+          // Product insight
+          if (parsed.insights.product) {
+            productInsight = {
+              productType: parsed.insights.product.productType || metadata.product,
+              performanceFactors: Array.isArray(parsed.insights.product.performanceFactors)
+                ? parsed.insights.product.performanceFactors
+                : [],
+              recommendedApproach: parsed.insights.product.recommendedApproach || '',
+            };
+          }
 
-        // Risk insight
-        if (parsed.insights.risk) {
-          const riskTierValue = parsed.insights.risk.riskTier as RiskTier;
-          riskInsight = {
-            riskTier: ['Low', 'Medium', 'High', 'Critical'].includes(riskTierValue)
-              ? riskTierValue
-              : this.calculateRiskTier(metadata.daysPastDue),
-            riskScore: Math.min(100, Math.max(0, parsed.insights.risk.riskScore || 0)),
-            paymentProbability: Math.min(100, Math.max(0, parsed.insights.risk.paymentProbability || 0)),
-            escalationRecommended: parsed.insights.risk.escalationRecommended === true,
-            detailedAnalysis: parsed.insights.risk.detailedAnalysis || '',
-          };
-        }
+          // Risk insight
+          if (parsed.insights.risk) {
+            const riskTierValue = parsed.insights.risk.riskTier as RiskTier;
+            riskInsight = {
+              riskTier: ['Low', 'Medium', 'High', 'Critical'].includes(riskTierValue)
+                ? riskTierValue
+                : this.calculateRiskTier(metadata.daysPastDue),
+              riskScore: Math.min(100, Math.max(0, parsed.insights.risk.riskScore || 0)),
+              paymentProbability: Math.min(100, Math.max(0, parsed.insights.risk.paymentProbability || 0)),
+              escalationRecommended: parsed.insights.risk.escalationRecommended === true,
+              detailedAnalysis: parsed.insights.risk.detailedAnalysis || '',
+            };
+          }
 
-        // Nationality insight
-        if (parsed.insights.nationality) {
-          nationalityInsight = {
-            culturalFactors: Array.isArray(parsed.insights.nationality.culturalFactors)
-              ? parsed.insights.nationality.culturalFactors
-              : [],
-            languageEffectiveness: parsed.insights.nationality.languageEffectiveness || '',
-            recommendedAdjustments: parsed.insights.nationality.recommendedAdjustments || '',
-          };
-        }
+          // Nationality insight
+          if (parsed.insights.nationality) {
+            nationalityInsight = {
+              culturalFactors: Array.isArray(parsed.insights.nationality.culturalFactors)
+                ? parsed.insights.nationality.culturalFactors
+                : [],
+              languageEffectiveness: parsed.insights.nationality.languageEffectiveness || '',
+              recommendedAdjustments: parsed.insights.nationality.recommendedAdjustments || '',
+            };
+          }
 
-        // Outcome insight
-        if (parsed.insights.outcome) {
-          const outcomeValue = parsed.insights.outcome.categorizedOutcome as CategorizedOutcome;
-          outcomeInsight = {
-            categorizedOutcome: ['success', 'promise-to-pay', 'refused', 'no-contact', 'callback-needed', 'other'].includes(outcomeValue)
-              ? outcomeValue
-              : 'other',
-            successProbability: Math.min(100, Math.max(0, parsed.insights.outcome.successProbability || 0)),
-            keyFactors: Array.isArray(parsed.insights.outcome.keyFactors)
-              ? parsed.insights.outcome.keyFactors
-              : [],
-            reasoning: parsed.insights.outcome.reasoning || '',
-          };
-        }
+          // Outcome insight
+          if (parsed.insights.outcome) {
+            const outcomeValue = parsed.insights.outcome.categorizedOutcome as CategorizedOutcome;
+            outcomeInsight = {
+              categorizedOutcome: ['success', 'promise-to-pay', 'refused', 'no-contact', 'callback-needed', 'other'].includes(outcomeValue)
+                ? outcomeValue
+                : 'other',
+              successProbability: Math.min(100, Math.max(0, parsed.insights.outcome.successProbability || 0)),
+              keyFactors: Array.isArray(parsed.insights.outcome.keyFactors)
+                ? parsed.insights.outcome.keyFactors
+                : [],
+              reasoning: parsed.insights.outcome.reasoning || '',
+            };
+          }
 
-        // Borrower insight
-        if (parsed.insights.borrower) {
-          borrowerInsight = {
-            interactionQuality: parsed.insights.borrower.interactionQuality || 'fair',
-            relationshipIndicators: Array.isArray(parsed.insights.borrower.relationshipIndicators)
-              ? parsed.insights.borrower.relationshipIndicators
-              : [],
-            futureStrategy: parsed.insights.borrower.futureStrategy || '',
-          };
+          // Borrower insight
+          if (parsed.insights.borrower) {
+            borrowerInsight = {
+              interactionQuality: parsed.insights.borrower.interactionQuality || 'fair',
+              relationshipIndicators: Array.isArray(parsed.insights.borrower.relationshipIndicators)
+                ? parsed.insights.borrower.relationshipIndicators
+                : [],
+              futureStrategy: parsed.insights.borrower.futureStrategy || '',
+            };
+          }
         }
 
         // Topics and key phrases insight
@@ -404,10 +608,12 @@ ${topicsText}
         outcomeInsight,
         borrowerInsight,
         topicsInsight,
+        schemaInsights,  // Add schema-driven insights
       };
 
       console.log(`✓ Evaluation complete: ${percentage}% (${totalScore}/${maxScore} points)`);
       console.log(`📊 topicsInsight included: ${!!topicsInsight}, keyPhrases count: ${topicsInsight?.keyPhrases?.length || 0}`);
+      console.log(`📊 schemaInsights included: ${!!schemaInsights}`);
       
       return evaluation;
     } catch (error) {
@@ -834,7 +1040,8 @@ ${topicsText}
    */
   async generateSyntheticTranscription(
     callMetadata: Record<string, any>,
-    schema: SchemaDefinition
+    schema: SchemaDefinition,
+    customInstructions?: string
   ): Promise<{
     transcript: string;
     phrases: TranscriptPhrase[];
@@ -888,6 +1095,10 @@ Participants:
 
 Call Metadata:
 ${relevantFields}
+${customInstructions ? `
+Additional Instructions:
+${customInstructions}
+` : ''}
 
 Generate a JSON object with:
 {

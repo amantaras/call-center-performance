@@ -1,14 +1,18 @@
 import { CriteriaAnalytics } from '@/types/call';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getCriterionById } from '@/lib/evaluation-criteria';
+import { getEvaluationCriteriaForSchema } from '@/services/azure-openai';
 
 interface CriteriaAnalyticsChartProps {
   analytics: CriteriaAnalytics[];
+  schemaId?: string;
 }
 
-export function CriteriaAnalyticsChart({ analytics }: CriteriaAnalyticsChartProps) {
+export function CriteriaAnalyticsChart({ analytics, schemaId }: CriteriaAnalyticsChartProps) {
+  // Get schema-specific criteria or fall back to defaults
+  const criteria = schemaId ? getEvaluationCriteriaForSchema(schemaId) : [];
+  
   const data = analytics.map((item) => {
-    const criterion = getCriterionById(item.criterionId);
+    const criterion = criteria.find(c => c.id === item.criterionId);
     return {
       name: `#${item.criterionId}`,
       passRate: item.passRate,

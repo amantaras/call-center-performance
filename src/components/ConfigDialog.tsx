@@ -41,6 +41,10 @@ export function ConfigDialog() {
       minSpeakers: 1,
       maxSpeakers: 2,
     },
+    syntheticData: {
+      parallelBatches: 3,
+      recordsPerBatch: 5,
+    },
   });
 
   const [open, setOpen] = useState(false);
@@ -61,6 +65,10 @@ export function ConfigDialog() {
         diarizationEnabled: false,
         minSpeakers: 1,
         maxSpeakers: 2,
+      },
+      syntheticData: {
+        parallelBatches: 3,
+        recordsPerBatch: 5,
       },
     }
   );
@@ -126,6 +134,10 @@ export function ConfigDialog() {
         ...localConfig.speech,
         selectedLanguages: sanitizedLanguages,
       },
+      syntheticData: {
+        parallelBatches: localConfig.syntheticData?.parallelBatches ?? 3,
+        recordsPerBatch: localConfig.syntheticData?.recordsPerBatch ?? 5,
+      },
     };
 
     console.log('💾 ConfigDialog saving config with reasoningEffort:', configToPersist.openAI.reasoningEffort);
@@ -163,12 +175,12 @@ export function ConfigDialog() {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <GearSix className="mr-2" size={18} />
-          Azure Services
+          Configuration
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Azure Services Configuration</DialogTitle>
+          <DialogTitle>Configuration</DialogTitle>
           <DialogDescription>
             Configure Azure OpenAI and Azure Speech services for call transcription and
             evaluation.
@@ -392,6 +404,72 @@ export function ConfigDialog() {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border my-4" />
+
+          {/* Synthetic Data Generation Section */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3">Synthetic Data Generation</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Configure parallel processing for faster synthetic data generation.
+            </p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="parallel-batches">Parallel Batches</Label>
+                  <Input
+                    id="parallel-batches"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={localConfig.syntheticData?.parallelBatches ?? 3}
+                    onChange={(e) =>
+                      setLocalConfig((prev) => ({
+                        ...prev,
+                        syntheticData: {
+                          ...prev.syntheticData,
+                          parallelBatches: Math.max(1, Math.min(10, parseInt(e.target.value) || 3)),
+                          recordsPerBatch: prev.syntheticData?.recordsPerBatch ?? 5,
+                        },
+                      }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Concurrent API calls (1-10)
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="records-per-batch">Records per Batch</Label>
+                  <Input
+                    id="records-per-batch"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={localConfig.syntheticData?.recordsPerBatch ?? 5}
+                    onChange={(e) =>
+                      setLocalConfig((prev) => ({
+                        ...prev,
+                        syntheticData: {
+                          ...prev.syntheticData,
+                          parallelBatches: prev.syntheticData?.parallelBatches ?? 3,
+                          recordsPerBatch: Math.max(1, Math.min(10, parseInt(e.target.value) || 5)),
+                        },
+                      }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Records per API call (1-10)
+                  </p>
+                </div>
+              </div>
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <p className="text-xs text-muted-foreground">
+                  <strong>Example:</strong> With {localConfig.syntheticData?.parallelBatches ?? 3} parallel batches × {localConfig.syntheticData?.recordsPerBatch ?? 5} records each = {(localConfig.syntheticData?.parallelBatches ?? 3) * (localConfig.syntheticData?.recordsPerBatch ?? 5)} records generated simultaneously.
+                  Higher values speed up generation but may increase API rate limiting.
+                </p>
               </div>
             </div>
           </div>

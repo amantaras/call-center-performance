@@ -123,14 +123,13 @@ export function SchemaSelector({
 
       <Button
         variant="outline"
-        size="icon"
+        size="sm"
         onClick={() => {
           setManagerOpen(true);
           onManageSchemas?.();
         }}
-        title="Manage schemas"
       >
-        <Gear className="h-4 w-4" />
+        Schema Manager
       </Button>
 
       <Button

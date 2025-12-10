@@ -15,4 +15,8 @@ export interface AzureServicesConfig {
     minSpeakers?: number;
     maxSpeakers?: number;
   };
+  syntheticData?: {
+    parallelBatches: number; // Number of parallel API calls (1-10)
+    recordsPerBatch: number; // Records to generate per batch (1-10)
+  };
 }

@@ -38,7 +38,10 @@ import {
   FileText,
   Scale,
   Tag,
-  Info
+  Info,
+  Plane,
+  Phone,
+  Lightbulb
 } from 'lucide-react';
 
 interface SchemaTemplateSelectorProps {
@@ -71,6 +74,10 @@ export function SchemaTemplateSelector({
         return <TrendingUp className="h-5 w-5" />;
       case 'healthcare':
         return <Stethoscope className="h-5 w-5" />;
+      case 'airline':
+        return <Plane className="h-5 w-5" />;
+      case 'telecom':
+        return <Phone className="h-5 w-5" />;
       default:
         return <Star className="h-5 w-5" />;
     }
@@ -105,16 +112,16 @@ export function SchemaTemplateSelector({
       }`}
       onClick={onClick}
     >
-      <div className={`p-1.5 rounded ${isSelected ? 'bg-primary/20' : 'bg-muted'}`}>
+      <div className={`p-1.5 rounded shrink-0 ${isSelected ? 'bg-primary/20' : 'bg-muted'}`}>
         {getTemplateIcon(template)}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span>{template.icon}</span>
-          <span className="font-medium text-sm truncate">{template.name}</span>
+          <span className="font-medium text-sm">{template.name}</span>
           <span className="text-[10px] text-muted-foreground">v{template.version}</span>
         </div>
-        <p className="text-[11px] text-muted-foreground truncate">{template.description}</p>
+        <p className="text-[11px] text-muted-foreground">{template.description}</p>
       </div>
       {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
     </div>
@@ -198,13 +205,41 @@ export function SchemaTemplateSelector({
           </div>
         </div>
       )}
+
+      {/* AI Insights */}
+      {template.schema.insightCategories && template.schema.insightCategories.length > 0 && (
+        <div>
+          <h4 className="text-xs font-medium mb-1 flex items-center gap-1">
+            <Lightbulb className="h-3 w-3" /> AI Insights ({template.schema.insightCategories.length})
+          </h4>
+          <div className="space-y-0.5">
+            {template.schema.insightCategories.filter(c => c.enabled).slice(0, 4).map(insight => (
+              <div key={insight.id} className="text-[11px] bg-muted/50 rounded px-1.5 py-0.5 flex items-center gap-1">
+                <div 
+                  className="w-2 h-2 rounded-full shrink-0" 
+                  style={{ backgroundColor: insight.color }}
+                />
+                <span className="truncate">{insight.name}</span>
+                <Badge variant="outline" className="text-[8px] px-1 py-0 ml-auto shrink-0">
+                  {insight.outputFields.length} fields
+                </Badge>
+              </div>
+            ))}
+          </div>
+          {template.schema.insightCategories.filter(c => c.enabled).length > 4 && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              +{template.schema.insightCategories.filter(c => c.enabled).length - 4} more...
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 
   return (
     <div className="flex gap-3 h-[380px]">
       {/* Left: Template List */}
-      <div className="w-[200px] shrink-0 flex flex-col">
+      <div className="w-[320px] shrink-0 flex flex-col">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'builtin' | 'custom')} className="flex-1 flex flex-col">
           <TabsList className="w-full h-7 mb-2">
             <TabsTrigger value="builtin" className="flex-1 text-[10px] h-6">Industry Templates</TabsTrigger>

@@ -47,8 +47,10 @@ import {
   ArrowDown,
   Sparkle,
   BookBookmark,
+  Lightbulb,
+  Calculator,
 } from '@phosphor-icons/react';
-import { SchemaDefinition, FieldDefinition, RelationshipDefinition, SemanticRole, FieldType, TopicDefinition, FieldDependency, DependencyOperator } from '@/types/schema';
+import { SchemaDefinition, FieldDefinition, RelationshipDefinition, SemanticRole, FieldType, TopicDefinition, FieldDependency, DependencyOperator, InsightCategoryConfig, InsightOutputField } from '@/types/schema';
 import {
   getAllSchemas,
   getSchemaById,
@@ -68,6 +70,7 @@ import { TopicTaxonomyWizard } from '@/components/TopicTaxonomyWizard';
 import { SchemaTemplateSelector } from '@/components/SchemaTemplateSelector';
 import { AISchemaEnhancer } from '@/components/AISchemaEnhancer';
 import { SyntheticMetadataWizard } from '@/components/SyntheticMetadataWizard';
+import { InsightCategoriesManager } from '@/components/InsightCategoriesManager';
 import { SchemaTemplate, saveCustomTemplate, hasTemplateUpdate, getTemplateById } from '@/lib/schema-templates';
 import { SchemaEvaluationRule } from '@/types/schema';
 
@@ -435,6 +438,25 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
     }
   };
 
+  const handleSaveInsightCategories = (categories: InsightCategoryConfig[]) => {
+    if (!selectedSchema) return;
+
+    try {
+      const updatedSchema = {
+        ...selectedSchema,
+        insightCategories: categories,
+        updatedAt: new Date().toISOString(),
+      };
+      saveSchema(updatedSchema);
+      setSelectedSchema(updatedSchema);
+      loadSchemas();
+      toast.success('AI insight categories saved successfully');
+    } catch (error) {
+      toast.error('Failed to save insight categories');
+      console.error(error);
+    }
+  };
+
   const handleApplyTemplate = (template: SchemaTemplate) => {
     if (!selectedSchema) return;
 
@@ -771,7 +793,7 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="library">Library</TabsTrigger>
               <TabsTrigger value="templates">
                 <BookBookmark className="h-4 w-4 mr-1" />
@@ -780,6 +802,10 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
               <TabsTrigger value="fields" disabled={!selectedSchema}>Fields</TabsTrigger>
               <TabsTrigger value="relationships" disabled={!selectedSchema}>Relationships</TabsTrigger>
               <TabsTrigger value="topics" disabled={!selectedSchema}>Topics</TabsTrigger>
+              <TabsTrigger value="insights" disabled={!selectedSchema}>
+                <Lightbulb className="h-4 w-4 mr-1" />
+                AI Insights
+              </TabsTrigger>
               <TabsTrigger value="versioning" disabled={!selectedSchema}>Versioning</TabsTrigger>
               <TabsTrigger value="export">Export/Import</TabsTrigger>
             </TabsList>
@@ -1100,6 +1126,25 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
                     </p>
                     <div className="flex gap-2">
                       <Button
+                        onClick={() => {
+                          const schemaCalls = calls.filter(call => call.schemaId === selectedSchema.id);
+                          if (schemaCalls.length === 0) {
+                            toast.info('No calls to recalculate');
+                            return;
+                          }
+                          toast.info('Recalculating formulas for all calls...', { duration: 1500 });
+                          const updatedCalls = recalculateCallMetadata(selectedSchema, calls);
+                          setCalls(updatedCalls);
+                          toast.success(`Recalculated formulas for ${schemaCalls.length} calls`);
+                        }}
+                        size="sm"
+                        variant="outline"
+                        title="Recalculate all formulas for existing calls"
+                      >
+                        <Calculator className="mr-2 h-4 w-4" />
+                        Recalculate All
+                      </Button>
+                      <Button
                         onClick={handleDiscoverRelationships}
                         size="sm"
                         variant="outline"
@@ -1197,6 +1242,16 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
                 <TopicTaxonomyWizard
                   schema={selectedSchema}
                   onSave={handleSaveTopics}
+                />
+              )}
+            </TabsContent>
+
+            {/* AI Insights Tab */}
+            <TabsContent value="insights" className="space-y-4">
+              {selectedSchema && (
+                <InsightCategoriesManager
+                  schema={selectedSchema}
+                  onSave={handleSaveInsightCategories}
                 />
               )}
             </TabsContent>

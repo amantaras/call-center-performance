@@ -18,31 +18,27 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   calculateCriteriaAnalytics,
   calculateAgentPerformance,
-  aggregateProductAnalytics,
-  aggregateRiskAnalytics,
-  aggregateNationalityAnalytics,
-  aggregateOutcomeAnalytics,
-  aggregateBorrowerAnalytics,
   aggregateTopicAnalytics,
   aggregateKeyPhraseAnalytics,
   calculateOverviewKPIs,
   formatDuration,
 } from '@/lib/analytics';
-import { CriteriaAnalyticsChart } from '@/components/analytics/CriteriaAnalyticsChart';
-import { PerformanceTrendChart } from '@/components/analytics/PerformanceTrendChart';
-import { ProductPerformanceChart } from '@/components/analytics/ProductPerformanceChart';
-import { RiskSegmentationChart } from '@/components/analytics/RiskSegmentationChart';
-import { NationalityAnalysisChart } from '@/components/analytics/NationalityAnalysisChart';
-import { OutcomeCorrelationChart } from '@/components/analytics/OutcomeCorrelationChart';
-import { BorrowerInsightsChart } from '@/components/analytics/BorrowerInsightsChart';
 import { CustomAnalyticsChart } from '@/components/analytics/CustomAnalyticsChart';
 import { KeyPhrasesCloud } from '@/components/analytics/KeyPhrasesCloud';
+import { InsightCategoryAnalytics } from '@/components/analytics/InsightCategoryAnalytics';
 import { AnalyticsConfigWizard } from '@/components/AnalyticsConfigWizard';
-import { getCriterionById } from '@/lib/evaluation-criteria';
+import { getEvaluationCriteriaForSchema } from '@/services/azure-openai';
 import { regenerateInsights } from '@/services/azure-openai';
-import { Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Phone, Clock, SmilePlus, Hash } from 'lucide-react';
+import { Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Phone, Clock, SmilePlus, Hash, Lightbulb } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   PieChart,
@@ -71,6 +67,7 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
   const [showRegenerationDialog, setShowRegenerationDialog] = useState(false);
   const [customViews, setCustomViews] = useState<any[]>([]);
   const [viewsRefreshKey, setViewsRefreshKey] = useState(0);
+  const [selectedInsightCategory, setSelectedInsightCategory] = useState<string>('');
 
   // Filter calls by active schema
   const calls = useMemo(() => {
@@ -82,17 +79,22 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
   const criteriaAnalytics = calculateCriteriaAnalytics(calls);
   const agentPerformances = calculateAgentPerformance(calls);
 
-  // Advanced analytics aggregations - use schema-filtered calls
-  const productAnalytics = useMemo(() => aggregateProductAnalytics(calls), [calls]);
-  const riskAnalytics = useMemo(() => aggregateRiskAnalytics(calls), [calls]);
-  const nationalityAnalytics = useMemo(() => aggregateNationalityAnalytics(calls), [calls]);
-  const outcomeAnalytics = useMemo(() => aggregateOutcomeAnalytics(calls), [calls]);
-  const borrowerAnalytics = useMemo(() => aggregateBorrowerAnalytics(calls), [calls]);
+  // Get enabled insight categories from schema
+  const enabledInsightCategories = useMemo(() => {
+    return activeSchema?.insightCategories?.filter(c => c.enabled) || [];
+  }, [activeSchema]);
 
-  // Topic and key phrase analytics
+  // Set default selected category when schema changes
+  useEffect(() => {
+    if (enabledInsightCategories.length > 0 && !selectedInsightCategory) {
+      setSelectedInsightCategory(enabledInsightCategories[0].id);
+    }
+  }, [enabledInsightCategories, selectedInsightCategory]);
+
+  // Topic and key phrase analytics - pass schema for topic-based sentiment matching
   const topicAnalytics = useMemo(() => aggregateTopicAnalytics(calls), [calls]);
-  const keyPhraseAnalytics = useMemo(() => aggregateKeyPhraseAnalytics(calls), [calls]);
-  const overviewKPIs = useMemo(() => calculateOverviewKPIs(calls), [calls]);
+  const keyPhraseAnalytics = useMemo(() => aggregateKeyPhraseAnalytics(calls, activeSchema || undefined), [calls, activeSchema]);
+  const overviewKPIs = useMemo(() => calculateOverviewKPIs(calls, activeSchema || undefined), [calls, activeSchema]);
 
   // Load custom analytics views from localStorage
   useEffect(() => {
@@ -264,14 +266,9 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
       {/* Tabbed Analytics */}
       <Tabs defaultValue="overview" className="space-y-4">
         <div className="flex items-center justify-between">
-          <TabsList className="grid grid-cols-8 w-full max-w-5xl">
+          <TabsList className="grid grid-cols-3 w-full max-w-md">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="product">Product</TabsTrigger>
-            <TabsTrigger value="risk">Risk</TabsTrigger>
-            <TabsTrigger value="nationality">Nationality</TabsTrigger>
-            <TabsTrigger value="outcome">Outcome</TabsTrigger>
-            <TabsTrigger value="borrower">Borrower</TabsTrigger>
+            <TabsTrigger value="insights">Insights</TabsTrigger>
             <TabsTrigger value="improvement">Improvement</TabsTrigger>
           </TabsList>
 
@@ -527,50 +524,59 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
           </div>
         </TabsContent>
 
-        {/* Performance Tab (existing analytics) */}
-        <TabsContent value="performance" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance Trends</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PerformanceTrendChart calls={calls || []} />
-            </CardContent>
-          </Card>
+        {/* Insights Tab - Dynamic based on schema insight categories */}
+        <TabsContent value="insights" className="space-y-6">
+          {enabledInsightCategories.length > 0 ? (
+            <>
+              {/* Category Selector */}
+              <div className="flex items-center gap-4">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4" />
+                  Insight Category:
+                </Label>
+                <Select value={selectedInsightCategory} onValueChange={setSelectedInsightCategory}>
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {enabledInsightCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        <span className="flex items-center gap-2">
+                          <span>{category.icon}</span>
+                          <span>{category.name}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Criteria Pass Rates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CriteriaAnalyticsChart analytics={criteriaAnalytics} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Product Analytics */}
-        <TabsContent value="product">
-          <ProductPerformanceChart data={productAnalytics} />
-        </TabsContent>
-
-        {/* Risk Segmentation */}
-        <TabsContent value="risk">
-          <RiskSegmentationChart data={riskAnalytics} />
-        </TabsContent>
-
-        {/* Nationality Analysis */}
-        <TabsContent value="nationality">
-          <NationalityAnalysisChart data={nationalityAnalytics} />
-        </TabsContent>
-
-        {/* Outcome Correlation */}
-        <TabsContent value="outcome">
-          <OutcomeCorrelationChart data={outcomeAnalytics} />
-        </TabsContent>
-
-        {/* Borrower Insights */}
-        <TabsContent value="borrower">
-          <BorrowerInsightsChart data={borrowerAnalytics} />
+              {/* Dynamic Insight Analytics */}
+              {selectedInsightCategory && (
+                <InsightCategoryAnalytics
+                  category={enabledInsightCategories.find(c => c.id === selectedInsightCategory)!}
+                  calls={calls}
+                />
+              )}
+            </>
+          ) : (
+            <Card className="p-12 text-center">
+              <div className="mx-auto max-w-md space-y-4">
+                <Lightbulb className="h-12 w-12 mx-auto text-muted-foreground" />
+                <div>
+                  <h3 className="text-lg font-semibold">No Insight Categories Configured</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Configure insight categories in the Schema Manager to enable AI-powered analytics.
+                    Insight categories allow you to define custom analysis dimensions like risk assessment,
+                    customer sentiment, outcome prediction, and more.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => window.dispatchEvent(new CustomEvent('open-schema-manager'))}>
+                  Open Schema Manager
+                </Button>
+              </div>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Areas for Improvement (existing) */}
@@ -582,7 +588,8 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
             <CardContent>
               <div className="space-y-4">
                 {weakestCriteria.map((analytics) => {
-                  const criterion = getCriterionById(analytics.criterionId);
+                  const schemaCriteria = activeSchema ? getEvaluationCriteriaForSchema(activeSchema.id) : [];
+                  const criterion = schemaCriteria.find(c => c.id === analytics.criterionId);
                   return (
                     <div
                       key={analytics.criterionId}

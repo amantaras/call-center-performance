@@ -39,7 +39,6 @@ const arraysEqual = (a?: string[], b?: string[]) => {
 
 function App() {
   const [activeTab, setActiveTab] = useState('calls');
-  const [customRules] = useLocalStorage<EvaluationCriterion[]>('evaluation-criteria-custom', []);
   const [azureConfig, setAzureConfig] = useLocalStorage<AzureServicesConfig | null>('azure-services-config', null);
   const [calls, setCalls] = useLocalStorage<CallRecord[]>('calls', []);
   // Schema state
@@ -122,16 +121,9 @@ function App() {
     }
   }, [azureConfig, setAzureConfig]);
 
-  // Load custom rules on mount
-  useEffect(() => {
-    if (customRules && customRules.length > 0) {
-      console.log('📋 Loading custom evaluation criteria:', customRules.length, 'rules');
-      setCustomEvaluationCriteria(customRules);
-    } else {
-      console.log('📋 Using default evaluation criteria');
-      setCustomEvaluationCriteria(null);
-    }
-  }, [customRules]);
+  // Note: Schema-specific rules are loaded in initializeSchemas and applySchemaChange
+  // The global customRules from 'evaluation-criteria-custom' is kept for backwards compatibility
+  // but schema-specific rules take priority when a schema is active
 
   // Initialize Azure services on mount if config exists
   useEffect(() => {
@@ -205,7 +197,7 @@ function App() {
     setActiveSchemaInStorage(schema.id);
     console.log(`📋 Schema switched to: ${schema.name} v${schema.version}`);
     
-    // Load schema-specific rules
+    // Load schema-specific rules (or reset to defaults if none exist)
     const schemaRules = loadRulesForSchema(schema.id);
     if (schemaRules && schemaRules.length > 0) {
       const criteriaRules: EvaluationCriterion[] = schemaRules.map(rule => ({
@@ -219,6 +211,10 @@ function App() {
       }));
       setCustomEvaluationCriteria(criteriaRules);
       console.log(`📋 Loaded ${schemaRules.length} rules for ${schema.name}`);
+    } else {
+      // No schema-specific rules - reset to default evaluation criteria
+      setCustomEvaluationCriteria(null);
+      console.log(`📋 No rules for ${schema.name}, using default criteria`);
     }
     
     toast.success(`Schema Changed: Now using ${schema.name} v${schema.version}`);

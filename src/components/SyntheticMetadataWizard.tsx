@@ -27,10 +27,13 @@ import {
   Lightbulb,
   ChatText,
   Spinner,
+  Calendar,
 } from '@phosphor-icons/react';
 import { SchemaDefinition, FieldDefinition } from '@/types/schema';
 import { CallRecord, TranscriptPhrase, CallSentimentSegment, SentimentLabel } from '@/types/call';
+import { AzureServicesConfig } from '@/types/config';
 import { azureOpenAIService } from '@/services/azure-openai';
+import { loadAzureConfigFromCookie } from '@/lib/azure-config-storage';
 import { toast } from 'sonner';
 
 interface SyntheticMetadataWizardProps {
@@ -84,6 +87,19 @@ export function SyntheticMetadataWizard({
   const [generateTranscriptions, setGenerateTranscriptions] = useState(false);
   const [transcriptionPrompt, setTranscriptionPrompt] = useState('');
   
+  // Date range for synthetic records
+  const [dateRangeEnabled, setDateRangeEnabled] = useState(true);
+  const [dateFrom, setDateFrom] = useState(() => {
+    // Default: 30 days ago
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [dateTo, setDateTo] = useState(() => {
+    // Default: today
+    return new Date().toISOString().split('T')[0];
+  });
+  
   // Participant occurrence limits
   const [maxParticipant1Occurrences, setMaxParticipant1Occurrences] = useState(5);
   // Participant 2: random names by default, or limit to existing names
@@ -103,6 +119,12 @@ export function SyntheticMetadataWizard({
       setError(null);
       setGenerateTranscriptions(false);
       setTranscriptionPrompt('');
+      // Reset date range to last 30 days
+      setDateRangeEnabled(true);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      setDateFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+      setDateTo(new Date().toISOString().split('T')[0]);
       // Default participant limits: min of recordCount and 10
       setMaxParticipant1Occurrences(Math.min(5, 10));
       // Participant 2: random names by default
@@ -138,8 +160,8 @@ export function SyntheticMetadataWizard({
     ? [...new Set(existingCalls.map(c => c.metadata[participant2Field.id] || c.metadata[participant2Field.name]).filter(Boolean))]
     : [];
 
-  // Build the generation prompt for metadata
-  const buildGenerationPrompt = (): string => {
+  // Build the generation prompt for a specific batch
+  const buildBatchGenerationPrompt = (batchRecordCount: number, batchIndex: number, totalBatches: number): string => {
     const fieldDescriptions = editableFields.map(field => {
       let desc = `- ${field.id} (${field.type}): ${field.displayName}`;
       if (field.semanticRole) desc += ` [Role: ${field.semanticRole}]`;
@@ -188,10 +210,15 @@ export function SyntheticMetadataWizard({
       participantConstraints += `  This means some records should share the same participant names (realistic scenario where agents/customers have multiple interactions).\n`;
     }
 
-    return `You are a data generation assistant. Generate ${recordCount} realistic and diverse synthetic metadata records for a ${schema.name} schema.
+    // Add batch context for diversity
+    const batchContext = totalBatches > 1 
+      ? `\nBATCH CONTEXT: This is batch ${batchIndex + 1} of ${totalBatches}. Ensure variety - generate different scenarios from other batches.\n`
+      : '';
+
+    return `You are a data generation assistant. Generate ${batchRecordCount} realistic and diverse synthetic metadata records for a ${schema.name} schema.
 
 SCHEMA NAME: ${schema.name}
-
+${batchContext}
 BUSINESS CONTEXT:
 ${schema.businessContext || 'General business data'}
 
@@ -206,7 +233,7 @@ ADDITIONAL USER INSTRUCTIONS:
 ${customPrompt}` : ''}
 
 GENERATION REQUIREMENTS:
-1. Generate exactly ${recordCount} unique records
+1. Generate exactly ${batchRecordCount} unique records
 2. Each record must include ALL fields listed above
 3. Follow the data types strictly (string, number, date, boolean, select options)
 4. For select fields, only use the provided options
@@ -219,7 +246,7 @@ GENERATION REQUIREMENTS:
 ${participant1Field || participant2Field ? `11. IMPORTANT: Respect participant limits - reuse names to stay within the max unique count specified` : ''}
 
 OUTPUT FORMAT:
-Return a JSON object with a "records" array containing exactly ${recordCount} objects.
+Return a JSON object with a "records" array containing exactly ${batchRecordCount} objects.
 Each object should have all the field IDs as keys with appropriate values.
 
 Example structure:
@@ -231,7 +258,7 @@ Example structure:
 }`;
   };
 
-  // Generate synthetic records using LLM
+  // Generate synthetic records using LLM with parallel batch processing
   const handleGenerate = async () => {
     setIsGenerating(true);
     setError(null);
@@ -239,72 +266,125 @@ Example structure:
     setGenerationStatus('Preparing generation...');
 
     try {
-      // Step 1: Generate metadata
-      setGenerationStatus('Generating metadata records...');
+      // Load config for parallel batch settings
+      const azureConfig = loadAzureConfigFromCookie();
+      const parallelBatches = azureConfig?.syntheticData?.parallelBatches ?? 3;
+      const recordsPerBatch = azureConfig?.syntheticData?.recordsPerBatch ?? 5;
+      
+      // Calculate batches needed
+      const totalBatches = Math.ceil(recordCount / recordsPerBatch);
+      const batches: { batchIndex: number; recordsInBatch: number }[] = [];
+      let remainingRecords = recordCount;
+      
+      for (let i = 0; i < totalBatches; i++) {
+        const recordsInBatch = Math.min(recordsPerBatch, remainingRecords);
+        batches.push({ batchIndex: i, recordsInBatch });
+        remainingRecords -= recordsInBatch;
+      }
+
+      console.log(`🚀 Generating ${recordCount} records in ${totalBatches} batches (${parallelBatches} parallel, ${recordsPerBatch} per batch)`);
+      setGenerationStatus(`Generating ${recordCount} records in ${totalBatches} batches...`);
       setGenerationProgress(10);
+
+      // Process batches in parallel groups
+      let allRecords: GeneratedRecord[] = [];
+      let completedBatches = 0;
       
-      const metadataPrompt = buildGenerationPrompt();
-      const metadataResponse = await azureOpenAIService.generateSyntheticData(metadataPrompt, recordCount);
-      
-      if (!metadataResponse || !metadataResponse.records || !Array.isArray(metadataResponse.records)) {
-        throw new Error('Invalid response format from AI');
+      for (let i = 0; i < batches.length; i += parallelBatches) {
+        const batchGroup = batches.slice(i, i + parallelBatches);
+        const groupStartTime = Date.now();
+        
+        setGenerationStatus(`Processing batch group ${Math.floor(i / parallelBatches) + 1}/${Math.ceil(batches.length / parallelBatches)} (${batchGroup.length} parallel calls)...`);
+        
+        // Execute parallel batches
+        const batchPromises = batchGroup.map(async ({ batchIndex, recordsInBatch }) => {
+          const prompt = buildBatchGenerationPrompt(recordsInBatch, batchIndex, totalBatches);
+          try {
+            const response = await azureOpenAIService.generateSyntheticData(prompt, recordsInBatch);
+            return response?.records || [];
+          } catch (err) {
+            console.error(`Batch ${batchIndex + 1} failed:`, err);
+            return []; // Return empty on failure, continue with other batches
+          }
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        
+        // Flatten results and create GeneratedRecord objects
+        const groupRecords = batchResults.flat().map((metadata: Record<string, any>, index: number) => ({
+          id: `synthetic_${Date.now()}_${allRecords.length + index}`,
+          metadata,
+          selected: true,
+        }));
+        
+        allRecords = [...allRecords, ...groupRecords];
+        completedBatches += batchGroup.length;
+        
+        const metadataProgress = 10 + Math.round((completedBatches / totalBatches) * 30);
+        setGenerationProgress(metadataProgress);
+        
+        console.log(`✓ Batch group completed in ${Date.now() - groupStartTime}ms, total records: ${allRecords.length}`);
+      }
+
+      if (allRecords.length === 0) {
+        throw new Error('No records were generated. Please check your Azure OpenAI configuration.');
       }
 
       setGenerationProgress(40);
+      setGenerationStatus(`Generated ${allRecords.length} metadata records`);
 
-      // Create generated records with selection state
-      let records: GeneratedRecord[] = metadataResponse.records.map((metadata: Record<string, any>, index: number) => ({
-        id: `synthetic_${Date.now()}_${index}`,
-        metadata,
-        selected: true,
-      }));
-
-      // Step 2: Generate transcriptions if enabled
+      // Step 2: Generate transcriptions if enabled (also in parallel)
       if (generateTranscriptions) {
         setGenerationStatus('Generating synthetic transcriptions...');
-        const progressPerRecord = 50 / records.length;
+        const transcriptionParallel = Math.min(parallelBatches, 5); // Limit transcription parallelism
         
-        for (let i = 0; i < records.length; i++) {
-          setGenerationStatus(`Generating transcription ${i + 1} of ${records.length}...`);
-          setGenerationProgress(40 + Math.round(progressPerRecord * i));
+        for (let i = 0; i < allRecords.length; i += transcriptionParallel) {
+          const recordGroup = allRecords.slice(i, i + transcriptionParallel);
           
-          try {
-            // Pass the metadata and schema to generate a contextual transcription
-            const transcriptionResult = await azureOpenAIService.generateSyntheticTranscription(
-              records[i].metadata,
-              schema
-            );
-            
-            if (transcriptionResult) {
-              // Store all structured transcription data
-              records[i].transcript = transcriptionResult.transcript;
-              records[i].transcriptPhrases = transcriptionResult.phrases;
-              records[i].transcriptDuration = transcriptionResult.durationMilliseconds;
-              records[i].transcriptSpeakerCount = transcriptionResult.speakerCount;
-              records[i].transcriptLocale = transcriptionResult.locale;
-              // Store sentiment data
-              records[i].sentimentSegments = transcriptionResult.sentimentSegments;
-              records[i].overallSentiment = transcriptionResult.overallSentiment;
+          setGenerationStatus(`Generating transcriptions ${i + 1}-${Math.min(i + transcriptionParallel, allRecords.length)} of ${allRecords.length}...`);
+          
+          const transcriptionPromises = recordGroup.map(async (record, groupIndex) => {
+            const recordIndex = i + groupIndex;
+            try {
+              const transcriptionResult = await azureOpenAIService.generateSyntheticTranscription(
+                record.metadata,
+                schema,
+                transcriptionPrompt || undefined
+              );
+              
+              if (transcriptionResult) {
+                allRecords[recordIndex].transcript = transcriptionResult.transcript;
+                allRecords[recordIndex].transcriptPhrases = transcriptionResult.phrases;
+                allRecords[recordIndex].transcriptDuration = transcriptionResult.durationMilliseconds;
+                allRecords[recordIndex].transcriptSpeakerCount = transcriptionResult.speakerCount;
+                allRecords[recordIndex].transcriptLocale = transcriptionResult.locale;
+                allRecords[recordIndex].sentimentSegments = transcriptionResult.sentimentSegments;
+                allRecords[recordIndex].overallSentiment = transcriptionResult.overallSentiment;
+              }
+            } catch (err) {
+              console.error(`Failed to generate transcription for record ${recordIndex + 1}:`, err);
             }
-          } catch (err) {
-            console.error(`Failed to generate transcription for record ${i + 1}:`, err);
-            // Continue with other records even if one fails
-          }
+          });
+          
+          await Promise.all(transcriptionPromises);
+          
+          const transcriptionProgress = 40 + Math.round(((i + recordGroup.length) / allRecords.length) * 55);
+          setGenerationProgress(transcriptionProgress);
         }
       }
 
       setGenerationProgress(95);
       setGenerationStatus('Finalizing...');
 
-      setGeneratedRecords(records);
+      setGeneratedRecords(allRecords);
       setGenerationProgress(100);
       setStep('review');
       
-      const transcriptCount = records.filter(r => r.transcript).length;
+      const transcriptCount = allRecords.filter(r => r.transcript).length;
       if (generateTranscriptions && transcriptCount > 0) {
-        toast.success(`Generated ${records.length} records with ${transcriptCount} transcriptions`);
+        toast.success(`Generated ${allRecords.length} records with ${transcriptCount} transcriptions`);
       } else {
-        toast.success(`Generated ${records.length} synthetic records`);
+        toast.success(`Generated ${allRecords.length} synthetic records`);
       }
     } catch (err: any) {
       console.error('Synthetic data generation error:', err);
@@ -446,20 +526,18 @@ Example structure:
             </div>
 
             <Card>
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Schema Fields</CardTitle>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[150px]">
-                  <div className="flex flex-wrap gap-2">
-                    {editableFields.map(field => (
-                      <Badge key={field.id} variant="secondary" className="text-xs">
-                        {field.displayName}
-                        <span className="ml-1 text-muted-foreground">({field.type})</span>
-                      </Badge>
-                    ))}
-                  </div>
-                </ScrollArea>
+              <CardContent className="pt-0">
+                <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto">
+                  {editableFields.map(field => (
+                    <Badge key={field.id} variant="secondary" className="text-xs whitespace-nowrap">
+                      {field.displayName}
+                      <span className="ml-1 text-muted-foreground">({field.type})</span>
+                    </Badge>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -730,17 +808,17 @@ Example structure:
       case 'generate':
         return (
           <div className="space-y-6 py-8">
-            <div className="flex flex-col items-center justify-center gap-4">
+            <div className="flex flex-col items-center justify-center gap-4 w-full px-4">
               <div className="p-4 bg-primary/10 rounded-full animate-pulse">
                 <Sparkle className="h-12 w-12 text-primary" />
               </div>
-              <div className="text-center">
+              <div className="text-center w-full max-w-md">
                 <h3 className="font-semibold text-lg">Generating Synthetic Data</h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-sm mt-1">
                   {generationStatus || `AI is creating ${recordCount} records...`}
                 </p>
               </div>
-              <Progress value={generationProgress} className="w-64" />
+              <Progress value={generationProgress} className="w-full max-w-md" />
               <p className="text-sm text-muted-foreground">{generationProgress}%</p>
               
               {isGenerating && (
@@ -925,7 +1003,7 @@ Example structure:
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent 
-        className="max-w-2xl max-h-[90vh]"
+        className="max-w-3xl w-[90vw] max-h-[90vh] overflow-hidden flex flex-col"
         onPointerDownOutside={(e) => {
           if (isGenerating) e.preventDefault();
         }}
@@ -976,7 +1054,7 @@ Example structure:
         <Separator />
 
         {/* Step content */}
-        <div className="py-4">
+        <div className="flex-1 overflow-y-auto py-4 min-h-0">
           {renderStepContent()}
         </div>
 
