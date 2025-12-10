@@ -119,6 +119,12 @@ export function SyntheticMetadataWizard({
       setError(null);
       setGenerateTranscriptions(false);
       setTranscriptionPrompt('');
+      // Reset date range to last 30 days
+      setDateRangeEnabled(true);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      setDateFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+      setDateTo(new Date().toISOString().split('T')[0]);
       // Default participant limits: min of recordCount and 10
       setMaxParticipant1Occurrences(Math.min(5, 10));
       // Participant 2: random names by default
