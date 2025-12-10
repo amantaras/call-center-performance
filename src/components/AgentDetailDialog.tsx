@@ -98,7 +98,7 @@ export function AgentDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center gap-3">
             {performance.rankAmongAgents === 1 && <Trophy className="h-6 w-6 text-yellow-500" weight="fill" />}
             <div>
@@ -116,7 +116,7 @@ export function AgentDetailDialog({
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
+        <Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="criteria">Criteria</TabsTrigger>
@@ -124,7 +124,7 @@ export function AgentDetailDialog({
             <TabsTrigger value="history">Call History</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 mt-4 pr-4">
+          <div className="flex-1 min-h-0 mt-4 overflow-y-auto pr-2">
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-4 mt-0">
               {/* Key Metrics Row */}
@@ -469,7 +469,7 @@ export function AgentDetailDialog({
                 </Card>
               )}
             </TabsContent>
-          </ScrollArea>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>
