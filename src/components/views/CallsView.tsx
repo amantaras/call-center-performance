@@ -383,16 +383,40 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
     setSelectedCallIds(new Set());
   };
 
-  const handleToggleSelect = (callId: string) => {
-    setSelectedCallIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(callId)) {
-        next.delete(callId);
-      } else {
-        next.add(callId);
-      }
-      return next;
-    });
+  // Track last selected index for shift-click range selection
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+
+  const handleToggleSelect = (callId: string, index: number, shiftKey: boolean) => {
+    // Shift-click: select range from last selected to current
+    if (shiftKey && lastSelectedIndex !== null) {
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      const callsInRange = filteredCalls.slice(start, end + 1);
+      
+      setSelectedCallIds((prev) => {
+        const next = new Set(prev);
+        // Add all calls in range that can be processed
+        callsInRange.forEach(call => {
+          const canProcess = call.status !== 'pending audio' && call.status !== 'processing' && call.status !== 'failed';
+          if (canProcess) {
+            next.add(call.id);
+          }
+        });
+        return next;
+      });
+    } else {
+      // Normal click: toggle single selection
+      setSelectedCallIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(callId)) {
+          next.delete(callId);
+        } else {
+          next.add(callId);
+        }
+        return next;
+      });
+      setLastSelectedIndex(index);
+    }
   };
 
   const filteredCalls = (calls || []).filter((call) => {

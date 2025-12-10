@@ -22,7 +22,7 @@ interface CallsTableProps {
   transcribingIds: Set<string>;
   evaluatingIds: Set<string>;
   selectedCallIds: Set<string>;
-  onToggleSelect: (callId: string) => void;
+  onToggleSelect: (callId: string, index: number, shiftKey: boolean) => void;
   onTranscribe: (call: CallRecord, e: React.MouseEvent) => void;
   onEvaluate: (call: CallRecord, e: React.MouseEvent) => void;
 }
@@ -268,10 +268,12 @@ export function CallsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {paginatedCalls.map((call) => {
+          {paginatedCalls.map((call, rowIndex) => {
             const canTranscribe = !!call.audioFile;
             const canEvaluate = !!call.transcript;
             const canProcess = canTranscribe || canEvaluate;
+            // Calculate actual index in filteredCalls (accounting for pagination)
+            const actualIndex = (currentPage - 1) * rowsPerPage + rowIndex;
             
             return (
             <TableRow
@@ -279,11 +281,19 @@ export function CallsTable({
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => onSelectCall(call)}
             >
-              <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+              <TableCell 
+                className="w-12" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (canProcess) {
+                    onToggleSelect(call.id, actualIndex, e.shiftKey);
+                  }
+                }}
+              >
                 {canProcess && (
                   <Checkbox
                     checked={selectedCallIds.has(call.id)}
-                    onCheckedChange={() => onToggleSelect(call.id)}
+                    onCheckedChange={() => {}} // Handled by TableCell onClick for shift detection
                   />
                 )}
               </TableCell>
