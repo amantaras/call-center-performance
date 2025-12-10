@@ -1,4 +1,5 @@
 import { CallRecord, AgentPerformance, CriteriaAnalytics, SentimentLabel, RiskTier, CategorizedOutcome, TopicInsight } from '@/types/call';
+import { SchemaDefinition } from '@/types/schema';
 import { getActiveEvaluationCriteria } from '@/services/azure-openai';
 import { getActiveSchema } from '@/services/schema-manager';
 
@@ -954,15 +955,8 @@ export function aggregateTopicAnalytics(calls: CallRecord[]): TopicAnalytics[] {
 /**
  * Aggregate key phrase analytics from call insights
  */
-export function aggregateKeyPhraseAnalytics(calls: CallRecord[]): KeyPhraseAnalytics[] {
+export function aggregateKeyPhraseAnalytics(calls: CallRecord[], schema?: SchemaDefinition): KeyPhraseAnalytics[] {
   console.log(`🔍 aggregateKeyPhraseAnalytics: Processing ${calls.length} calls`);
-  
-  // Debug: Check which calls have topicsInsight
-  calls.forEach((c, i) => {
-    if (c.evaluation) {
-      console.log(`  Call ${i}: has evaluation=${!!c.evaluation}, topicsInsight=${!!c.evaluation.topicsInsight}, keyPhrases=${c.evaluation.topicsInsight?.keyPhrases?.length || 0}`);
-    }
-  });
   
   const callsWithPhrases = calls.filter((c) =>
     c.evaluation?.topicsInsight?.keyPhrases && c.evaluation.topicsInsight.keyPhrases.length > 0
@@ -974,27 +968,97 @@ export function aggregateKeyPhraseAnalytics(calls: CallRecord[]): KeyPhraseAnaly
     return [];
   }
 
-  // Count phrase occurrences and collect related data
+  // Build a map of topic keywords for matching phrases to topics
+  const topicKeywordMap = new Map<string, { topicId: string; topicName: string }>();
+  if (schema?.topicTaxonomy) {
+    const flattenTopics = (topics: typeof schema.topicTaxonomy): void => {
+      topics?.forEach(topic => {
+        // Add the topic name itself as a keyword
+        topicKeywordMap.set(topic.name.toLowerCase(), { topicId: topic.id, topicName: topic.name });
+        // Add all keywords
+        topic.keywords?.forEach(kw => {
+          topicKeywordMap.set(kw.toLowerCase(), { topicId: topic.id, topicName: topic.name });
+        });
+        // Process children recursively
+        if (topic.children) {
+          flattenTopics(topic.children);
+        }
+      });
+    };
+    flattenTopics(schema.topicTaxonomy);
+  }
+
+  // Count phrase occurrences and collect sentiment data per topic
   const phraseMap = new Map<string, {
     count: number;
+    sentiments: SentimentLabel[];  // Sentiments from topic matches
     topicIds: Set<string>;
+    matchedTopicNames: Set<string>;
   }>();
 
   callsWithPhrases.forEach((call) => {
     const phrases = call.evaluation!.topicsInsight!.keyPhrases;
-    const topics = call.evaluation!.topicsInsight!.topics || [];
+    const callTopics = call.evaluation!.topicsInsight!.topics || [];
+
+    // Create a map of topic sentiments for this call
+    const topicSentimentMap = new Map<string, SentimentLabel>();
+    callTopics.forEach(t => {
+      topicSentimentMap.set(t.topicId, t.sentiment);
+      topicSentimentMap.set(t.topicName.toLowerCase(), t.sentiment);
+    });
 
     phrases.forEach((phrase) => {
       const normalized = phrase.toLowerCase().trim();
       if (!phraseMap.has(normalized)) {
         phraseMap.set(normalized, {
           count: 0,
+          sentiments: [],
           topicIds: new Set(),
+          matchedTopicNames: new Set(),
         });
       }
       const entry = phraseMap.get(normalized)!;
       entry.count++;
-      topics.forEach((t) => entry.topicIds.add(t.topicName));
+
+      // Try to match phrase to a topic and get its sentiment
+      let matchedSentiment: SentimentLabel | null = null;
+      
+      // 1. Check if phrase matches any topic keyword from schema
+      for (const [keyword, topicInfo] of topicKeywordMap) {
+        if (normalized.includes(keyword) || keyword.includes(normalized)) {
+          entry.topicIds.add(topicInfo.topicName);
+          entry.matchedTopicNames.add(topicInfo.topicName);
+          // Get sentiment from this call's topic
+          const sentiment = topicSentimentMap.get(topicInfo.topicId) || topicSentimentMap.get(topicInfo.topicName.toLowerCase());
+          if (sentiment) {
+            matchedSentiment = sentiment;
+            break;
+          }
+        }
+      }
+
+      // 2. Check if phrase matches any of the call's identified topics
+      if (!matchedSentiment) {
+        for (const topic of callTopics) {
+          if (normalized.includes(topic.topicName.toLowerCase()) || 
+              topic.topicName.toLowerCase().includes(normalized)) {
+            entry.topicIds.add(topic.topicName);
+            matchedSentiment = topic.sentiment;
+            break;
+          }
+        }
+      }
+
+      // Store the sentiment (will be aggregated later)
+      if (matchedSentiment) {
+        entry.sentiments.push(matchedSentiment);
+      } else {
+        // Fallback: Use content-based analysis for unmatched phrases
+        entry.sentiments.push(analyzePhraseSentiment(normalized));
+      }
+
+      // Also add all call topics as related
+      callTopics.forEach((t) => entry.topicIds.add(t.topicName));
     });
   });
 
@@ -1002,14 +1066,21 @@ export function aggregateKeyPhraseAnalytics(calls: CallRecord[]): KeyPhraseAnaly
   const analytics: KeyPhraseAnalytics[] = [];
 
   phraseMap.forEach((data, phrase) => {
-    // Determine sentiment based on phrase content (keyword-based analysis)
-    const phraseSentiment = analyzePhraseSentiment(phrase);
+    // Calculate the most common sentiment for this phrase
+    const sentimentCounts: Record<SentimentLabel, number> = {
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+    };
+    data.sentiments.forEach((s) => sentimentCounts[s]++);
+    const avgSentiment = (Object.entries(sentimentCounts)
+      .sort(([, a], [, b]) => b - a)[0][0]) as SentimentLabel;
 
     analytics.push({
       phrase,
       count: data.count,
       frequency: (data.count / totalCalls) * 100,
-      avgSentiment: phraseSentiment,
+      avgSentiment,
       relatedTopics: Array.from(data.topicIds).slice(0, 3),
     });
   });
@@ -1019,7 +1090,7 @@ export function aggregateKeyPhraseAnalytics(calls: CallRecord[]): KeyPhraseAnaly
 
 /**
  * Analyze the sentiment of a phrase based on its content
- * Uses keyword-based analysis to determine if a phrase is positive, negative, or neutral
+ * Used as fallback when phrase cannot be matched to a topic with known sentiment
  */
 function analyzePhraseSentiment(phrase: string): SentimentLabel {
   const lowerPhrase = phrase.toLowerCase();
@@ -1073,7 +1144,7 @@ function analyzePhraseSentiment(phrase: string): SentimentLabel {
 /**
  * Calculate overview KPIs for the dashboard
  */
-export function calculateOverviewKPIs(calls: CallRecord[]): OverviewKPIs {
+export function calculateOverviewKPIs(calls: CallRecord[], schema?: SchemaDefinition): OverviewKPIs {
   const evaluatedCalls = calls.filter((c) => c.evaluation);
   const totalCalls = calls.length;
 
@@ -1103,8 +1174,8 @@ export function calculateOverviewKPIs(calls: CallRecord[]): OverviewKPIs {
   // Top topics
   const topTopics = aggregateTopicAnalytics(calls).slice(0, 10);
 
-  // Top key phrases
-  const topKeyPhrases = aggregateKeyPhraseAnalytics(calls).slice(0, 30);
+  // Top key phrases - pass schema for topic-based sentiment matching
+  const topKeyPhrases = aggregateKeyPhraseAnalytics(calls, schema).slice(0, 30);
 
   return {
     totalCalls,

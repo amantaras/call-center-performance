@@ -89,10 +89,10 @@ export function AnalyticsView({ activeSchema, schemaLoading }: AnalyticsViewProp
   const outcomeAnalytics = useMemo(() => aggregateOutcomeAnalytics(calls), [calls]);
   const borrowerAnalytics = useMemo(() => aggregateBorrowerAnalytics(calls), [calls]);
 
-  // Topic and key phrase analytics
+  // Topic and key phrase analytics - pass schema for topic-based sentiment matching
   const topicAnalytics = useMemo(() => aggregateTopicAnalytics(calls), [calls]);
-  const keyPhraseAnalytics = useMemo(() => aggregateKeyPhraseAnalytics(calls), [calls]);
-  const overviewKPIs = useMemo(() => calculateOverviewKPIs(calls), [calls]);
+  const keyPhraseAnalytics = useMemo(() => aggregateKeyPhraseAnalytics(calls, activeSchema || undefined), [calls, activeSchema]);
+  const overviewKPIs = useMemo(() => calculateOverviewKPIs(calls, activeSchema || undefined), [calls, activeSchema]);
 
   // Load custom analytics views from localStorage
   useEffect(() => {
