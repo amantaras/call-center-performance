@@ -328,7 +328,8 @@ Example structure:
             try {
               const transcriptionResult = await azureOpenAIService.generateSyntheticTranscription(
                 record.metadata,
-                schema
+                schema,
+                transcriptionPrompt || undefined
               );
               
               if (transcriptionResult) {

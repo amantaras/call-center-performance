@@ -158,6 +158,7 @@ export interface CallEvaluation {
   outcomeInsight?: OutcomeInsight;
   borrowerInsight?: BorrowerInsight;
   topicsInsight?: TopicsAndPhrasesInsight;  // Topics and key phrases
+  schemaInsights?: Record<string, Record<string, any>>;  // Dynamic insights keyed by category ID
 }
 
 export interface CallRecord {

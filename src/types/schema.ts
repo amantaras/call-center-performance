@@ -4,6 +4,32 @@
  */
 
 /**
+ * Output field definition for AI insight categories
+ */
+export interface InsightOutputField {
+  id: string;                      // Unique field identifier
+  name: string;                    // Display name
+  type: 'string' | 'number' | 'enum' | 'text' | 'tags' | 'boolean';
+  enumValues?: string[];           // For enum type - list of possible values
+  description: string;             // Description for LLM to understand expected output
+}
+
+/**
+ * AI Insight category configuration
+ * Defines how insights are generated and displayed for a specific analysis area
+ */
+export interface InsightCategoryConfig {
+  id: string;                      // Unique identifier (e.g., "risk-assessment")
+  name: string;                    // Display name (e.g., "Risk Assessment")
+  description: string;             // Description of what this insight analyzes
+  icon: string;                    // Emoji icon for display
+  color: string;                   // Hex color for card styling
+  promptInstructions: string;      // Detailed prompt instructions for LLM
+  outputFields: InsightOutputField[];  // Expected output structure
+  enabled: boolean;                // Whether this insight is active
+}
+
+/**
  * Topic definition for call categorization taxonomy
  */
 export interface TopicDefinition {
@@ -116,6 +142,7 @@ export interface SchemaDefinition {
   fields: FieldDefinition[];       // Field definitions
   relationships: RelationshipDefinition[];  // Discovered relationships
   topicTaxonomy?: TopicDefinition[];  // Hierarchical topic taxonomy for call classification
+  insightCategories?: InsightCategoryConfig[];  // AI insight categories for call analysis
   
   // Template tracking for versioning and updates
   templateId?: string;             // ID of the template this schema was created from

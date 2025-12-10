@@ -8,7 +8,8 @@ import {
   FieldDefinition, 
   RelationshipDefinition, 
   SchemaEvaluationRule, 
-  TopicDefinition 
+  TopicDefinition,
+  InsightCategoryConfig 
 } from '@/types/schema';
 
 /**
@@ -240,6 +241,89 @@ export const DEBT_COLLECTION_TEMPLATE: SchemaTemplate = {
         description: 'Customer committing to make a payment',
         keywords: ['will pay', 'promise', 'by friday', 'next week', 'payday'],
         color: '#10b981',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'risk-assessment',
+        name: 'Risk Assessment',
+        description: 'Analyze the risk level and payment probability based on call dynamics',
+        icon: '⚠️',
+        color: '#ef4444',
+        promptInstructions: `Analyze the call for risk indicators and payment likelihood:
+- Assess the borrower's financial situation based on statements made
+- Evaluate willingness to pay vs ability to pay
+- Consider days past due and amount owed context
+- Look for hardship indicators or dispute signals
+- Determine if escalation is recommended`,
+        outputFields: [
+          { id: 'riskTier', name: 'Risk Tier', type: 'enum', enumValues: ['Low', 'Medium', 'High', 'Critical'], description: 'Overall risk classification' },
+          { id: 'riskScore', name: 'Risk Score', type: 'number', description: 'Numeric risk score 0-100' },
+          { id: 'paymentProbability', name: 'Payment Probability', type: 'number', description: 'Likelihood of payment 0-100%' },
+          { id: 'escalationRecommended', name: 'Escalation Recommended', type: 'boolean', description: 'Whether to escalate this account' },
+          { id: 'detailedAnalysis', name: 'Analysis', type: 'text', description: 'Detailed risk analysis explanation' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'payment-behavior',
+        name: 'Payment Behavior',
+        description: 'Analyze payment patterns and commitment signals',
+        icon: '💳',
+        color: '#3b82f6',
+        promptInstructions: `Analyze the borrower's payment behavior and commitment:
+- Identify any payment promises made and their specificity
+- Assess historical payment pattern indicators mentioned
+- Evaluate the strength of commitment language used
+- Look for payment arrangement requests
+- Determine follow-up timing recommendations`,
+        outputFields: [
+          { id: 'commitmentLevel', name: 'Commitment Level', type: 'enum', enumValues: ['None', 'Weak', 'Moderate', 'Strong'], description: 'Strength of payment commitment' },
+          { id: 'promiseToPayDate', name: 'Promise to Pay Date', type: 'string', description: 'Specific date mentioned for payment if any' },
+          { id: 'paymentArrangementRequested', name: 'Arrangement Requested', type: 'boolean', description: 'Whether borrower requested payment plan' },
+          { id: 'behaviorIndicators', name: 'Behavior Indicators', type: 'tags', description: 'Key behavioral signals observed' },
+          { id: 'followUpRecommendation', name: 'Follow-up Recommendation', type: 'text', description: 'Recommended next steps and timing' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'cultural-communication',
+        name: 'Cultural & Communication',
+        description: 'Analyze communication effectiveness and cultural factors',
+        icon: '🌍',
+        color: '#8b5cf6',
+        promptInstructions: `Analyze cultural and communication aspects of the call:
+- Consider nationality/cultural context if available
+- Assess language barrier or communication challenges
+- Evaluate rapport building effectiveness
+- Identify communication style preferences
+- Recommend communication adjustments for future calls`,
+        outputFields: [
+          { id: 'communicationEffectiveness', name: 'Communication Effectiveness', type: 'enum', enumValues: ['Poor', 'Fair', 'Good', 'Excellent'], description: 'How effective was the communication' },
+          { id: 'culturalFactors', name: 'Cultural Factors', type: 'tags', description: 'Relevant cultural considerations identified' },
+          { id: 'rapportLevel', name: 'Rapport Level', type: 'enum', enumValues: ['Hostile', 'Cold', 'Neutral', 'Warm', 'Positive'], description: 'Level of rapport established' },
+          { id: 'recommendedAdjustments', name: 'Recommended Adjustments', type: 'text', description: 'Suggestions for improving future communication' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'outcome-prediction',
+        name: 'Outcome Prediction',
+        description: 'Predict likely outcome and categorize call result',
+        icon: '🎯',
+        color: '#10b981',
+        promptInstructions: `Predict and categorize the call outcome:
+- Categorize into: success, promise-to-pay, refused, no-contact, callback-needed, other
+- Estimate probability of successful resolution
+- Identify key factors influencing the outcome
+- Provide reasoning for the prediction`,
+        outputFields: [
+          { id: 'categorizedOutcome', name: 'Outcome Category', type: 'enum', enumValues: ['success', 'promise-to-pay', 'refused', 'no-contact', 'callback-needed', 'other'], description: 'Primary outcome category' },
+          { id: 'successProbability', name: 'Success Probability', type: 'number', description: 'Likelihood of successful resolution 0-100%' },
+          { id: 'keyFactors', name: 'Key Factors', type: 'tags', description: 'Main factors influencing outcome' },
+          { id: 'reasoning', name: 'Reasoning', type: 'text', description: 'Explanation of outcome prediction' },
+        ],
+        enabled: true,
       },
     ],
   },
@@ -530,6 +614,92 @@ export const CUSTOMER_SUPPORT_TEMPLATE: SchemaTemplate = {
         description: 'Customer complaints and negative feedback',
         keywords: ['unhappy', 'disappointed', 'complaint', 'terrible', 'worst'],
         color: '#f59e0b',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'issue-complexity',
+        name: 'Issue Complexity',
+        description: 'Analyze the complexity and nature of the customer issue',
+        icon: '🔍',
+        color: '#3b82f6',
+        promptInstructions: `Analyze the complexity of the customer's issue:
+- Assess technical difficulty of the problem
+- Determine if issue requires specialist knowledge
+- Identify root cause indicators
+- Evaluate if first-call resolution is achievable
+- Note any recurring issue patterns`,
+        outputFields: [
+          { id: 'complexityLevel', name: 'Complexity Level', type: 'enum', enumValues: ['Simple', 'Moderate', 'Complex', 'Critical'], description: 'Overall issue complexity' },
+          { id: 'issueType', name: 'Issue Type', type: 'enum', enumValues: ['User Error', 'Bug', 'Configuration', 'Documentation', 'Feature Request', 'Policy', 'Other'], description: 'Primary issue classification' },
+          { id: 'rootCause', name: 'Root Cause', type: 'string', description: 'Identified or suspected root cause' },
+          { id: 'fcrPossible', name: 'FCR Possible', type: 'boolean', description: 'Whether first-call resolution is achievable' },
+          { id: 'analysis', name: 'Analysis', type: 'text', description: 'Detailed issue analysis' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'customer-satisfaction',
+        name: 'Customer Satisfaction',
+        description: 'Predict customer satisfaction based on interaction quality',
+        icon: '😊',
+        color: '#10b981',
+        promptInstructions: `Predict customer satisfaction based on the interaction:
+- Assess customer sentiment throughout the call
+- Evaluate if expectations were met
+- Consider resolution quality and completeness
+- Note any frustration or satisfaction signals
+- Predict likely CSAT score`,
+        outputFields: [
+          { id: 'predictedCSAT', name: 'Predicted CSAT', type: 'number', description: 'Predicted satisfaction score 1-5' },
+          { id: 'satisfactionLevel', name: 'Satisfaction Level', type: 'enum', enumValues: ['Very Dissatisfied', 'Dissatisfied', 'Neutral', 'Satisfied', 'Very Satisfied'], description: 'Overall satisfaction prediction' },
+          { id: 'satisfactionDrivers', name: 'Satisfaction Drivers', type: 'tags', description: 'Factors positively affecting satisfaction' },
+          { id: 'dissatisfactionDrivers', name: 'Dissatisfaction Drivers', type: 'tags', description: 'Factors negatively affecting satisfaction' },
+          { id: 'reasoning', name: 'Reasoning', type: 'text', description: 'Explanation of satisfaction prediction' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'resolution-quality',
+        name: 'Resolution Quality',
+        description: 'Evaluate the quality and completeness of issue resolution',
+        icon: '✅',
+        color: '#8b5cf6',
+        promptInstructions: `Evaluate the quality of issue resolution:
+- Assess if the issue was fully resolved
+- Check if proper troubleshooting steps were followed
+- Evaluate completeness of solution provided
+- Identify any gaps or follow-up needed
+- Rate overall resolution effectiveness`,
+        outputFields: [
+          { id: 'resolutionStatus', name: 'Resolution Status', type: 'enum', enumValues: ['Fully Resolved', 'Partially Resolved', 'Unresolved', 'Escalated', 'Pending'], description: 'Current resolution status' },
+          { id: 'resolutionQuality', name: 'Resolution Quality', type: 'enum', enumValues: ['Poor', 'Fair', 'Good', 'Excellent'], description: 'Quality of resolution provided' },
+          { id: 'stepsFollowed', name: 'Steps Followed', type: 'tags', description: 'Troubleshooting steps properly followed' },
+          { id: 'gapsIdentified', name: 'Gaps Identified', type: 'tags', description: 'Missing steps or information gaps' },
+          { id: 'followUpNeeded', name: 'Follow-up Needed', type: 'text', description: 'Any required follow-up actions' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'escalation-risk',
+        name: 'Escalation Risk',
+        description: 'Assess risk of escalation or complaint',
+        icon: '⚡',
+        color: '#ef4444',
+        promptInstructions: `Assess the risk of escalation or complaint:
+- Identify escalation triggers in the conversation
+- Assess customer frustration level
+- Evaluate if agent handled situation appropriately
+- Predict likelihood of formal complaint
+- Recommend de-escalation strategies if needed`,
+        outputFields: [
+          { id: 'escalationRisk', name: 'Escalation Risk', type: 'enum', enumValues: ['Low', 'Medium', 'High', 'Critical'], description: 'Risk level for escalation' },
+          { id: 'escalationTriggers', name: 'Escalation Triggers', type: 'tags', description: 'Factors that could trigger escalation' },
+          { id: 'customerFrustration', name: 'Frustration Level', type: 'enum', enumValues: ['None', 'Mild', 'Moderate', 'High', 'Severe'], description: 'Customer frustration level' },
+          { id: 'complaintLikelihood', name: 'Complaint Likelihood', type: 'number', description: 'Probability of formal complaint 0-100%' },
+          { id: 'deescalationAdvice', name: 'De-escalation Advice', type: 'text', description: 'Recommended de-escalation strategies' },
+        ],
+        enabled: true,
       },
     ],
   },
@@ -836,6 +1006,94 @@ export const SALES_TEMPLATE: SchemaTemplate = {
         color: '#8b5cf6',
       },
     ],
+    insightCategories: [
+      {
+        id: 'deal-probability',
+        name: 'Deal Probability',
+        description: 'Analyze likelihood of closing the deal',
+        icon: '🎯',
+        color: '#10b981',
+        promptInstructions: `Analyze the probability of closing this deal:
+- Assess buying signals and commitment level
+- Evaluate budget authority and timeline indicators
+- Consider objections raised and how they were handled
+- Look for decision-maker engagement
+- Factor in competition and alternatives mentioned`,
+        outputFields: [
+          { id: 'closeProbability', name: 'Close Probability', type: 'number', description: 'Likelihood of closing 0-100%' },
+          { id: 'dealStage', name: 'Recommended Stage', type: 'enum', enumValues: ['Qualification', 'Discovery', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'], description: 'Recommended pipeline stage' },
+          { id: 'buyingSignals', name: 'Buying Signals', type: 'tags', description: 'Positive indicators observed' },
+          { id: 'dealBlockers', name: 'Deal Blockers', type: 'tags', description: 'Obstacles to closing' },
+          { id: 'analysis', name: 'Analysis', type: 'text', description: 'Detailed deal analysis' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'objection-analysis',
+        name: 'Objection Analysis',
+        description: 'Analyze objections raised and handling effectiveness',
+        icon: '🛡️',
+        color: '#f59e0b',
+        promptInstructions: `Analyze objections raised during the call:
+- Identify all objections (price, timing, competition, etc.)
+- Evaluate how each objection was handled
+- Assess if objections were overcome
+- Note any unaddressed concerns
+- Recommend strategies for remaining objections`,
+        outputFields: [
+          { id: 'primaryObjection', name: 'Primary Objection', type: 'enum', enumValues: ['Price', 'Timing', 'Competition', 'Need', 'Authority', 'Trust', 'None'], description: 'Main objection raised' },
+          { id: 'objectionCount', name: 'Objection Count', type: 'number', description: 'Number of distinct objections' },
+          { id: 'handlingQuality', name: 'Handling Quality', type: 'enum', enumValues: ['Poor', 'Fair', 'Good', 'Excellent'], description: 'How well objections were handled' },
+          { id: 'objectionsList', name: 'Objections List', type: 'tags', description: 'All objections identified' },
+          { id: 'recommendations', name: 'Recommendations', type: 'text', description: 'Strategies for addressing remaining objections' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'competitor-intelligence',
+        name: 'Competitor Intelligence',
+        description: 'Extract competitive intelligence from the conversation',
+        icon: '🔍',
+        color: '#ef4444',
+        promptInstructions: `Extract competitive intelligence from the call:
+- Identify any competitors mentioned by name
+- Note competitor strengths cited by prospect
+- Identify competitor weaknesses or gaps
+- Assess prospect's evaluation criteria
+- Recommend competitive positioning strategies`,
+        outputFields: [
+          { id: 'competitorsIdentified', name: 'Competitors', type: 'tags', description: 'Competitors mentioned in the call' },
+          { id: 'competitorStrengths', name: 'Competitor Strengths', type: 'tags', description: 'Competitor advantages mentioned' },
+          { id: 'ourAdvantages', name: 'Our Advantages', type: 'tags', description: 'Our competitive advantages mentioned' },
+          { id: 'competitivePosition', name: 'Competitive Position', type: 'enum', enumValues: ['Leading', 'Competitive', 'Lagging', 'Unknown'], description: 'Our position vs competition' },
+          { id: 'positioningAdvice', name: 'Positioning Advice', type: 'text', description: 'Recommended competitive positioning' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'buying-signals',
+        name: 'Buying Signals',
+        description: 'Identify and analyze buying signals and intent',
+        icon: '💡',
+        color: '#3b82f6',
+        promptInstructions: `Identify buying signals and purchase intent:
+- Look for explicit interest statements
+- Note questions about pricing, implementation, timeline
+- Identify stakeholder involvement indicators
+- Assess urgency and timeline signals
+- Evaluate BANT criteria (Budget, Authority, Need, Timeline)`,
+        outputFields: [
+          { id: 'intentLevel', name: 'Purchase Intent', type: 'enum', enumValues: ['None', 'Low', 'Medium', 'High', 'Very High'], description: 'Overall purchase intent level' },
+          { id: 'budgetConfirmed', name: 'Budget Confirmed', type: 'boolean', description: 'Whether budget was confirmed' },
+          { id: 'authorityIdentified', name: 'Authority Identified', type: 'boolean', description: 'Whether decision maker was identified' },
+          { id: 'needEstablished', name: 'Need Established', type: 'boolean', description: 'Whether clear need was established' },
+          { id: 'timelineIdentified', name: 'Timeline Identified', type: 'boolean', description: 'Whether purchase timeline was identified' },
+          { id: 'signals', name: 'Buying Signals', type: 'tags', description: 'Specific buying signals observed' },
+          { id: 'nextBestAction', name: 'Next Best Action', type: 'text', description: 'Recommended next action' },
+        ],
+        enabled: true,
+      },
+    ],
   },
   evaluationRules: [
     {
@@ -1130,6 +1388,92 @@ export const HEALTHCARE_TEMPLATE: SchemaTemplate = {
         description: 'Lab results, imaging results, test inquiries',
         keywords: ['results', 'lab', 'test', 'bloodwork', 'scan'],
         color: '#ef4444',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'urgency-assessment',
+        name: 'Urgency Assessment',
+        description: 'Assess the medical urgency of the patient inquiry',
+        icon: '🚨',
+        color: '#ef4444',
+        promptInstructions: `Assess the medical urgency of this call:
+- Identify any symptoms or conditions mentioned
+- Evaluate if immediate medical attention may be needed
+- Consider the patient's described situation severity
+- Note any red flag symptoms or emergency indicators
+- Recommend appropriate care pathway`,
+        outputFields: [
+          { id: 'urgencyLevel', name: 'Urgency Level', type: 'enum', enumValues: ['Routine', 'Semi-Urgent', 'Urgent', 'Emergency'], description: 'Assessed urgency level' },
+          { id: 'symptomsIdentified', name: 'Symptoms', type: 'tags', description: 'Symptoms or conditions mentioned' },
+          { id: 'redFlags', name: 'Red Flags', type: 'tags', description: 'Any concerning symptoms requiring attention' },
+          { id: 'recommendedAction', name: 'Recommended Action', type: 'enum', enumValues: ['Standard Appointment', 'Same-Day Appointment', 'Nurse Triage', 'ER Referral', 'Call 911'], description: 'Recommended care pathway' },
+          { id: 'assessment', name: 'Assessment', type: 'text', description: 'Detailed urgency assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'hipaa-compliance',
+        name: 'HIPAA Compliance',
+        description: 'Evaluate HIPAA compliance during the call',
+        icon: '🔒',
+        color: '#8b5cf6',
+        promptInstructions: `Evaluate HIPAA compliance in this call:
+- Check if proper identity verification was performed
+- Assess if PHI was handled appropriately
+- Note any potential HIPAA violations
+- Evaluate authorization for third-party discussions
+- Rate overall compliance level`,
+        outputFields: [
+          { id: 'identityVerified', name: 'Identity Verified', type: 'boolean', description: 'Whether proper identity verification was done' },
+          { id: 'complianceLevel', name: 'Compliance Level', type: 'enum', enumValues: ['Non-Compliant', 'Partial', 'Compliant', 'Exemplary'], description: 'Overall HIPAA compliance' },
+          { id: 'potentialIssues', name: 'Potential Issues', type: 'tags', description: 'Any compliance concerns identified' },
+          { id: 'thirdPartyHandling', name: 'Third Party Handling', type: 'enum', enumValues: ['N/A', 'Proper Authorization', 'No Authorization', 'Declined Appropriately'], description: 'How third-party requests were handled' },
+          { id: 'notes', name: 'Compliance Notes', type: 'text', description: 'Additional compliance observations' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'patient-experience',
+        name: 'Patient Experience',
+        description: 'Evaluate the patient experience and satisfaction',
+        icon: '💙',
+        color: '#3b82f6',
+        promptInstructions: `Evaluate the patient experience during this call:
+- Assess empathy and compassion shown
+- Evaluate clarity of information provided
+- Consider wait times or inconveniences mentioned
+- Note patient emotional state throughout call
+- Predict patient satisfaction level`,
+        outputFields: [
+          { id: 'experienceRating', name: 'Experience Rating', type: 'enum', enumValues: ['Poor', 'Fair', 'Good', 'Excellent'], description: 'Overall patient experience' },
+          { id: 'empathyDisplayed', name: 'Empathy Displayed', type: 'enum', enumValues: ['None', 'Minimal', 'Adequate', 'Exceptional'], description: 'Level of empathy shown' },
+          { id: 'informationClarity', name: 'Information Clarity', type: 'enum', enumValues: ['Confusing', 'Unclear', 'Clear', 'Very Clear'], description: 'How clearly information was provided' },
+          { id: 'patientConcerns', name: 'Patient Concerns', type: 'tags', description: 'Concerns expressed by patient' },
+          { id: 'experienceNotes', name: 'Experience Notes', type: 'text', description: 'Observations about patient experience' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'care-coordination',
+        name: 'Care Coordination',
+        description: 'Assess care coordination and follow-up needs',
+        icon: '🔄',
+        color: '#10b981',
+        promptInstructions: `Assess care coordination aspects of the call:
+- Identify any referrals or transfers needed
+- Note coordination between departments
+- Evaluate follow-up arrangements made
+- Check if all patient needs were addressed
+- Recommend coordination improvements`,
+        outputFields: [
+          { id: 'coordinationQuality', name: 'Coordination Quality', type: 'enum', enumValues: ['Poor', 'Fair', 'Good', 'Excellent'], description: 'Quality of care coordination' },
+          { id: 'referralsNeeded', name: 'Referrals Needed', type: 'tags', description: 'Any referrals identified' },
+          { id: 'followUpArranged', name: 'Follow-up Arranged', type: 'boolean', description: 'Whether appropriate follow-up was arranged' },
+          { id: 'departmentsInvolved', name: 'Departments', type: 'tags', description: 'Departments involved or referenced' },
+          { id: 'coordinationNotes', name: 'Coordination Notes', type: 'text', description: 'Care coordination observations' },
+        ],
+        enabled: true,
       },
     ],
   },
@@ -1467,6 +1811,92 @@ export const AIRLINE_TEMPLATE: SchemaTemplate = {
         description: 'Loyalty program benefits, miles, and upgrade requests',
         keywords: ['miles', 'upgrade', 'status', 'lounge', 'priority', 'elite', 'frequent flyer'],
         color: '#8b5cf6',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'disruption-impact',
+        name: 'Disruption Impact',
+        description: 'Analyze the impact and severity of flight disruption',
+        icon: '✈️',
+        color: '#ef4444',
+        promptInstructions: `Analyze the impact of the flight disruption on the passenger:
+- Assess severity of the disruption (delay length, missed connections)
+- Identify downstream impacts (missed meetings, events, connections)
+- Evaluate financial impact mentioned
+- Consider passenger's travel purpose (business, leisure, emergency)
+- Rate overall disruption severity`,
+        outputFields: [
+          { id: 'disruptionSeverity', name: 'Severity', type: 'enum', enumValues: ['Minor', 'Moderate', 'Significant', 'Severe'], description: 'Overall disruption severity' },
+          { id: 'delayHours', name: 'Delay Hours', type: 'number', description: 'Estimated delay in hours' },
+          { id: 'downstreamImpacts', name: 'Downstream Impacts', type: 'tags', description: 'Consequential impacts identified' },
+          { id: 'travelPurpose', name: 'Travel Purpose', type: 'enum', enumValues: ['Business', 'Leisure', 'Family Emergency', 'Medical', 'Unknown'], description: 'Passenger travel purpose' },
+          { id: 'impactAnalysis', name: 'Impact Analysis', type: 'text', description: 'Detailed impact assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'compensation-eligibility',
+        name: 'Compensation Eligibility',
+        description: 'Assess eligibility for compensation under regulations',
+        icon: '💰',
+        color: '#10b981',
+        promptInstructions: `Assess passenger eligibility for compensation:
+- Consider EU261 regulations if applicable (EU flights)
+- Consider DOT regulations if applicable (US flights)
+- Evaluate if disruption was within airline control
+- Assess duty of care obligations
+- Recommend appropriate compensation level`,
+        outputFields: [
+          { id: 'eligibilityStatus', name: 'Eligibility', type: 'enum', enumValues: ['Not Eligible', 'Possibly Eligible', 'Likely Eligible', 'Definitely Eligible'], description: 'Compensation eligibility assessment' },
+          { id: 'applicableRegulation', name: 'Regulation', type: 'enum', enumValues: ['EU261', 'DOT', 'Airline Policy', 'None', 'Unknown'], description: 'Applicable compensation regulation' },
+          { id: 'recommendedCompensation', name: 'Recommended', type: 'tags', description: 'Recommended compensation types' },
+          { id: 'airlineResponsibility', name: 'Airline Responsible', type: 'boolean', description: 'Whether disruption was airline responsibility' },
+          { id: 'eligibilityNotes', name: 'Eligibility Notes', type: 'text', description: 'Compensation eligibility analysis' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'service-recovery',
+        name: 'Service Recovery',
+        description: 'Evaluate service recovery effectiveness',
+        icon: '🔄',
+        color: '#3b82f6',
+        promptInstructions: `Evaluate the effectiveness of service recovery:
+- Assess how well the agent addressed the issue
+- Evaluate rebooking or alternative options provided
+- Consider compensation offered vs. expected
+- Rate passenger's likely satisfaction with resolution
+- Identify service recovery gaps`,
+        outputFields: [
+          { id: 'recoveryEffectiveness', name: 'Recovery Effectiveness', type: 'enum', enumValues: ['Poor', 'Fair', 'Good', 'Excellent'], description: 'How effective was service recovery' },
+          { id: 'optionsProvided', name: 'Options Provided', type: 'tags', description: 'Alternatives offered to passenger' },
+          { id: 'passengerSatisfaction', name: 'Satisfaction Prediction', type: 'enum', enumValues: ['Very Dissatisfied', 'Dissatisfied', 'Neutral', 'Satisfied', 'Very Satisfied'], description: 'Predicted passenger satisfaction' },
+          { id: 'recoveryGaps', name: 'Recovery Gaps', type: 'tags', description: 'Missed recovery opportunities' },
+          { id: 'recoveryNotes', name: 'Recovery Notes', type: 'text', description: 'Service recovery observations' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'passenger-sentiment',
+        name: 'Passenger Sentiment',
+        description: 'Analyze passenger emotional state and loyalty impact',
+        icon: '😊',
+        color: '#8b5cf6',
+        promptInstructions: `Analyze passenger sentiment and loyalty impact:
+- Track sentiment progression throughout the call
+- Assess initial frustration level
+- Evaluate sentiment change after resolution
+- Consider impact on loyalty and future bookings
+- Identify loyalty-saving or damaging moments`,
+        outputFields: [
+          { id: 'initialSentiment', name: 'Initial Sentiment', type: 'enum', enumValues: ['Very Negative', 'Negative', 'Neutral', 'Positive'], description: 'Sentiment at call start' },
+          { id: 'finalSentiment', name: 'Final Sentiment', type: 'enum', enumValues: ['Very Negative', 'Negative', 'Neutral', 'Positive', 'Very Positive'], description: 'Sentiment at call end' },
+          { id: 'sentimentChange', name: 'Sentiment Change', type: 'enum', enumValues: ['Worsened', 'Unchanged', 'Improved', 'Significantly Improved'], description: 'How sentiment changed' },
+          { id: 'loyaltyImpact', name: 'Loyalty Impact', type: 'enum', enumValues: ['Likely Lost', 'At Risk', 'Neutral', 'Strengthened'], description: 'Impact on customer loyalty' },
+          { id: 'sentimentNotes', name: 'Sentiment Notes', type: 'text', description: 'Sentiment analysis observations' },
+        ],
+        enabled: true,
       },
     ],
   },
@@ -1856,6 +2286,92 @@ export const TELECOM_RETENTION_TEMPLATE: SchemaTemplate = {
         color: '#10b981',
       },
     ],
+    insightCategories: [
+      {
+        id: 'churn-probability',
+        name: 'Churn Probability',
+        description: 'Analyze likelihood of customer churning',
+        icon: '📉',
+        color: '#ef4444',
+        promptInstructions: `Analyze the probability of this customer churning:
+- Assess stated reasons for considering leaving
+- Evaluate emotional commitment to switching
+- Consider tenure and relationship depth
+- Identify churn triggers mentioned
+- Calculate overall churn risk`,
+        outputFields: [
+          { id: 'churnProbability', name: 'Churn Probability', type: 'number', description: 'Likelihood of churn 0-100%' },
+          { id: 'churnRisk', name: 'Churn Risk Level', type: 'enum', enumValues: ['Low', 'Medium', 'High', 'Imminent'], description: 'Overall churn risk category' },
+          { id: 'primaryChurnDriver', name: 'Primary Driver', type: 'enum', enumValues: ['Price', 'Service Quality', 'Competition', 'Moving', 'No Longer Needed', 'Customer Service', 'Other'], description: 'Main reason for considering churn' },
+          { id: 'churnTriggers', name: 'Churn Triggers', type: 'tags', description: 'Specific triggers identified' },
+          { id: 'churnAnalysis', name: 'Churn Analysis', type: 'text', description: 'Detailed churn risk analysis' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'competitive-threat',
+        name: 'Competitive Threat',
+        description: 'Analyze competitive threats and positioning',
+        icon: '⚔️',
+        color: '#8b5cf6',
+        promptInstructions: `Analyze competitive threats from this call:
+- Identify any competitors mentioned
+- Note specific competitor offers cited
+- Assess attractiveness of competitor offers
+- Evaluate customer's evaluation criteria
+- Recommend competitive counter-positioning`,
+        outputFields: [
+          { id: 'threatLevel', name: 'Threat Level', type: 'enum', enumValues: ['None', 'Low', 'Medium', 'High'], description: 'Level of competitive threat' },
+          { id: 'competitorsMentioned', name: 'Competitors', type: 'tags', description: 'Competitors mentioned in call' },
+          { id: 'competitorOffer', name: 'Competitor Offer', type: 'string', description: 'Specific competitor offer mentioned' },
+          { id: 'evaluationCriteria', name: 'Customer Criteria', type: 'tags', description: 'What customer is evaluating on' },
+          { id: 'counterStrategy', name: 'Counter Strategy', type: 'text', description: 'Recommended competitive response' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'offer-effectiveness',
+        name: 'Offer Effectiveness',
+        description: 'Evaluate effectiveness of retention offers presented',
+        icon: '🎁',
+        color: '#10b981',
+        promptInstructions: `Evaluate the effectiveness of retention offers:
+- Identify all offers presented during the call
+- Assess customer reaction to each offer
+- Determine which offers resonated most
+- Identify offer gaps (what could have worked better)
+- Predict offer acceptance likelihood`,
+        outputFields: [
+          { id: 'offerEffectiveness', name: 'Effectiveness', type: 'enum', enumValues: ['Ineffective', 'Somewhat Effective', 'Effective', 'Very Effective'], description: 'Overall offer effectiveness' },
+          { id: 'offersPresented', name: 'Offers Presented', type: 'tags', description: 'All offers mentioned' },
+          { id: 'bestReceivedOffer', name: 'Best Received', type: 'string', description: 'Offer that resonated most' },
+          { id: 'acceptanceLikelihood', name: 'Acceptance Likelihood', type: 'number', description: 'Probability of accepting 0-100%' },
+          { id: 'offerRecommendations', name: 'Recommendations', type: 'text', description: 'Offer strategy recommendations' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'customer-lifetime-value',
+        name: 'Customer Value Assessment',
+        description: 'Assess customer value and retention priority',
+        icon: '💎',
+        color: '#3b82f6',
+        promptInstructions: `Assess the customer's value and retention priority:
+- Consider tenure and spend level
+- Evaluate growth potential
+- Assess referral/influence potential
+- Calculate retention investment justification
+- Recommend retention effort level`,
+        outputFields: [
+          { id: 'valueSegment', name: 'Value Segment', type: 'enum', enumValues: ['Low Value', 'Medium Value', 'High Value', 'Premium'], description: 'Customer value segment' },
+          { id: 'retentionPriority', name: 'Retention Priority', type: 'enum', enumValues: ['Low', 'Medium', 'High', 'Critical'], description: 'How much effort to retain' },
+          { id: 'lifetimeValue', name: 'Estimated LTV', type: 'number', description: 'Estimated lifetime value in currency' },
+          { id: 'growthPotential', name: 'Growth Potential', type: 'enum', enumValues: ['Limited', 'Moderate', 'High'], description: 'Potential for upsell/cross-sell' },
+          { id: 'valueAssessment', name: 'Value Assessment', type: 'text', description: 'Customer value analysis' },
+        ],
+        enabled: true,
+      },
+    ],
   },
   evaluationRules: [
     {
@@ -2072,6 +2588,7 @@ export function createSchemaFromTemplate(template: SchemaTemplate): SchemaDefini
     fields: JSON.parse(JSON.stringify(template.schema.fields)), // Deep clone
     relationships: JSON.parse(JSON.stringify(template.schema.relationships || [])),
     topicTaxonomy: JSON.parse(JSON.stringify(template.schema.topicTaxonomy || [])),
+    insightCategories: JSON.parse(JSON.stringify(template.schema.insightCategories || [])),
     templateId: template.id,
     templateVersion: template.version,
   };

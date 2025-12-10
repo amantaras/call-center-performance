@@ -834,7 +834,8 @@ ${topicsText}
    */
   async generateSyntheticTranscription(
     callMetadata: Record<string, any>,
-    schema: SchemaDefinition
+    schema: SchemaDefinition,
+    customInstructions?: string
   ): Promise<{
     transcript: string;
     phrases: TranscriptPhrase[];
@@ -888,6 +889,10 @@ Participants:
 
 Call Metadata:
 ${relevantFields}
+${customInstructions ? `
+Additional Instructions:
+${customInstructions}
+` : ''}
 
 Generate a JSON object with:
 {
