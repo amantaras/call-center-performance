@@ -147,6 +147,22 @@ export interface SchemaDefinition {
   // Template tracking for versioning and updates
   templateId?: string;             // ID of the template this schema was created from
   templateVersion?: string;        // Version of the template when schema was created
+  
+  // Schema-specific personalization settings
+  personalization?: SchemaPersonalization;
+}
+
+/**
+ * Schema-specific personalization settings
+ * Each schema can have its own branding and appearance
+ */
+export interface SchemaPersonalization {
+  appTitle?: string;               // Custom title for this schema
+  appSubtitle?: string;            // Custom subtitle/tagline
+  logoUrl?: string | null;         // Logo URL for this schema
+  logoBase64?: string | null;      // Logo as base64 for this schema
+  colorPaletteId?: string;         // Color palette ID
+  darkMode?: boolean;              // Dark mode preference
 }
 
 /**

@@ -25,6 +25,7 @@ import {
   PersonalizationSettings, 
   initializePersonalization, 
   loadPersonalizationSettings,
+  loadSchemaPersonalization,
   applyColorPalette,
   applyDarkMode,
   getColorPalette 
@@ -72,6 +73,16 @@ function App() {
         if (schema) {
           console.log(`📋 Loaded active schema: ${schema.name} v${schema.version}`);
           setActiveSchema(schema);
+          
+          // Load and apply schema-specific personalization
+          const schemaPersonalization = loadSchemaPersonalization(schema.id, schema.name);
+          setPersonalization(schemaPersonalization);
+          const palette = getColorPalette(schemaPersonalization.colorPaletteId);
+          if (palette) {
+            applyColorPalette(palette);
+          }
+          applyDarkMode(schemaPersonalization.darkMode);
+          console.log(`🎨 Applied personalization for schema: ${schema.name}`);
           
           // Load schema-specific evaluation rules
           const schemaRules = loadRulesForSchema(schema.id);
@@ -197,6 +208,16 @@ function App() {
     setActiveSchemaInStorage(schema.id);
     console.log(`📋 Schema switched to: ${schema.name} v${schema.version}`);
     
+    // Load and apply schema-specific personalization
+    const schemaPersonalization = loadSchemaPersonalization(schema.id, schema.name);
+    setPersonalization(schemaPersonalization);
+    const palette = getColorPalette(schemaPersonalization.colorPaletteId);
+    if (palette) {
+      applyColorPalette(palette);
+    }
+    applyDarkMode(schemaPersonalization.darkMode);
+    console.log(`🎨 Applied personalization for schema: ${schema.name}`);
+    
     // Load schema-specific rules (or reset to defaults if none exist)
     const schemaRules = loadRulesForSchema(schema.id);
     if (schemaRules && schemaRules.length > 0) {
@@ -265,7 +286,10 @@ function App() {
                 onRulesGenerated={handleRulesUpdate}
               />
               <RulesEditorDialog onRulesUpdate={handleRulesUpdate} activeSchema={activeSchema} />
-              <PersonalizationDialog onSettingsChange={handlePersonalizationChange} />
+              <PersonalizationDialog 
+                activeSchema={activeSchema}
+                onSettingsChange={handlePersonalizationChange} 
+              />
               <ConfigDialog />
             </div>
           </div>

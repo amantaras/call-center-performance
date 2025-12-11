@@ -19,13 +19,16 @@ import { azureOpenAIService, getActiveEvaluationCriteria, getEvaluationCriteriaF
 import { STTCaller } from '../STTCaller';
 import { DynamicDetailView, DynamicDetailSummary } from '@/components/DynamicDetailView';
 import { toast } from 'sonner';
-import { CheckCircle, XCircle, MinusCircle, Sparkle, Microphone } from '@phosphor-icons/react';
+import { CheckCircle, XCircle, MinusCircle, Sparkle, Microphone, SpeakerHigh } from '@phosphor-icons/react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
 import { CallSentimentPlayer } from '@/components/call-player/CallSentimentPlayer';
 import { TranscriptConversation } from '@/components/TranscriptConversation';
 import { DynamicInsightGrid } from '@/components/DynamicInsightCard';
 import { DEFAULT_CALL_CENTER_LANGUAGES } from '@/lib/speech-languages';
+import { generateSyntheticAudio, SyntheticAudioProgress } from '@/services/synthetic-audio';
+import { LLMCaller } from '@/llmCaller';
+import { storeAudioFile } from '@/lib/audio-storage';
 
 interface CallDetailDialogProps {
   call: CallRecord;
@@ -49,6 +52,8 @@ export function CallDetailDialog({
   
   const [transcribing, setTranscribing] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
+  const [audioGenerationProgress, setAudioGenerationProgress] = useState<SyntheticAudioProgress | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | undefined>(undefined);
 
   const isProcessing = call.status === 'processing' || transcribing;
@@ -258,6 +263,95 @@ export function CallDetailDialog({
     }
   };
 
+  const handleGenerateSyntheticAudio = async () => {
+    if (!call.transcriptPhrases || call.transcriptPhrases.length === 0) {
+      toast.error('No transcript available. Please transcribe the call first.');
+      return;
+    }
+
+    if (!config?.speech?.region || !config?.speech?.subscriptionKey) {
+      toast.error('Azure Speech credentials not configured. Please configure in Settings.');
+      return;
+    }
+
+    if (!config?.openAI?.endpoint || !config?.openAI?.apiKey) {
+      toast.error('Azure OpenAI not configured. Needed for gender detection from names.');
+      return;
+    }
+
+    if (config.tts?.enabled === false) {
+      toast.error('Synthetic audio generation is disabled. Enable it in Configuration.');
+      return;
+    }
+
+    setGeneratingAudio(true);
+    setAudioGenerationProgress(null);
+
+    try {
+      // Create LLM caller for gender detection
+      const llmCaller = new LLMCaller({
+        getConfig: async () => ({
+          endpoint: config.openAI.endpoint,
+          apiKey: config.openAI.apiKey,
+          deploymentName: config.openAI.deploymentName,
+          apiVersion: config.openAI.apiVersion,
+          reasoningEffort: config.openAI.reasoningEffort,
+          authType: 'apiKey',
+        }),
+        getEntraIdToken: async () => null,
+        getMaxRetries: () => 3,
+      });
+
+      toast.info('Generating synthetic audio from transcript...');
+
+      const result = await generateSyntheticAudio(
+        call,
+        schema,
+        llmCaller,
+        config,
+        (progress) => {
+          setAudioGenerationProgress(progress);
+          if (progress.phase === 'detecting-gender') {
+            toast.info(progress.message);
+          }
+        }
+      );
+
+      // Store the generated audio in IndexedDB
+      await storeAudioFile(call.id, result.audioBlob);
+
+      // Update the call with the synthetic audio
+      const updatedCall: CallRecord = {
+        ...call,
+        audioFile: result.audioBlob,
+        metadata: {
+          ...call.metadata,
+          syntheticAudioGenerated: true,
+          syntheticAudioVoices: result.voiceAssignments.map(v => `${v.speakerLabel}: ${v.voiceName}`).join(', '),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+
+      onUpdate(updatedCall);
+
+      // Update the audio URL for playback
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+      setAudioUrl(result.audioUrl);
+
+      toast.success(
+        `Synthetic audio generated! Voices: ${result.voiceAssignments.map(v => v.voiceName.replace('en-US-', '').replace('Neural', '')).join(' & ')}`
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to generate synthetic audio: ${errorMessage}`);
+    } finally {
+      setGeneratingAudio(false);
+      setAudioGenerationProgress(null);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="!max-w-[80vw] w-[80vw] max-h-[90vh] overflow-y-auto">
@@ -430,7 +524,21 @@ export function CallDetailDialog({
                   </ScrollArea>
                 )}
                 
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  <Button
+                    onClick={handleGenerateSyntheticAudio}
+                    variant="outline"
+                    size="sm"
+                    disabled={generatingAudio || !call.transcriptPhrases || call.transcriptPhrases.length === 0}
+                  >
+                    <SpeakerHigh className="mr-2 h-4 w-4" />
+                    {generatingAudio 
+                      ? audioGenerationProgress 
+                        ? `${audioGenerationProgress.message}`
+                        : 'Generating...'
+                      : 'Generate Synthetic Audio'
+                    }
+                  </Button>
                   <Button
                     onClick={handleTranscribe}
                     variant="outline"

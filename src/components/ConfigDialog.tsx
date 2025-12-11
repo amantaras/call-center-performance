@@ -22,6 +22,7 @@ import {
 } from '@/lib/azure-config-storage';
 import { LanguageSelector } from './LanguageSelector';
 import { DEFAULT_CALL_CENTER_LANGUAGES, normalizeLocaleList } from '@/lib/speech-languages';
+import { VOICE_OPTIONS, DEFAULT_VOICES } from '@/TTSCaller';
 
 export function ConfigDialog() {
   const [config, setConfig] = useLocalStorage<AzureServicesConfig>('azure-services-config', {
@@ -40,6 +41,13 @@ export function ConfigDialog() {
       diarizationEnabled: false,
       minSpeakers: 1,
       maxSpeakers: 2,
+    },
+    tts: {
+      enabled: true,
+      defaultMaleVoice1: DEFAULT_VOICES.male1,
+      defaultMaleVoice2: DEFAULT_VOICES.male2,
+      defaultFemaleVoice1: DEFAULT_VOICES.female1,
+      defaultFemaleVoice2: DEFAULT_VOICES.female2,
     },
     syntheticData: {
       parallelBatches: 3,
@@ -65,6 +73,13 @@ export function ConfigDialog() {
         diarizationEnabled: false,
         minSpeakers: 1,
         maxSpeakers: 2,
+      },
+      tts: {
+        enabled: true,
+        defaultMaleVoice1: DEFAULT_VOICES.male1,
+        defaultMaleVoice2: DEFAULT_VOICES.male2,
+        defaultFemaleVoice1: DEFAULT_VOICES.female1,
+        defaultFemaleVoice2: DEFAULT_VOICES.female2,
       },
       syntheticData: {
         parallelBatches: 3,
@@ -133,6 +148,13 @@ export function ConfigDialog() {
       speech: {
         ...localConfig.speech,
         selectedLanguages: sanitizedLanguages,
+      },
+      tts: {
+        enabled: localConfig.tts?.enabled ?? true,
+        defaultMaleVoice1: localConfig.tts?.defaultMaleVoice1 || DEFAULT_VOICES.male1,
+        defaultMaleVoice2: localConfig.tts?.defaultMaleVoice2 || DEFAULT_VOICES.male2,
+        defaultFemaleVoice1: localConfig.tts?.defaultFemaleVoice1 || DEFAULT_VOICES.female1,
+        defaultFemaleVoice2: localConfig.tts?.defaultFemaleVoice2 || DEFAULT_VOICES.female2,
       },
       syntheticData: {
         parallelBatches: localConfig.syntheticData?.parallelBatches ?? 3,
@@ -405,6 +427,178 @@ export function ConfigDialog() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border my-4" />
+
+          {/* Synthetic Audio Generation (TTS) Section */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3">Synthetic Audio Generation</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Configure text-to-speech voices for generating synthetic call audio from transcripts.
+              Uses Azure Speech Services (same credentials as Speech Service above).
+            </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="tts-enabled">Enable TTS Generation</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Allow generating synthetic audio from call transcripts
+                  </p>
+                </div>
+                <Switch
+                  id="tts-enabled"
+                  checked={localConfig.tts?.enabled ?? true}
+                  onCheckedChange={(checked) =>
+                    setLocalConfig((prev) => ({
+                      ...prev,
+                      tts: { 
+                        ...prev.tts,
+                        enabled: checked,
+                        defaultMaleVoice1: prev.tts?.defaultMaleVoice1 || DEFAULT_VOICES.male1,
+                        defaultMaleVoice2: prev.tts?.defaultMaleVoice2 || DEFAULT_VOICES.male2,
+                        defaultFemaleVoice1: prev.tts?.defaultFemaleVoice1 || DEFAULT_VOICES.female1,
+                        defaultFemaleVoice2: prev.tts?.defaultFemaleVoice2 || DEFAULT_VOICES.female2,
+                      },
+                    }))
+                  }
+                />
+              </div>
+
+              {(localConfig.tts?.enabled ?? true) && (
+                <div className="space-y-4">
+                  {/* Male Voices */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium">Male Voices</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="tts-male-voice-1" className="text-xs">Primary Voice</Label>
+                        <select
+                          id="tts-male-voice-1"
+                          className="w-full h-9 px-2 text-sm rounded-md border border-input bg-background"
+                          value={localConfig.tts?.defaultMaleVoice1 || DEFAULT_VOICES.male1}
+                          onChange={(e) =>
+                            setLocalConfig((prev) => ({
+                              ...prev,
+                              tts: {
+                                ...prev.tts,
+                                enabled: prev.tts?.enabled ?? true,
+                                defaultMaleVoice1: e.target.value,
+                                defaultMaleVoice2: prev.tts?.defaultMaleVoice2 || DEFAULT_VOICES.male2,
+                                defaultFemaleVoice1: prev.tts?.defaultFemaleVoice1 || DEFAULT_VOICES.female1,
+                                defaultFemaleVoice2: prev.tts?.defaultFemaleVoice2 || DEFAULT_VOICES.female2,
+                              },
+                            }))
+                          }
+                        >
+                          {VOICE_OPTIONS.male.map((voice) => (
+                            <option key={voice.value} value={voice.value}>
+                              {voice.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="tts-male-voice-2" className="text-xs">Secondary Voice</Label>
+                        <select
+                          id="tts-male-voice-2"
+                          className="w-full h-9 px-2 text-sm rounded-md border border-input bg-background"
+                          value={localConfig.tts?.defaultMaleVoice2 || DEFAULT_VOICES.male2}
+                          onChange={(e) =>
+                            setLocalConfig((prev) => ({
+                              ...prev,
+                              tts: {
+                                ...prev.tts,
+                                enabled: prev.tts?.enabled ?? true,
+                                defaultMaleVoice1: prev.tts?.defaultMaleVoice1 || DEFAULT_VOICES.male1,
+                                defaultMaleVoice2: e.target.value,
+                                defaultFemaleVoice1: prev.tts?.defaultFemaleVoice1 || DEFAULT_VOICES.female1,
+                                defaultFemaleVoice2: prev.tts?.defaultFemaleVoice2 || DEFAULT_VOICES.female2,
+                              },
+                            }))
+                          }
+                        >
+                          {VOICE_OPTIONS.male.map((voice) => (
+                            <option key={voice.value} value={voice.value}>
+                              {voice.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Female Voices */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium">Female Voices</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="tts-female-voice-1" className="text-xs">Primary Voice</Label>
+                        <select
+                          id="tts-female-voice-1"
+                          className="w-full h-9 px-2 text-sm rounded-md border border-input bg-background"
+                          value={localConfig.tts?.defaultFemaleVoice1 || DEFAULT_VOICES.female1}
+                          onChange={(e) =>
+                            setLocalConfig((prev) => ({
+                              ...prev,
+                              tts: {
+                                ...prev.tts,
+                                enabled: prev.tts?.enabled ?? true,
+                                defaultMaleVoice1: prev.tts?.defaultMaleVoice1 || DEFAULT_VOICES.male1,
+                                defaultMaleVoice2: prev.tts?.defaultMaleVoice2 || DEFAULT_VOICES.male2,
+                                defaultFemaleVoice1: e.target.value,
+                                defaultFemaleVoice2: prev.tts?.defaultFemaleVoice2 || DEFAULT_VOICES.female2,
+                              },
+                            }))
+                          }
+                        >
+                          {VOICE_OPTIONS.female.map((voice) => (
+                            <option key={voice.value} value={voice.value}>
+                              {voice.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="tts-female-voice-2" className="text-xs">Secondary Voice</Label>
+                        <select
+                          id="tts-female-voice-2"
+                          className="w-full h-9 px-2 text-sm rounded-md border border-input bg-background"
+                          value={localConfig.tts?.defaultFemaleVoice2 || DEFAULT_VOICES.female2}
+                          onChange={(e) =>
+                            setLocalConfig((prev) => ({
+                              ...prev,
+                              tts: {
+                                ...prev.tts,
+                                enabled: prev.tts?.enabled ?? true,
+                                defaultMaleVoice1: prev.tts?.defaultMaleVoice1 || DEFAULT_VOICES.male1,
+                                defaultMaleVoice2: prev.tts?.defaultMaleVoice2 || DEFAULT_VOICES.male2,
+                                defaultFemaleVoice1: prev.tts?.defaultFemaleVoice1 || DEFAULT_VOICES.female1,
+                                defaultFemaleVoice2: e.target.value,
+                              },
+                            }))
+                          }
+                        >
+                          {VOICE_OPTIONS.female.map((voice) => (
+                            <option key={voice.value} value={voice.value}>
+                              {voice.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>How it works:</strong> The system uses the LLM to detect speaker gender from names
+                      in the transcript metadata. When both speakers are the same gender (e.g., two women or two men),
+                      the primary voice is used for the first speaker and the secondary voice for the second speaker.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

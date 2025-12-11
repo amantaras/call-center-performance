@@ -39,30 +39,54 @@ import {
   COLOR_PALETTES,
   loadPersonalizationSettings,
   savePersonalizationSettings,
+  loadSchemaPersonalization,
+  saveSchemaPersonalization,
+  getSchemaPersonalizationDefaults,
   applyColorPalette,
   applyDarkMode,
   getColorPalette,
   fileToBase64,
 } from '@/lib/personalization';
+import { SchemaDefinition } from '@/types/schema';
 
 interface PersonalizationDialogProps {
+  activeSchema?: SchemaDefinition | null;
   onSettingsChange?: (settings: PersonalizationSettings) => void;
 }
 
-export function PersonalizationDialog({ onSettingsChange }: PersonalizationDialogProps) {
+export function PersonalizationDialog({ activeSchema, onSettingsChange }: PersonalizationDialogProps) {
   const [open, setOpen] = useState(false);
-  const [settings, setSettings] = useState<PersonalizationSettings>(loadPersonalizationSettings());
+  const [settings, setSettings] = useState<PersonalizationSettings>(() => 
+    activeSchema 
+      ? loadSchemaPersonalization(activeSchema.id, activeSchema.name)
+      : loadPersonalizationSettings()
+  );
   const [previewSettings, setPreviewSettings] = useState<PersonalizationSettings>(settings);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load settings when dialog opens
+  // Reload settings when schema changes
   useEffect(() => {
-    if (open) {
+    if (activeSchema) {
+      const loaded = loadSchemaPersonalization(activeSchema.id, activeSchema.name);
+      setSettings(loaded);
+      setPreviewSettings(loaded);
+    } else {
       const loaded = loadPersonalizationSettings();
       setSettings(loaded);
       setPreviewSettings(loaded);
     }
-  }, [open]);
+  }, [activeSchema?.id]);
+
+  // Load settings when dialog opens
+  useEffect(() => {
+    if (open) {
+      const loaded = activeSchema 
+        ? loadSchemaPersonalization(activeSchema.id, activeSchema.name)
+        : loadPersonalizationSettings();
+      setSettings(loaded);
+      setPreviewSettings(loaded);
+    }
+  }, [open, activeSchema?.id]);
 
   // Preview changes in real-time
   useEffect(() => {
@@ -76,10 +100,18 @@ export function PersonalizationDialog({ onSettingsChange }: PersonalizationDialo
   }, [open, previewSettings.colorPaletteId, previewSettings.darkMode]);
 
   const handleSave = () => {
-    savePersonalizationSettings(previewSettings);
+    // Save to schema-specific storage if schema is active
+    if (activeSchema) {
+      saveSchemaPersonalization(activeSchema.id, previewSettings);
+    } else {
+      savePersonalizationSettings(previewSettings);
+    }
     setSettings(previewSettings);
     onSettingsChange?.(previewSettings);
-    toast.success('Personalization settings saved');
+    toast.success(activeSchema 
+      ? `Personalization saved for ${activeSchema.name}`
+      : 'Personalization settings saved'
+    );
     setOpen(false);
   };
 
@@ -95,17 +127,25 @@ export function PersonalizationDialog({ onSettingsChange }: PersonalizationDialo
   };
 
   const handleReset = () => {
+    // Reset to schema-specific defaults if available
+    const schemaDefaults = activeSchema 
+      ? getSchemaPersonalizationDefaults(activeSchema.id, activeSchema.name)
+      : {};
+    
     const defaultSettings: PersonalizationSettings = {
-      appTitle: 'Call Center QA Platform',
-      appSubtitle: 'AI-powered call quality evaluation and analytics',
+      appTitle: schemaDefaults.appTitle || 'Call Center QA Platform',
+      appSubtitle: schemaDefaults.appSubtitle || 'AI-powered call quality evaluation and analytics',
       logoUrl: null,
       logoBase64: null,
-      colorPaletteId: 'ocean-blue',
+      colorPaletteId: schemaDefaults.colorPaletteId || 'ocean-blue',
       darkMode: false,
       compactMode: false,
     };
     setPreviewSettings(defaultSettings);
-    toast.info('Settings reset to defaults');
+    toast.info(activeSchema 
+      ? `Settings reset to ${activeSchema.name} defaults`
+      : 'Settings reset to defaults'
+    );
   };
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,9 +234,17 @@ export function PersonalizationDialog({ onSettingsChange }: PersonalizationDialo
           <DialogTitle className="flex items-center gap-2">
             <Palette className="h-5 w-5" />
             Personalization
+            {activeSchema && (
+              <Badge variant="outline" className="ml-2 font-normal">
+                {activeSchema.name}
+              </Badge>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Customize the appearance and branding of your application
+            {activeSchema 
+              ? `Customize theme and branding for the "${activeSchema.name}" schema`
+              : 'Customize the appearance and branding of your application'
+            }
           </DialogDescription>
         </DialogHeader>
 

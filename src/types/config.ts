@@ -19,4 +19,12 @@ export interface AzureServicesConfig {
     parallelBatches: number; // Number of parallel API calls (1-10)
     recordsPerBatch: number; // Records to generate per batch (1-10)
   };
+  tts?: {
+    enabled: boolean;
+    defaultMaleVoice1: string;
+    defaultMaleVoice2: string;
+    defaultFemaleVoice1: string;
+    defaultFemaleVoice2: string;
+    outputFormat?: 'audio-16khz-128kbitrate-mono-mp3' | 'audio-24khz-160kbitrate-mono-mp3' | 'audio-48khz-192kbitrate-mono-mp3';
+  };
 }

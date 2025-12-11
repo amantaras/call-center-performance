@@ -817,6 +817,12 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
             <DialogTitle className="flex items-center gap-2">
               <Database className="h-5 w-5" />
               Schema Manager
+              {selectedSchema && (
+                <Badge variant="secondary" className="ml-auto font-normal text-sm">
+                  {selectedSchema.name}
+                  <span className="ml-1.5 text-muted-foreground">v{selectedSchema.version}</span>
+                </Badge>
+              )}
             </DialogTitle>
             <DialogDescription>
               Manage schemas, fields, relationships, and versioning

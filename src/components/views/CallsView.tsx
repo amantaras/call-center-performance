@@ -5,7 +5,7 @@ import { CallRecord } from '@/types/call';
 import { SchemaDefinition } from '@/types/schema';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Upload, MagnifyingGlass, ArrowCounterClockwise, Microphone, FileCsv, Sparkle, ChartBar } from '@phosphor-icons/react';
+import { Upload, MagnifyingGlass, ArrowCounterClockwise, Microphone, FileCsv, Sparkle, ChartBar, SpeakerHigh } from '@phosphor-icons/react';
 import { loadAzureConfigFromCookie } from '@/lib/azure-config-storage';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -18,6 +18,9 @@ import { transcriptionService } from '@/services/transcription';
 import { azureOpenAIService } from '@/services/azure-openai';
 import { restoreAudioFilesFromStorage } from '@/lib/csv-parser';
 import { toast } from 'sonner';
+import { generateSyntheticAudioBatch } from '@/services/synthetic-audio';
+import { LLMCaller } from '@/llmCaller';
+import { storeAudioFile } from '@/lib/audio-storage';
 
 interface CallsViewProps {
   batchProgress: { completed: number; total: number } | null;
@@ -55,6 +58,7 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
   const [selectedCall, setSelectedCall] = useState<CallRecord | null>(null);
   const [transcribingIds, setTranscribingIds] = useState<Set<string>>(new Set());
   const [evaluatingIds, setEvaluatingIds] = useState<Set<string>>(new Set());
+  const [generatingAudioIds, setGeneratingAudioIds] = useState<Set<string>>(new Set());
   const [selectedCallIds, setSelectedCallIds] = useState<Set<string>>(new Set());
 
   const onUpdateCalls = (updater: (prev: CallRecord[] | undefined) => CallRecord[]) => {
@@ -259,6 +263,142 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
       toast.success(`✅ Evaluated ${successCount} calls in ${duration}s`);
     } else {
       toast.warning(`Completed: ${successCount} succeeded, ${failCount} failed in ${duration}s`);
+    }
+  };
+
+  const handleGenerateAudioSelected = async () => {
+    // Filter for selected calls that have transcripts
+    const callsToGenerate = (calls || []).filter(
+      (call) => selectedCallIds.has(call.id) && call.transcriptPhrases && call.transcriptPhrases.length > 0
+    );
+
+    if (callsToGenerate.length === 0) {
+      toast.error('No transcribed calls selected. Please select calls that have been transcribed.');
+      return;
+    }
+
+    if (!activeSchema) {
+      toast.error('Please select a schema first');
+      return;
+    }
+
+    // Get config
+    const azureConfig = loadAzureConfigFromCookie();
+    if (!azureConfig?.speech?.region || !azureConfig?.speech?.subscriptionKey) {
+      toast.error('Azure Speech credentials not configured. Please configure in Settings.');
+      return;
+    }
+
+    if (!azureConfig?.openAI?.endpoint || !azureConfig?.openAI?.apiKey) {
+      toast.error('Azure OpenAI not configured. Needed for gender detection from names.');
+      return;
+    }
+
+    if (azureConfig.tts?.enabled === false) {
+      toast.error('Synthetic audio generation is disabled. Enable it in Configuration.');
+      return;
+    }
+
+    // Mark all calls as generating
+    const callIdsToGenerate = new Set(callsToGenerate.map(c => c.id));
+    setGeneratingAudioIds(callIdsToGenerate);
+
+    const startTime = Date.now();
+    toast.info(`🔊 Generating synthetic audio for ${callsToGenerate.length} call(s)...`);
+
+    // Set up progress tracking
+    setBatchProgress({ completed: 0, total: callsToGenerate.length });
+
+    try {
+      // Create LLM caller for gender detection
+      const llmCaller = new LLMCaller({
+        getConfig: async () => ({
+          endpoint: azureConfig.openAI.endpoint,
+          apiKey: azureConfig.openAI.apiKey,
+          deploymentName: azureConfig.openAI.deploymentName,
+          apiVersion: azureConfig.openAI.apiVersion,
+          reasoningEffort: azureConfig.openAI.reasoningEffort,
+          authType: 'apiKey',
+        }),
+        getEntraIdToken: async () => null,
+        getMaxRetries: () => 3,
+      });
+
+      let successCount = 0;
+      let failCount = 0;
+      let skippedCount = 0;
+
+      const results = await generateSyntheticAudioBatch(
+        callsToGenerate,
+        activeSchema,
+        llmCaller,
+        azureConfig,
+        async (callIndex, totalCalls, callId, status) => {
+          setBatchProgress({ completed: callIndex, total: totalCalls });
+          
+          if (status === 'completed') {
+            successCount++;
+          } else if (status === 'failed') {
+            failCount++;
+          } else if (status === 'skipped') {
+            skippedCount++;
+          }
+
+          // Remove from generating set when done
+          if (status === 'completed' || status === 'failed' || status === 'skipped') {
+            setGeneratingAudioIds((prev) => {
+              const next = new Set(prev);
+              next.delete(callId);
+              return next;
+            });
+          }
+        }
+      );
+
+      // Update calls with generated audio
+      for (const [callId, result] of results) {
+        if (result) {
+          // Store audio in IndexedDB
+          await storeAudioFile(callId, result.audioBlob);
+
+          // Update the call
+          onUpdateCalls((prev) =>
+            (prev || []).map((c) =>
+              c.id === callId
+                ? {
+                    ...c,
+                    audioFile: result.audioBlob,
+                    metadata: {
+                      ...c.metadata,
+                      syntheticAudioGenerated: true,
+                      syntheticAudioVoices: result.voiceAssignments
+                        .map(v => `${v.speakerLabel}: ${v.voiceName}`)
+                        .join(', '),
+                    },
+                    updatedAt: new Date().toISOString(),
+                  }
+                : c
+            )
+          );
+        }
+      }
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+
+      if (failCount === 0 && skippedCount === 0) {
+        toast.success(`✅ Generated synthetic audio for ${successCount} calls in ${duration}s`);
+      } else if (skippedCount > 0) {
+        toast.warning(`Generated ${successCount} audio files, ${skippedCount} skipped (no transcript), ${failCount} failed in ${duration}s`);
+      } else {
+        toast.warning(`Generated ${successCount} audio files, ${failCount} failed in ${duration}s`);
+      }
+    } catch (error) {
+      console.error('Batch audio generation error:', error);
+      toast.error(error instanceof Error ? error.message : 'Batch audio generation failed');
+    } finally {
+      setGeneratingAudioIds(new Set());
+      setSelectedCallIds(new Set());
+      setBatchProgress(null);
     }
   };
 
@@ -500,6 +640,10 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
               <Button onClick={handleEvaluateSelected} variant="default">
                 <ChartBar className="mr-2" size={18} />
                 Evaluate Selected ({selectedCallIds.size})
+              </Button>
+              <Button onClick={handleGenerateAudioSelected} variant="outline">
+                <SpeakerHigh className="mr-2" size={18} />
+                Generate Audio ({selectedCallIds.size})
               </Button>
               <Button onClick={handleDeselectAll} variant="outline" size="sm">
                 Deselect All

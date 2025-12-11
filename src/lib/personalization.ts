@@ -127,6 +127,7 @@ export const COLOR_PALETTES: ColorPalette[] = [
 ];
 
 const STORAGE_KEY = 'app-personalization';
+const SCHEMA_PERSONALIZATION_PREFIX = 'schema-personalization-';
 
 const DEFAULT_SETTINGS: PersonalizationSettings = {
   appTitle: 'Call Center QA Platform',
@@ -136,6 +137,71 @@ const DEFAULT_SETTINGS: PersonalizationSettings = {
   colorPaletteId: 'ocean-blue',
   darkMode: false,
   compactMode: false,
+};
+
+// Default schema personalization templates
+export const SCHEMA_PERSONALIZATION_DEFAULTS: Record<string, Partial<PersonalizationSettings>> = {
+  // Match template IDs from schema-templates.ts
+  'debt-collection': {
+    appTitle: 'Debt Collection QA',
+    appSubtitle: 'Collection call compliance and effectiveness',
+    colorPaletteId: 'sunset-orange',
+  },
+  'customer-support': {
+    appTitle: 'Customer Support Analytics',
+    appSubtitle: 'Support call quality and satisfaction metrics',
+    colorPaletteId: 'ocean-blue',
+  },
+  'sales': {
+    appTitle: 'Sales Performance Analytics',
+    appSubtitle: 'Sales call effectiveness and conversion tracking',
+    colorPaletteId: 'forest-green',
+  },
+  'healthcare': {
+    appTitle: 'Healthcare Call Center QA',
+    appSubtitle: 'Patient care and medical support evaluation',
+    colorPaletteId: 'mint-jade',
+  },
+  'airline': {
+    appTitle: 'Airline Service Quality',
+    appSubtitle: 'Flight and booking support call evaluation',
+    colorPaletteId: 'sky-cyan',
+  },
+  'airline-customer-service': {
+    appTitle: 'Airline Service Quality',
+    appSubtitle: 'Flight and booking support call evaluation',
+    colorPaletteId: 'sky-cyan',
+  },
+  'telecom': {
+    appTitle: 'Telecom Service Analytics',
+    appSubtitle: 'Telecom support and retention evaluation',
+    colorPaletteId: 'royal-purple',
+  },
+  'telecom-retention': {
+    appTitle: 'Telecom Retention Analytics',
+    appSubtitle: 'Customer retention call performance',
+    colorPaletteId: 'royal-purple',
+  },
+  'tech-support': {
+    appTitle: 'Tech Support Analytics',
+    appSubtitle: 'Technical support call quality evaluation',
+    colorPaletteId: 'midnight-indigo',
+  },
+  'insurance': {
+    appTitle: 'Insurance Call Center QA',
+    appSubtitle: 'Claims and policy support evaluation',
+    colorPaletteId: 'earth-brown',
+  },
+  'banking': {
+    appTitle: 'Banking Service Analytics',
+    appSubtitle: 'Financial services call quality metrics',
+    colorPaletteId: 'forest-green',
+  },
+  'retail': {
+    appTitle: 'Retail Customer Service',
+    appSubtitle: 'Shopping and order support evaluation',
+    colorPaletteId: 'rose-pink',
+  },
 };
 
 /**
@@ -264,4 +330,126 @@ export function fileToBase64(file: File): Promise<string> {
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = error => reject(error);
   });
+}
+
+/**
+ * Get default personalization for a schema based on its ID or name
+ */
+export function getSchemaPersonalizationDefaults(schemaId: string, schemaName?: string): Partial<PersonalizationSettings> {
+  // Check for exact match first
+  const idLower = schemaId.toLowerCase();
+  if (SCHEMA_PERSONALIZATION_DEFAULTS[idLower]) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS[idLower];
+  }
+  
+  // Check for partial matches in schema ID or name
+  const searchTerm = (schemaId + ' ' + (schemaName || '')).toLowerCase();
+  
+  // Airline/Aviation
+  if (searchTerm.includes('airline') || searchTerm.includes('flight') || searchTerm.includes('aviation') || searchTerm.includes('airport')) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS['airline'];
+  }
+  // Healthcare/Medical
+  if (searchTerm.includes('health') || searchTerm.includes('medical') || searchTerm.includes('patient') || searchTerm.includes('hospital') || searchTerm.includes('clinic')) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS['healthcare'];
+  }
+  // Telecom
+  if (searchTerm.includes('telecom') || searchTerm.includes('retention') || searchTerm.includes('mobile') || searchTerm.includes('wireless') || searchTerm.includes('carrier')) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS['telecom'];
+  }
+  // Debt/Collection
+  if (searchTerm.includes('debt') || searchTerm.includes('collection') || searchTerm.includes('payment') || searchTerm.includes('recovery') || searchTerm.includes('billing')) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS['debt-collection'];
+  }
+  // Tech Support
+  if (searchTerm.includes('tech') || searchTerm.includes('it support') || searchTerm.includes('technical') || searchTerm.includes('helpdesk')) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS['tech-support'];
+  }
+  // Sales
+  if (searchTerm.includes('sales') || searchTerm.includes('conversion') || searchTerm.includes('lead') || searchTerm.includes('prospect')) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS['sales'];
+  }
+  // Insurance
+  if (searchTerm.includes('insurance') || searchTerm.includes('claim') || searchTerm.includes('policy') || searchTerm.includes('coverage')) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS['insurance'];
+  }
+  // Banking/Finance
+  if (searchTerm.includes('bank') || searchTerm.includes('finance') || searchTerm.includes('loan') || searchTerm.includes('mortgage') || searchTerm.includes('account')) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS['banking'];
+  }
+  // Retail/Shopping
+  if (searchTerm.includes('retail') || searchTerm.includes('shopping') || searchTerm.includes('order') || searchTerm.includes('ecommerce') || searchTerm.includes('store')) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS['retail'];
+  }
+  // Customer Support (general fallback)
+  if (searchTerm.includes('support') || searchTerm.includes('service') || searchTerm.includes('customer')) {
+    return SCHEMA_PERSONALIZATION_DEFAULTS['customer-support'];
+  }
+  
+  return {};
+}
+
+/**
+ * Load personalization settings for a specific schema
+ */
+export function loadSchemaPersonalization(schemaId: string, schemaName?: string): PersonalizationSettings {
+  try {
+    // First try to load schema-specific settings
+    const stored = localStorage.getItem(SCHEMA_PERSONALIZATION_PREFIX + schemaId);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return { ...DEFAULT_SETTINGS, ...parsed };
+    }
+    
+    // No stored settings - use defaults based on schema type
+    const schemaDefaults = getSchemaPersonalizationDefaults(schemaId, schemaName);
+    return { ...DEFAULT_SETTINGS, ...schemaDefaults };
+  } catch (error) {
+    console.error('Error loading schema personalization:', error);
+  }
+  return { ...DEFAULT_SETTINGS };
+}
+
+/**
+ * Save personalization settings for a specific schema
+ */
+export function saveSchemaPersonalization(schemaId: string, settings: PersonalizationSettings): void {
+  try {
+    localStorage.setItem(SCHEMA_PERSONALIZATION_PREFIX + schemaId, JSON.stringify(settings));
+    console.log(`💾 Saved personalization for schema: ${schemaId}`);
+  } catch (error) {
+    console.error('Error saving schema personalization:', error);
+  }
+}
+
+/**
+ * Delete personalization settings for a specific schema
+ */
+export function deleteSchemaPersonalization(schemaId: string): void {
+  try {
+    localStorage.removeItem(SCHEMA_PERSONALIZATION_PREFIX + schemaId);
+    console.log(`🗑️ Deleted personalization for schema: ${schemaId}`);
+  } catch (error) {
+    console.error('Error deleting schema personalization:', error);
+  }
+}
+
+/**
+ * Initialize personalization for a specific schema
+ * Applies the settings and returns them
+ */
+export function initializeSchemaPersonalization(schemaId: string, schemaName?: string): PersonalizationSettings {
+  const settings = loadSchemaPersonalization(schemaId, schemaName);
+  
+  // Apply color palette
+  const palette = getColorPalette(settings.colorPaletteId);
+  if (palette) {
+    applyColorPalette(palette);
+  }
+  
+  // Apply dark mode
+  applyDarkMode(settings.darkMode);
+  
+  console.log(`🎨 Initialized personalization for schema: ${schemaId}`);
+  return settings;
 }
