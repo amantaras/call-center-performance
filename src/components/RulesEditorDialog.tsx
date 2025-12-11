@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ResizablePanelGroup, ResizableHandle, ResizablePanel } from '@/components/ui/resizable';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Upload, Plus, Trash, PlayCircle, MinusCircle } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { EvaluationCriterion } from '@/types/call';
@@ -57,6 +58,95 @@ export function RulesEditorDialog({ onRulesUpdate, activeSchema }: RulesEditorDi
     }
   }, [activeSchema, open]);
 
+  // Calculate scoring totals
+  const scoringTotals = useMemo(() => {
+    const totalPassed = rules.reduce((sum, r) => sum + (r.scoringStandard.passed || 0), 0);
+    const totalPartial = rules.reduce((sum, r) => sum + (r.scoringStandard.partial || 0), 0);
+    const totalFailed = rules.reduce((sum, r) => sum + (r.scoringStandard.failed || 0), 0);
+    return { totalPassed, totalPartial, totalFailed };
+  }, [rules]);
+
+  // Normalize all passed scores to total 100
+  const handleNormalizeScores = () => {
+    const currentTotal = scoringTotals.totalPassed;
+    if (currentTotal === 0) {
+      toast.error('Cannot normalize: all passed scores are 0');
+      return;
+    }
+    
+    const scale = 100 / currentTotal;
+    const newRules = rules.map(rule => ({
+      ...rule,
+      scoringStandard: {
+        ...rule.scoringStandard,
+        passed: Math.round(rule.scoringStandard.passed * scale),
+        partial: rule.scoringStandard.partial 
+          ? Math.round(rule.scoringStandard.partial * scale) 
+          : undefined,
+      },
+    }));
+    
+    // Adjust for rounding errors - add/subtract from largest rule
+    const newTotal = newRules.reduce((sum, r) => sum + r.scoringStandard.passed, 0);
+    if (newTotal !== 100) {
+      const diff = 100 - newTotal;
+      const largestIndex = newRules.reduce((maxIdx, rule, idx, arr) => 
+        rule.scoringStandard.passed > arr[maxIdx].scoringStandard.passed ? idx : maxIdx, 0);
+      newRules[largestIndex].scoringStandard.passed += diff;
+    }
+    
+    setRules(newRules);
+    toast.success('Scores normalized to 100 total');
+  };
+
+  // Smart update that adjusts other rules proportionally when changing one rule's score
+  const handleSmartScoreUpdate = (index: number, field: 'passed' | 'partial', newValue: number) => {
+    const oldValue = field === 'passed' 
+      ? rules[index].scoringStandard.passed 
+      : (rules[index].scoringStandard.partial || 0);
+    
+    const currentTotal = field === 'passed' ? scoringTotals.totalPassed : scoringTotals.totalPartial;
+    const otherRulesTotal = currentTotal - oldValue;
+    const newTotal = otherRulesTotal + newValue;
+    
+    // If total would exceed 100, proportionally reduce other rules
+    if (newTotal > 100 && otherRulesTotal > 0) {
+      const reduction = (newTotal - 100) / otherRulesTotal;
+      const newRules = rules.map((rule, idx) => {
+        if (idx === index) {
+          return {
+            ...rule,
+            scoringStandard: {
+              ...rule.scoringStandard,
+              [field]: newValue,
+            },
+          };
+        }
+        const currentScore = field === 'passed' 
+          ? rule.scoringStandard.passed 
+          : (rule.scoringStandard.partial || 0);
+        const adjustedScore = Math.max(0, Math.round(currentScore * (1 - reduction)));
+        return {
+          ...rule,
+          scoringStandard: {
+            ...rule.scoringStandard,
+            [field]: field === 'partial' && adjustedScore === 0 ? undefined : adjustedScore,
+          },
+        };
+      });
+      setRules(newRules);
+      toast.info('Other rules adjusted to maintain 100 max total');
+    } else {
+      // Just update the single rule
+      handleUpdateRule(index, {
+        scoringStandard: {
+          ...rules[index].scoringStandard,
+          [field]: field === 'partial' && newValue === 0 ? undefined : newValue,
+        },
+      });
+    }
+  };
+
   useEffect(() => {
     if (open) {
       setSelectedIndex((prev) => {
@@ -83,7 +173,14 @@ export function RulesEditorDialog({ onRulesUpdate, activeSchema }: RulesEditorDi
     }
     
     onRulesUpdate?.(rulesWithIds);
-    toast.success('Evaluation rules saved successfully');
+    
+    // Warn if scores don't total 100
+    const total = rulesWithIds.reduce((sum, r) => sum + r.scoringStandard.passed, 0);
+    if (total !== 100) {
+      toast.warning(`Rules saved, but total points is ${total} (not 100). Use "Normalize to 100" to fix.`);
+    } else {
+      toast.success('Evaluation rules saved successfully');
+    }
     setOpen(false);
   };
 
@@ -163,7 +260,32 @@ export function RulesEditorDialog({ onRulesUpdate, activeSchema }: RulesEditorDi
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden pt-2" style={{ height: 'calc(90vh - 200px)' }}>
+        {/* Scoring Totals Summary */}
+        <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg border">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm font-medium">Total Passed Points:</span>
+              <span className={`text-lg font-bold ${scoringTotals.totalPassed === 100 ? 'text-green-600' : scoringTotals.totalPassed > 100 ? 'text-red-600' : 'text-yellow-600'}`}>
+                {scoringTotals.totalPassed}
+              </span>
+              <span className="text-sm text-muted-foreground">/ 100</span>
+            </div>
+            <Progress 
+              value={Math.min(scoringTotals.totalPassed, 100)} 
+              className={`h-2 ${scoringTotals.totalPassed > 100 ? '[&>div]:bg-red-500' : scoringTotals.totalPassed === 100 ? '[&>div]:bg-green-500' : ''}`}
+            />
+          </div>
+          <Button 
+            size="sm" 
+            variant={scoringTotals.totalPassed === 100 ? 'outline' : 'default'}
+            onClick={handleNormalizeScores}
+            disabled={scoringTotals.totalPassed === 100}
+          >
+            Normalize to 100
+          </Button>
+        </div>
+
+        <div className="flex-1 overflow-hidden pt-2" style={{ height: 'calc(90vh - 260px)' }}>
           <ResizablePanelGroup direction="horizontal" className="h-full gap-4">
             <ResizablePanel defaultSize={40} minSize={30}>
               <div className="h-full flex flex-col gap-3 pr-2 min-w-[360px]">
@@ -173,7 +295,7 @@ export function RulesEditorDialog({ onRulesUpdate, activeSchema }: RulesEditorDi
                     <Plus size={16} />
                   </Button>
                 </div>
-                <div className="flex-1 border border-border rounded-lg overflow-y-scroll" style={{ maxHeight: 'calc(90vh - 280px)' }}>
+                <div className="flex-1 border border-border rounded-lg overflow-y-scroll" style={{ maxHeight: 'calc(90vh - 340px)' }}>
                   <div className="p-2 space-y-2">
                     {rules.map((rule, index) => (
                       <Card
@@ -317,20 +439,20 @@ export function RulesEditorDialog({ onRulesUpdate, activeSchema }: RulesEditorDi
 
                         <div className="grid grid-cols-3 gap-3">
                           <div className="space-y-2">
-                            <Label htmlFor="rule-passed">Points (Passed)</Label>
+                            <Label htmlFor="rule-passed">
+                              Points (Passed)
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                ({Math.round((selectedRule.scoringStandard.passed / Math.max(scoringTotals.totalPassed, 1)) * 100)}% weight)
+                              </span>
+                            </Label>
                             <Input
                               id="rule-passed"
                               type="number"
                               min="0"
                               max="100"
                               value={selectedRule.scoringStandard.passed}
-                              onChange={(e) =>
-                                handleUpdateRule(selectedIndex!, {
-                                  scoringStandard: {
-                                    ...selectedRule.scoringStandard,
-                                    passed: parseInt(e.target.value) || 0,
-                                  },
-                                })
+                              onChange={(e) => 
+                                handleSmartScoreUpdate(selectedIndex!, 'passed', parseInt(e.target.value) || 0)
                               }
                             />
                           </div>
@@ -342,15 +464,9 @@ export function RulesEditorDialog({ onRulesUpdate, activeSchema }: RulesEditorDi
                               min="0"
                               max="100"
                               value={selectedRule.scoringStandard.partial || 0}
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value) || undefined;
-                                handleUpdateRule(selectedIndex!, {
-                                  scoringStandard: {
-                                    ...selectedRule.scoringStandard,
-                                    partial: value && value > 0 ? value : undefined,
-                                  },
-                                });
-                              }}
+                              onChange={(e) => 
+                                handleSmartScoreUpdate(selectedIndex!, 'partial', parseInt(e.target.value) || 0)
+                              }
                               placeholder="Optional"
                             />
                           </div>

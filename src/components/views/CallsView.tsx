@@ -129,6 +129,7 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
     toast.info(`Starting evaluation for ${call.metadata.borrowerName}...`);
 
     try {
+      console.log(`🔄 Re-evaluating call ${call.id} with schema: ${activeSchema?.id || 'NO SCHEMA'}`);
       const evaluation = await azureOpenAIService.evaluateCall(
         call.transcript,
         call.metadata,
@@ -159,9 +160,9 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
   };
 
   const handleEvaluateSelected = async () => {
-    // Filter for selected calls that have transcripts but aren't yet evaluated
+    // Filter for selected calls that have transcripts (allow re-evaluation of already evaluated calls)
     const callsToEvaluate = (calls || []).filter(
-      (call) => selectedCallIds.has(call.id) && call.transcript && call.status !== 'evaluated'
+      (call) => selectedCallIds.has(call.id) && call.transcript
     );
 
     if (callsToEvaluate.length === 0) {
@@ -382,18 +383,7 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
     setSelectedCallIds(new Set());
   };
 
-  const handleToggleSelect = (callId: string) => {
-    setSelectedCallIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(callId)) {
-        next.delete(callId);
-      } else {
-        next.add(callId);
-      }
-      return next;
-    });
-  };
-
+  // Define filteredCalls BEFORE handleToggleSelect so it's available for shift-click
   const filteredCalls = (calls || []).filter((call) => {
     // Filter by active schema
     if (activeSchema && call.schemaId !== activeSchema.id) {
@@ -418,6 +408,44 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
       return false;
     });
   });
+
+  // Track last selected index for shift-click range selection
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+
+  const handleToggleSelect = (callId: string, index: number, shiftKey: boolean) => {
+    // Shift-click: select range from last selected to current
+    if (shiftKey && lastSelectedIndex !== null) {
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      const callsInRange = filteredCalls.slice(start, end + 1);
+      
+      console.log(`Shift-click: selecting rows ${start} to ${end} (${callsInRange.length} calls)`);
+      
+      setSelectedCallIds((prev) => {
+        const next = new Set(prev);
+        // Add all calls in range that can be processed
+        callsInRange.forEach(call => {
+          const canProcess = call.status !== 'pending audio' && call.status !== 'processing' && call.status !== 'failed';
+          if (canProcess) {
+            next.add(call.id);
+          }
+        });
+        return next;
+      });
+    } else {
+      // Normal click: toggle single selection
+      setSelectedCallIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(callId)) {
+          next.delete(callId);
+        } else {
+          next.add(callId);
+        }
+        return next;
+      });
+      setLastSelectedIndex(index);
+    }
+  };
 
   const handleReset = () => {
     if (window.confirm('Are you sure you want to delete all call records? This action cannot be undone.')) {

@@ -146,6 +146,7 @@ export class AzureOpenAIService {
     // Get criteria specific to this schema
     const activeCriteria = getEvaluationCriteriaForSchema(schema.id);
     console.log(`📝 Using ${activeCriteria.length} criteria for evaluation`);
+    console.log(`📝 Criteria scores for this eval:`, activeCriteria.map(c => `${c.name}: ${c.scoringStandard.passed}pts`).join(', '));
     
     const criteriaText = activeCriteria.map((criterion) => {
       return `${criterion.id}. ${criterion.name} [${criterion.type}]
@@ -465,20 +466,52 @@ ${topicsText}
 
       // Calculate totals using criteria specific to this schema
       const activeCriteria = getEvaluationCriteriaForSchema(schema.id);
+      console.log(`🔧 Enforcing scores from rules (not trusting LLM scores)`);
 
       if (parsed.results.length !== activeCriteria.length) {
         console.warn(`⚠ Expected ${activeCriteria.length} results, got ${parsed.results.length}`);
       }
 
-      // Validate each result has required fields
-      for (const result of parsed.results) {
-        if (!result.criterionId || result.score === undefined || result.passed === undefined) {
+      // Validate each result and ENFORCE scores from our rules (don't trust LLM scores)
+      const correctedResults = parsed.results.map((result: any) => {
+        if (!result.criterionId || result.passed === undefined) {
           throw new Error(`Invalid result structure: ${JSON.stringify(result)}`);
         }
-      }
-      const totalScore = parsed.results.reduce((sum, r) => sum + r.score, 0);
+        
+        // Find the matching criterion by ID or name
+        const criterion = activeCriteria.find(c => 
+          c.id === result.criterionId || 
+          c.name === result.criterionName ||
+          c.id === parseInt(result.criterionId)
+        );
+        
+        if (!criterion) {
+          console.warn(`⚠ No criterion found for ID: ${result.criterionId}`);
+          return result;
+        }
+        
+        // ENFORCE the score from our rules based on pass/fail/partial status
+        let enforcedScore: number;
+        if (result.passed === true) {
+          enforcedScore = criterion.scoringStandard.passed;
+        } else if (result.passed === 'partial' && criterion.scoringStandard.partial) {
+          enforcedScore = criterion.scoringStandard.partial;
+        } else {
+          enforcedScore = criterion.scoringStandard.failed;
+        }
+        
+        console.log(`   ${criterion.name}: LLM said ${result.score}pts, enforcing ${enforcedScore}pts (${result.passed ? 'passed' : 'failed'})`);
+        
+        return {
+          ...result,
+          score: enforcedScore, // Override LLM score with our rule's score
+        };
+      });
+
+      const totalScore = correctedResults.reduce((sum: number, r: any) => sum + r.score, 0);
       const maxScore = activeCriteria.reduce((sum, c) => sum + c.scoringStandard.passed, 0);
       const percentage = Math.round((totalScore / maxScore) * 100);
+      console.log(`📊 Final score: ${totalScore}/${maxScore} = ${percentage}%`);
 
       // Parse and validate insights if present
       let productInsight: ProductInsight | undefined;
@@ -600,7 +633,7 @@ ${topicsText}
         totalScore,
         maxScore,
         percentage,
-        results: parsed.results,
+        results: correctedResults, // Use corrected results with enforced scores
         overallFeedback: parsed.overallFeedback || 'Evaluation completed.',
         productInsight,
         riskInsight,

@@ -70,7 +70,14 @@ export async function generateEvaluationRules(
 export function saveRulesForSchema(schemaId: string, rules: SchemaEvaluationRule[]): void {
   try {
     const key = `evaluation-criteria-${schemaId}`;
+    console.log(`💾 SAVING rules to localStorage key: "${key}"`);
+    console.log(`💾 Rules being saved:`, rules.map(r => `${r.name}: ${r.scoringStandard.passed}pts`).join(', '));
     localStorage.setItem(key, JSON.stringify(rules));
+    
+    // Verify the save worked
+    const saved = localStorage.getItem(key);
+    const parsed = saved ? JSON.parse(saved) : null;
+    console.log(`💾 VERIFIED saved rules:`, parsed ? parsed.map((r: any) => `${r.name}: ${r.scoringStandard.passed}pts`).join(', ') : 'FAILED TO VERIFY');
   } catch (error) {
     console.error('Error saving evaluation rules:', error);
     throw error;
@@ -83,9 +90,15 @@ export function saveRulesForSchema(schemaId: string, rules: SchemaEvaluationRule
 export function loadRulesForSchema(schemaId: string): SchemaEvaluationRule[] | null {
   try {
     const key = `evaluation-criteria-${schemaId}`;
+    console.log(`📂 LOADING rules from localStorage key: "${key}"`);
     const json = localStorage.getItem(key);
-    if (!json) return null;
-    return JSON.parse(json);
+    if (!json) {
+      console.log(`📂 No rules found for key: "${key}"`);
+      return null;
+    }
+    const rules = JSON.parse(json);
+    console.log(`📂 LOADED ${rules.length} rules:`, rules.map((r: any) => `${r.name}: ${r.scoringStandard.passed}pts`).join(', '));
+    return rules;
   } catch (error) {
     console.error('Error loading evaluation rules:', error);
     return null;
