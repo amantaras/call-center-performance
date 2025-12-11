@@ -383,6 +383,32 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
     setSelectedCallIds(new Set());
   };
 
+  // Define filteredCalls BEFORE handleToggleSelect so it's available for shift-click
+  const filteredCalls = (calls || []).filter((call) => {
+    // Filter by active schema
+    if (activeSchema && call.schemaId !== activeSchema.id) {
+      return false;
+    }
+    
+    // If no search query, include all calls for this schema
+    if (!searchQuery.trim()) {
+      return true;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    
+    // Search across all metadata fields that are strings
+    return Object.values(call.metadata || {}).some(value => {
+      if (typeof value === 'string') {
+        return value.toLowerCase().includes(query);
+      }
+      if (typeof value === 'number') {
+        return value.toString().includes(query);
+      }
+      return false;
+    });
+  });
+
   // Track last selected index for shift-click range selection
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
 
@@ -392,6 +418,8 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
       const start = Math.min(lastSelectedIndex, index);
       const end = Math.max(lastSelectedIndex, index);
       const callsInRange = filteredCalls.slice(start, end + 1);
+      
+      console.log(`Shift-click: selecting rows ${start} to ${end} (${callsInRange.length} calls)`);
       
       setSelectedCallIds((prev) => {
         const next = new Set(prev);
@@ -418,31 +446,6 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
       setLastSelectedIndex(index);
     }
   };
-
-  const filteredCalls = (calls || []).filter((call) => {
-    // Filter by active schema
-    if (activeSchema && call.schemaId !== activeSchema.id) {
-      return false;
-    }
-    
-    // If no search query, include all calls for this schema
-    if (!searchQuery.trim()) {
-      return true;
-    }
-    
-    const query = searchQuery.toLowerCase();
-    
-    // Search across all metadata fields that are strings
-    return Object.values(call.metadata || {}).some(value => {
-      if (typeof value === 'string') {
-        return value.toLowerCase().includes(query);
-      }
-      if (typeof value === 'number') {
-        return value.toString().includes(query);
-      }
-      return false;
-    });
-  });
 
   const handleReset = () => {
     if (window.confirm('Are you sure you want to delete all call records? This action cannot be undone.')) {
