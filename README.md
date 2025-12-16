@@ -12,7 +12,7 @@
 
 **A modern, full-featured platform for automating call center quality assurance using Azure AI services.**
 
-[Features](#-key-features) • [Quick Start](#-quick-start) • [Configuration](#%EF%B8%8F-configuration) • [Usage](#-usage-guide) • [Architecture](#-project-architecture)
+[Features](#-key-features) • [Quick Start](#-quick-start) • [Configuration](#%EF%B8%8F-configuration) • [Usage](#-usage-guide) • [Synthetic Data](#-synthetic-data-generation-guide) • [Architecture](#-project-architecture)
 
 </div>
 
@@ -54,6 +54,18 @@ The Call Center QA Platform is a comprehensive React-based dashboard that stream
 - **🎨 White-Label Support**: Custom logos, titles, and color themes
 - **🔄 Data Migration**: Automatic schema versioning and migration
 
+### 🎲 Synthetic Data Generation
+
+Generate complete synthetic call center datasets for testing, training, and demonstration purposes:
+
+| Feature | Description |
+|---------|-------------|
+| **Synthetic Metadata Generation** | AI-powered generation of realistic call records based on your schema definition |
+| **Synthetic Transcription Generation** | Create realistic call transcriptions with speaker diarization and sentiment |
+| **Synthetic Audio Generation** | Convert transcripts to natural-sounding audio using Azure Text-to-Speech |
+| **Intelligent Voice Assignment** | Automatic gender detection and voice selection for realistic conversations |
+| **Batch Processing** | Generate multiple synthetic calls in parallel for rapid dataset creation |
+
 ---
 
 ## 🛠️ Technology Stack
@@ -64,7 +76,7 @@ The Call Center QA Platform is a comprehensive React-based dashboard that stream
 | **Styling** | Tailwind CSS 4.1, Radix UI Components |
 | **State Management** | React Hooks, Local Storage |
 | **Charts & Visualization** | Recharts, D3.js |
-| **AI Services** | Azure Speech-to-Text, Azure OpenAI |
+| **AI Services** | Azure Speech-to-Text, Azure Text-to-Speech, Azure OpenAI |
 | **Data Handling** | xlsx, date-fns, Zod validation |
 | **UI Components** | shadcn/ui, Lucide Icons, Phosphor Icons |
 
@@ -221,6 +233,158 @@ Navigate to the **Agents** tab for:
 
 ---
 
+## 🎲 Synthetic Data Generation Guide
+
+The platform includes powerful AI-powered synthetic data generation capabilities for testing, training, and demonstration purposes. This feature allows you to create complete synthetic call center datasets without real recordings.
+
+### Overview
+
+The synthetic data generation workflow consists of three stages that can be used independently or together:
+
+```
+1. Metadata Generation → 2. Transcription Generation → 3. Audio Generation
+   (Schema-based)         (AI Conversations)           (Text-to-Speech)
+```
+
+### Stage 1: Synthetic Metadata Generation
+
+Generate realistic call metadata records using Azure OpenAI.
+
+#### How to Use
+
+1. Click **"Synthetic Data"** button in the Calls view
+2. Configure generation parameters:
+   - **Number of Records**: How many synthetic records to generate (1-50)
+   - **Date Range**: Specify a date range for realistic timestamp distribution
+   - **Participant Limits**: Control how many unique agent/customer names to use
+3. Add optional custom instructions to guide the AI
+4. Click **"Next"** to proceed to transcription options
+
+#### What Gets Generated
+
+- All schema-defined fields with appropriate data types
+- Realistic values based on business context
+- Select fields use only valid options from your schema
+- Dates are distributed within your specified range
+- Participant names are reused to simulate realistic scenarios
+
+#### Example Custom Instructions
+
+```
+- Include a mix of high-risk and low-risk scenarios
+- Focus on billing-related call types
+- Generate more variety in the outcome field
+- Include some edge cases with unusual durations
+```
+
+### Stage 2: Synthetic Transcription Generation
+
+Generate realistic call transcriptions from the metadata using AI.
+
+#### How to Use
+
+1. In the Synthetic Data wizard, enable **"Generate Synthetic Transcriptions"**
+2. Optionally provide transcription instructions:
+   - Conversation tone and style
+   - Specific topics to include
+   - Difficulty scenarios
+3. The AI generates structured conversations based on:
+   - Call metadata (type, outcome, participants)
+   - Schema business context
+   - Your custom instructions
+
+#### What Gets Generated
+
+| Component | Description |
+|-----------|-------------|
+| **Full Transcript** | Complete conversation text with speaker labels |
+| **Phrase Segments** | Individual dialogue turns with timing information |
+| **Speaker Diarization** | Properly labeled speaker 1 (agent) and speaker 2 (customer) |
+| **Timing Data** | Simulated timestamps for each phrase |
+| **Sentiment Analysis** | Per-phrase sentiment labels (positive/negative/neutral) |
+| **Overall Sentiment** | Aggregated call sentiment score |
+
+#### Example Transcription Instructions
+
+```
+- Make conversations professional and formal
+- Include some difficult customer scenarios
+- Add natural speech patterns and acknowledgments
+- Include specific product objections
+- Vary conversation lengths between 2-8 minutes
+```
+
+### Stage 3: Synthetic Audio Generation (Text-to-Speech)
+
+Convert transcriptions to natural-sounding audio using Azure Speech Services.
+
+#### How to Use
+
+##### Single Call
+1. Open a call with a transcription (real or synthetic)
+2. Click the **"Generate Audio"** button (speaker icon 🔊)
+3. Wait for audio generation to complete
+
+##### Batch Processing
+1. Select multiple transcribed calls in the Calls view
+2. Click **"Generate Audio"** in the batch actions toolbar
+3. Monitor progress as audio is generated in parallel
+
+#### How It Works
+
+1. **Gender Detection**: The AI analyzes participant names to determine gender
+2. **Voice Assignment**: Appropriate Azure Neural Voices are assigned:
+   - Different voices for agent vs. customer
+   - If same gender, uses primary/secondary voice variants for distinction
+3. **Speech Synthesis**: Each transcript phrase is converted to audio
+4. **Audio Assembly**: Phrases are combined with natural pauses between speakers
+
+#### Voice Configuration
+
+Configure default voices in **"Azure Services"** → **Text-to-Speech** tab:
+
+| Setting | Description |
+|---------|-------------|
+| **Male Voice 1** | Primary voice for male speakers (e.g., en-US-GuyNeural) |
+| **Male Voice 2** | Secondary voice when both speakers are male |
+| **Female Voice 1** | Primary voice for female speakers (e.g., en-US-JennyNeural) |
+| **Female Voice 2** | Secondary voice when both speakers are female |
+| **Output Format** | Audio quality: 16kHz, 24kHz, or 48kHz MP3 |
+
+#### Available Voice Options
+
+The platform supports multiple Azure Neural Voice options:
+
+**Male Voices**: Guy (US), Davis (US), Jason (US), Tony (US), Brandon (US), Ryan (UK), William (AU), Prabhat (IN)
+
+**Female Voices**: Jenny (US), Aria (US), Sara (US), Nancy (US), Michelle (US), Sonia (UK), Natasha (AU), Neerja (IN)
+
+### Complete Workflow Example
+
+Create a full synthetic dataset with audio:
+
+```
+1. Select your schema in the header dropdown
+2. Click "Synthetic Data" button
+3. Configure: 10 records, last 30 days date range
+4. Enable "Generate Synthetic Transcriptions"
+5. Click "Generate" and wait for completion
+6. Review and select records to add
+7. Click "Add Records" to import them
+8. Select the new records in the Calls view
+9. Click "Generate Audio" to create audio files
+10. Records are now ready for evaluation testing!
+```
+
+### Performance Tips
+
+- **Parallel Batches**: Configure in Azure Services settings (default: 3 parallel batches)
+- **Records Per Batch**: Configure batch size for metadata generation (default: 5)
+- **Audio Generation**: Processes up to 5 calls in parallel to avoid rate limits
+- **Large Datasets**: Generate in multiple smaller batches for reliability
+
+---
+
 ## 📁 Project Architecture
 
 ```
@@ -244,6 +408,7 @@ call-center-performance/
 │   ├── services/           # Business logic services
 │   │   ├── azure-openai.ts # OpenAI integration
 │   │   ├── transcription.ts# Speech-to-Text integration
+│   │   ├── synthetic-audio.ts # Text-to-Speech audio generation
 │   │   ├── schema-manager.ts# Schema management
 │   │   └── rules-generator.ts# Evaluation rules engine
 │   ├── styles/             # CSS styles
@@ -263,6 +428,7 @@ call-center-performance/
 | `ConfigDialog` | Azure services configuration |
 | `RulesEditorDialog` | Evaluation rules management |
 | `SchemaDiscoveryWizard` | AI-assisted schema creation |
+| `SyntheticMetadataWizard` | Synthetic data generation wizard |
 | `AnalyticsView` | Performance dashboards |
 | `AgentsView` | Agent performance tracking |
 
@@ -284,16 +450,23 @@ call-center-performance/
 Calls progress through the following statuses:
 
 ```
-Uploaded → Transcribing → Transcribed → Evaluated
-                              ↓
-                           Failed (on error)
+Real Calls:        Uploaded → Transcribing → Transcribed → Evaluated
+                                                  ↓
+                                           Failed (on error)
+
+Synthetic Calls:   Synthetic Generation → Transcribed → Evaluated
+                         ↓                     ↓
+                   Pending Audio          Generate Audio
+                         ↓                     ↓
+                   (needs real audio)    Transcribed (with audio)
 ```
 
 | Status | Badge Color | Description |
 |--------|-------------|-------------|
 | **Uploaded** | 🟦 Blue | Call data uploaded, ready for transcription |
+| **Pending Audio** | 🟪 Purple | Metadata generated without transcription, awaiting audio upload or generation |
 | **Transcribing** | 🟨 Yellow | Audio being processed by Azure Speech |
-| **Transcribed** | 🟩 Green | Transcript ready for evaluation |
+| **Transcribed** | 🟩 Green | Transcript ready for evaluation (can optionally generate synthetic audio) |
 | **Evaluated** | 🟢 Dark Green | Complete with scores |
 | **Failed** | 🔴 Red | Error occurred (check details) |
 
