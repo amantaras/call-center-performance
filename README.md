@@ -12,7 +12,7 @@
 
 **A modern, full-featured platform for automating call center quality assurance using Azure AI services.**
 
-[Features](#-key-features) • [Quick Start](#-quick-start) • [Configuration](#%EF%B8%8F-configuration) • [Usage](#-usage-guide) • [Synthetic Data](#-synthetic-data-generation-guide) • [Architecture](#-project-architecture)
+[Features](#-key-features) • [Industry Templates](#-industry-templates) • [Quick Start](#-quick-start) • [Configuration](#%EF%B8%8F-configuration) • [Usage](#-usage-guide) • [Synthetic Data](#-synthetic-data-generation-guide) • [Architecture](#-project-architecture)
 
 </div>
 
@@ -53,6 +53,21 @@ The Call Center QA Platform is a comprehensive React-based dashboard that stream
 - **💡 Custom Insight Categories**: Define business-specific AI insights
 - **🎨 White-Label Support**: Custom logos, titles, and color themes
 - **🔄 Data Migration**: Automatic schema versioning and migration
+
+### 🏭 Industry Templates
+
+Pre-built schema templates for common call center industries, each including fields, evaluation rules, topic taxonomies, and insight categories:
+
+| Template | Icon | Description |
+|----------|------|-------------|
+| **Debt Collection** | 💰 | Complete template for debt collection operations including borrower tracking, payment arrangements, compliance requirements, and risk assessment |
+| **Customer Support** | 🎧 | Comprehensive template for customer support operations including ticket management, issue resolution tracking, satisfaction measurement, and service quality evaluation |
+| **Sales** | 📈 | Complete template for sales operations including lead tracking, deal management, competitor analysis, and sales performance evaluation |
+| **Healthcare** | 🏥 | HIPAA-compliant template for healthcare operations including patient scheduling, insurance verification, medical inquiries, and compliance-focused evaluation rules |
+| **Airline Customer Service** | ✈️ | Complete template for airline customer service operations including flight disruptions, rebooking, luggage claims, refunds, upgrades, and special assistance |
+| **Telecom Retention** | 📱 | Complete template for telecom retention operations including churn prevention, win-back campaigns, retention offers, competitive analysis, and customer loyalty management |
+
+Templates are defined in [`src/lib/schema-templates.ts`](./src/lib/schema-templates.ts) and can be customized or extended to match your specific business needs.
 
 ### 🎲 Synthetic Data Generation
 
