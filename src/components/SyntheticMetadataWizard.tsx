@@ -224,12 +224,14 @@ Use ISO format: YYYY-MM-DD for date fields, or full ISO timestamp YYYY-MM-DDTHH:
 `
       : '';
 
-    return `You are a data generation assistant. Generate ${batchRecordCount} realistic and diverse synthetic metadata records for a ${schema.name} schema.
+    return `You are a data generation assistant for Contoso Corporation, a fictional company used for demonstration purposes. Generate ${batchRecordCount} realistic and diverse synthetic metadata records for a ${schema.name} schema.
+
+IMPORTANT: All generated data should reference "Contoso" as the company/organization name where applicable. Use Contoso branding for any company references, email domains (@contoso.com), or corporate mentions.
 
 SCHEMA NAME: ${schema.name}
 ${batchContext}
 BUSINESS CONTEXT:
-${schema.businessContext || 'General business data'}
+${schema.businessContext || 'General business data (Contoso Corporation)'}
 
 FIELDS TO GENERATE:
 ${fieldDescriptions}

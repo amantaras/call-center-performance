@@ -18,7 +18,7 @@ param containerRegistryLoginServer string
 @description('Managed Identity ID')
 param managedIdentityId string
 
-@description('Managed Identity Client ID')
+@description('Managed Identity Client ID - CRITICAL for DefaultAzureCredential')
 param managedIdentityClientId string
 
 @description('Azure OpenAI Endpoint')
@@ -33,7 +33,7 @@ param speechRegion string
 @description('Application Insights Connection String')
 param applicationInsightsConnectionString string
 
-resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
+resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
   location: location
   tags: tags
@@ -72,7 +72,7 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
       containers: [
         {
           name: 'web'
-          // Use base image initially - will be replaced by azd deploy
+          // Use placeholder image initially - will be replaced by azd deploy
           image: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
           resources: {
             cpu: json('0.5')
@@ -96,6 +96,7 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
               value: applicationInsightsConnectionString
             }
             {
+              // CRITICAL: DefaultAzureCredential uses this to select the correct identity
               name: 'AZURE_CLIENT_ID'
               value: managedIdentityClientId
             }

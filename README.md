@@ -106,7 +106,7 @@ azd up
 |----------|-------------|
 | **Container App** | Hosts the React frontend (serverless, scales 0-3) |
 | **Container Registry** | Stores your container images |
-| **Azure OpenAI** | GPT-4o-mini model deployment |
+| **Azure AI Foundry** | GPT-5-mini model deployment (with project) |
 | **Speech Services** | STT/TTS capabilities |
 | **Log Analytics** | Centralized logging |
 | **Application Insights** | Performance monitoring |
@@ -128,7 +128,7 @@ az cognitiveservices account keys list --name <speech-name> --resource-group <rg
 
 Then open your app URL and configure:
 1. **Settings** → **Azure Services**
-2. Enter the OpenAI endpoint, API key, and deployment name (`gpt-4o-mini`)
+2. Enter the OpenAI endpoint, API key, and deployment name (`gpt-5-mini`)
 3. Enter the Speech region and subscription key
 
 ### Useful Commands

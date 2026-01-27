@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { defaultCalls } from '@/lib/default-calls';
 import { CallRecord } from '@/types/call';
 import { SchemaDefinition } from '@/types/schema';
 import { Button } from '@/components/ui/button';
@@ -32,7 +31,7 @@ interface CallsViewProps {
 }
 
 export function CallsView({ batchProgress, setBatchProgress, activeSchema, schemaLoading }: CallsViewProps) {
-  const [calls, setCalls] = useLocalStorage<CallRecord[]>('calls', defaultCalls);
+  const [calls, setCalls] = useLocalStorage<CallRecord[]>('calls', []);
   
   // Restore audio files from IndexedDB on mount
   useEffect(() => {

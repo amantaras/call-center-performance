@@ -3,6 +3,10 @@
  * Generates synthetic audio from text using Azure Neural Voices
  */
 
+import { azureTokenService } from './services/azure-token';
+
+export type AzureAuthType = 'apiKey' | 'entraId' | 'managedIdentity';
+
 export interface AzureTTSConfig {
   region: string;
   subscriptionKey: string;
@@ -12,6 +16,10 @@ export interface AzureTTSConfig {
   defaultFemaleVoice2?: string;
   defaultNeutralVoice?: string;
   outputFormat?: TTSOutputFormat;
+  /** Authentication method: 'apiKey' (default), 'entraId' for Azure AD, 'managedIdentity' for Container App */
+  authType?: AzureAuthType;
+  /** Azure AD tenant ID (required when authType is 'entraId') */
+  tenantId?: string;
 }
 
 export type TTSOutputFormat = 
@@ -75,6 +83,8 @@ export const VOICE_OPTIONS = {
 export class TTSCaller {
   private config: AzureTTSConfig;
   private voiceCache: VoiceInfo[] | null = null;
+  private cachedAccessToken: string | null = null;
+  private tokenExpiresAt: number = 0;
 
   constructor(config: AzureTTSConfig) {
     this.config = {
@@ -93,6 +103,11 @@ export class TTSCaller {
    */
   updateConfig(config: Partial<AzureTTSConfig>): void {
     this.config = { ...this.config, ...config };
+    // Clear cached token when auth config changes
+    if (config.authType !== undefined || config.tenantId !== undefined) {
+      this.cachedAccessToken = null;
+      this.tokenExpiresAt = 0;
+    }
   }
 
   /**
@@ -100,6 +115,50 @@ export class TTSCaller {
    */
   getConfig(): AzureTTSConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Get access token for Entra ID or Managed Identity authentication
+   */
+  private async getAccessToken(): Promise<string> {
+    // Check if cached token is still valid (with 1 min buffer)
+    if (this.cachedAccessToken && this.tokenExpiresAt > Date.now() + 60000) {
+      return this.cachedAccessToken;
+    }
+
+    // For managed identity, fetch token from backend proxy
+    if (this.config.authType === 'managedIdentity') {
+      console.log('🔐 Acquiring TTS token via managed identity backend...');
+      const response = await fetch('/api/speech/token');
+      if (!response.ok) {
+        throw new Error(`Failed to get speech token from backend: ${response.statusText}`);
+      }
+      const data = await response.json();
+      this.cachedAccessToken = data.token;
+      this.tokenExpiresAt = Date.now() + (data.expiresIn * 1000);
+      return data.token;
+    }
+
+    // Fetch new token using Azure Token Service (user Entra ID login)
+    console.log('🔐 Acquiring Entra ID token for TTS service...');
+    const token = await azureTokenService.getSpeechToken(this.config.tenantId);
+    
+    // Cache the token (assume 1 hour validity)
+    this.cachedAccessToken = token;
+    this.tokenExpiresAt = Date.now() + 3600000;
+    
+    return token;
+  }
+
+  /**
+   * Get auth headers for API requests
+   */
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    if (this.config.authType === 'entraId' || this.config.authType === 'managedIdentity') {
+      const token = await this.getAccessToken();
+      return { 'Authorization': `Bearer ${token}` };
+    }
+    return { 'Ocp-Apim-Subscription-Key': this.config.subscriptionKey };
   }
 
   /**
@@ -154,11 +213,12 @@ export class TTSCaller {
   async synthesize(text: string, voiceName?: string): Promise<SynthesisResult> {
     const voice = voiceName || this.config.defaultNeutralVoice || DEFAULT_VOICES.neutral;
     const ssml = this.buildSSML(text, voice);
+    const authHeaders = await this.getAuthHeaders();
 
     const response = await fetch(this.getTTSEndpoint(), {
       method: 'POST',
       headers: {
-        'Ocp-Apim-Subscription-Key': this.config.subscriptionKey,
+        ...authHeaders,
         'Content-Type': 'application/ssml+xml',
         'X-Microsoft-OutputFormat': this.config.outputFormat || 'audio-24khz-160kbitrate-mono-mp3',
         'User-Agent': 'CallCenterPerformance-TTS/1.0',
@@ -191,10 +251,11 @@ export class TTSCaller {
     const ssml = this.buildSilenceSSML(durationMs, voice);
 
     try {
+      const authHeaders = await this.getAuthHeaders();
       const response = await fetch(this.getTTSEndpoint(), {
         method: 'POST',
         headers: {
-          'Ocp-Apim-Subscription-Key': this.config.subscriptionKey,
+          ...authHeaders,
           'Content-Type': 'application/ssml+xml',
           'X-Microsoft-OutputFormat': this.config.outputFormat || 'audio-24khz-160kbitrate-mono-mp3',
           'User-Agent': 'CallCenterPerformance-TTS/1.0',
@@ -241,11 +302,10 @@ export class TTSCaller {
       return this.voiceCache;
     }
 
+    const authHeaders = await this.getAuthHeaders();
     const response = await fetch(this.getVoicesEndpoint(), {
       method: 'GET',
-      headers: {
-        'Ocp-Apim-Subscription-Key': this.config.subscriptionKey,
-      },
+      headers: authHeaders,
     });
 
     if (!response.ok) {

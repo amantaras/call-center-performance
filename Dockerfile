@@ -1,4 +1,4 @@
-# Build stage
+# Build stage - build the React frontend
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -15,17 +15,28 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Production stage - serve with nginx
-FROM nginx:alpine AS production
+# Production stage - Node.js server with managed identity support
+FROM node:20-alpine AS production
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy built frontend from builder stage
+COPY --from=builder /app/dist ./dist
+
+# Copy server files
+COPY server/package*.json ./server/
+COPY server/index.js ./server/
+
+# Install backend dependencies
+WORKDIR /app/server
+RUN npm install --omit=dev
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=80
 
 # Expose port 80
 EXPOSE 80
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start the Node.js server
+CMD ["node", "index.js"]

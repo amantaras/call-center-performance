@@ -39,7 +39,7 @@ resource openAi 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   }
 }
 
-// Deploy the GPT-4o-mini model
+// Deploy the GPT-5-mini model
 resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: openAi
   name: modelDeploymentName

@@ -12,11 +12,11 @@ param openAiModelDeploymentName string = 'gpt-5-mini'
 @description('Azure OpenAI model name')
 param openAiModelName string = 'gpt-5-mini'
 
-@description('Azure OpenAI model version')
+@description('Azure OpenAI model version - CRITICAL: Must match exact version available')
 param openAiModelVersion string = '2025-08-07'
 
 @description('Azure OpenAI model capacity (TPM in thousands)')
-param openAiModelCapacity int = 200
+param openAiModelCapacity int = 1
 
 @description('AI Foundry project name suffix')
 param aiFoundryProjectName string = 'call-analytics'
@@ -28,13 +28,13 @@ param deploymentDate string = utcNow('yyyy-MM-dd')
 var tags = {
   'azd-env-name': environmentName
   'deployment-date': deploymentDate
-  project: 'call-center-performance'
+  project: 'your-project-name'
   'Security Control': 'Ignore'
 }
 
 // Generate unique suffix for resource names
 var resourceSuffix = take(uniqueString(subscription().id, environmentName, location), 6)
-var resourceGroupName = 'call-analytics-${environmentName}'
+var resourceGroupName = 'rg-${environmentName}'
 
 // Abbreviations for resource naming
 var abbrs = {

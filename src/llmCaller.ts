@@ -186,29 +186,35 @@ export class LLMCaller {
     }
 
     const apiVersion = config.apiVersion || "2024-12-01-preview";
-    console.log(`🤖 Using model: ${config.deploymentName} (endpoint: ${config.endpoint}, api-version: ${apiVersion})`);
+    console.log(`🤖 Using model: ${config.deploymentName} (endpoint: ${config.endpoint}, api-version: ${apiVersion}, auth: ${config.authType || 'apiKey'})`);
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
 
-    // Add authentication
-    if (config.authType === "apiKey") {
+    // Determine URL and authentication based on auth type
+    let url: string;
+    
+    if (config.authType === "managedIdentity") {
+      // Use backend proxy which handles managed identity auth
+      url = '/api/openai/responses';
+      console.log(`🔐 Using managed identity via backend proxy`);
+    } else if (config.authType === "apiKey") {
       if (!config.apiKey) {
         throw new Error("API key is not configured.");
       }
       headers["api-key"] = config.apiKey;
+      url = `${config.endpoint}/openai/v1/responses`;
     } else {
-      // Entra ID auth
+      // Entra ID auth (user login)
       const token = await this.configManager.getEntraIdToken(config.tenantId);
       if (!token) {
         throw new Error("Failed to get Entra ID token.");
       }
       headers["Authorization"] = `Bearer ${token}`;
+      url = `${config.endpoint}/openai/v1/responses`;
     }
 
-    // Use the modern Responses API (no api-version query parameter needed)
-    const url = `${config.endpoint}/openai/v1/responses`;
     console.log(`🌐 Calling URL: ${url}`);
 
     // Convert messages to Responses API input format

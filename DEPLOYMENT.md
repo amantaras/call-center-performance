@@ -41,7 +41,7 @@ This will:
 |----------|-------------|-----|
 | Container App | Hosts the React frontend | Consumption (serverless) |
 | Container Registry | Stores container images | Basic |
-| Azure OpenAI | GPT-4o-mini model | S0 |
+| Azure AI Foundry | GPT-5-mini model (with project) | S0 |
 | Speech Services | STT/TTS capabilities | S0 |
 | Log Analytics | Centralized logging | Per GB |
 | Application Insights | Application monitoring | Per GB |
@@ -120,7 +120,7 @@ az cognitiveservices account keys list \
 3. Configure Azure OpenAI:
    - **Endpoint**: Use the `AZURE_OPENAI_ENDPOINT` output
    - **API Key**: Use the key from step 1
-   - **Deployment Name**: `gpt-4o-mini`
+   - **Deployment Name**: `gpt-5-mini`
 4. Configure Speech Service:
    - **Region**: Use the `AZURE_SPEECH_REGION` output
    - **Subscription Key**: Use the key from step 1
@@ -214,7 +214,7 @@ azd monitor --logs
 │                                                                  │
 │  ┌──────────────────┐    ┌──────────────────┐                   │
 │  │  Azure OpenAI    │    │  Speech Service  │                   │
-│  │  (gpt-4o-mini)   │    │   (STT/TTS)      │                   │
+│  │  AI Foundry    │    │   (STT/TTS)      │                   │
 │  └──────────────────┘    └──────────────────┘                   │
 │                                                                  │
 │  ┌──────────────────┐    ┌──────────────────┐                   │

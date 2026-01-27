@@ -38,7 +38,7 @@ export function ConfigDialog() {
       deploymentName: '',
       apiVersion: '2024-12-01-preview',
       reasoningEffort: 'low',
-      authType: 'apiKey',
+      authType: 'managedIdentity',
       tenantId: '',
     },
       speech: {
@@ -49,7 +49,7 @@ export function ConfigDialog() {
       diarizationEnabled: false,
       minSpeakers: 1,
       maxSpeakers: 2,
-      authType: 'apiKey',
+      authType: 'managedIdentity',
       tenantId: '',
     },
     tts: {
@@ -79,7 +79,7 @@ export function ConfigDialog() {
         deploymentName: '',
         apiVersion: '2024-12-01-preview',
         reasoningEffort: 'low',
-        authType: 'apiKey',
+        authType: 'managedIdentity',
         tenantId: '',
       },
       speech: {
@@ -90,7 +90,7 @@ export function ConfigDialog() {
         diarizationEnabled: false,
         minSpeakers: 1,
         maxSpeakers: 2,
-        authType: 'apiKey',
+        authType: 'managedIdentity',
         tenantId: '',
       },
       tts: {
@@ -107,8 +107,32 @@ export function ConfigDialog() {
     }
   );
   
-  // Computed: is Entra ID enabled for any service?
+  // Computed: is Entra ID enabled for any service? (not managedIdentity - that's handled by backend)
   const isEntraIdEnabled = localConfig.openAI.authType === 'entraId' || localConfig.speech.authType === 'entraId';
+  
+  // Computed: is managed identity enabled?
+  const isManagedIdentityEnabled = localConfig.openAI.authType === 'managedIdentity' || localConfig.speech.authType === 'managedIdentity';
+  
+  // State for backend config (fetched from /api/config)
+  const [backendConfig, setBackendConfig] = useState<{
+    openAI?: { endpoint?: string; deploymentName?: string };
+    speech?: { region?: string };
+  } | null>(null);
+  
+  // Fetch backend config when managed identity is enabled
+  useEffect(() => {
+    if (isManagedIdentityEnabled && !backendConfig) {
+      fetch('/api/config')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) {
+            setBackendConfig(data);
+            console.log('📋 Backend config loaded:', data);
+          }
+        })
+        .catch(err => console.log('Could not fetch backend config (running locally?):', err));
+    }
+  }, [isManagedIdentityEnabled, backendConfig]);
   
   // Current redirect URI for App Registration
   const currentRedirectUri = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
@@ -193,12 +217,14 @@ export function ConfigDialog() {
   const handleSave = () => {
     const sanitizedLanguages = normalizeLocaleList(localConfig.speech.selectedLanguages ?? []);
     
-    // Validate Entra ID config if enabled
+    // Validate Entra ID config if enabled (not needed for managedIdentity - backend handles it)
     const needsEntraId = localConfig.openAI.authType === 'entraId' || localConfig.speech.authType === 'entraId';
     if (needsEntraId && !localConfig.entraId?.clientId) {
       toast.error('App Registration Client ID is required when using Entra ID authentication');
       return;
     }
+    
+    // Managed Identity doesn't need any config - backend handles it via DefaultAzureCredential
     
     const configToPersist: AzureServicesConfig = {
       entraId: {
@@ -245,8 +271,8 @@ export function ConfigDialog() {
     saveAzureConfigCookie(configToPersist);
     
     // Initialize transcription service with Azure Speech config
-    // For Entra ID auth, we don't require a subscription key (will get token instead)
-    const hasValidAuth = configToPersist.speech.authType === 'entraId' 
+    // For Entra ID or Managed Identity auth, we don't require a subscription key
+    const hasValidAuth = configToPersist.speech.authType === 'entraId' || configToPersist.speech.authType === 'managedIdentity'
       ? configToPersist.speech.region 
       : (configToPersist.speech.region && configToPersist.speech.subscriptionKey);
       
@@ -468,95 +494,110 @@ export function ConfigDialog() {
           <div>
             <h3 className="text-lg font-semibold mb-3">Azure OpenAI</h3>
             <div className="space-y-3">
+              {/* Authentication Type Selection - show first */}
               <div className="space-y-2">
-                <Label htmlFor="openai-endpoint">Endpoint URL</Label>
-                <Input
-                  id="openai-endpoint"
-                  placeholder="https://your-resource.openai.azure.com/"
-                  value={localConfig.openAI.endpoint}
+                <Label htmlFor="openai-auth-type">Authentication Method</Label>
+                <select
+                  id="openai-auth-type"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                  value={localConfig.openAI.authType || 'apiKey'}
                   onChange={(e) =>
                     setLocalConfig((prev) => ({
                       ...prev,
-                      openAI: { ...prev.openAI, endpoint: e.target.value },
+                      openAI: { ...prev.openAI, authType: e.target.value as 'apiKey' | 'entraId' | 'managedIdentity' },
                     }))
                   }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="openai-apiKey">API Key</Label>
-                <Input
-                  id="openai-apiKey"
-                  type="password"
-                  placeholder="Your Azure OpenAI API key"
-                  value={localConfig.openAI.apiKey}
-                  disabled={localConfig.openAI.authType === 'entraId'}
-                  onChange={(e) =>
-                    setLocalConfig((prev) => ({
-                      ...prev,
-                      openAI: { ...prev.openAI, apiKey: e.target.value },
-                    }))
-                  }
-                />
+                >
+                  <option value="managedIdentity">Managed Identity (Azure Container Apps)</option>
+                  <option value="apiKey">API Key</option>
+                  <option value="entraId">Entra ID (Browser Login)</option>
+                </select>
               </div>
               
-              {/* Entra ID Authentication Toggle */}
-              <div className="space-y-3 pt-2 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="openai-entra-toggle">Use Entra ID (Azure AD)</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Authenticate with Azure AD instead of API key
-                    </p>
+              {localConfig.openAI.authType === 'managedIdentity' && (
+                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-3 space-y-2">
+                  <p className="text-xs text-green-800 dark:text-green-200 font-medium">
+                    ✅ Using Managed Identity (backend proxy)
+                  </p>
+                  <div className="text-xs text-green-700 dark:text-green-300 font-mono space-y-1 bg-green-100 dark:bg-green-900 p-2 rounded">
+                    <div><span className="opacity-70">Endpoint:</span> {backendConfig?.openAI?.endpoint || '(loading...)'}</div>
+                    <div><span className="opacity-70">Deployment:</span> {backendConfig?.openAI?.deploymentName || '(loading...)'}</div>
                   </div>
-                  <Switch
-                    id="openai-entra-toggle"
-                    checked={localConfig.openAI.authType === 'entraId'}
-                    onCheckedChange={(checked) =>
-                      setLocalConfig((prev) => ({
-                        ...prev,
-                        openAI: { ...prev.openAI, authType: checked ? 'entraId' : 'apiKey' },
-                      }))
-                    }
-                  />
                 </div>
-                
-                {localConfig.openAI.authType === 'entraId' && (
-                  <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                    <p className="text-xs text-blue-800 dark:text-blue-200">
-                      <strong>🔐 Browser Authentication:</strong> A login popup will appear when you first use the service. 
-                      Requires <strong>Cognitive Services User</strong> role on the Azure OpenAI resource.
-                    </p>
+              )}
+              
+              {localConfig.openAI.authType === 'entraId' && (
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    <strong>🔐 Browser Authentication:</strong> A login popup will appear when you first use the service. 
+                    Requires <strong>Cognitive Services User</strong> role on the Azure OpenAI resource.
+                  </p>
+                </div>
+              )}
+              
+              {/* Only show endpoint/key/deployment fields when NOT using managed identity */}
+              {localConfig.openAI.authType !== 'managedIdentity' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="openai-endpoint">Endpoint URL</Label>
+                    <Input
+                      id="openai-endpoint"
+                      placeholder="https://your-resource.openai.azure.com/"
+                      value={localConfig.openAI.endpoint}
+                      onChange={(e) =>
+                        setLocalConfig((prev) => ({
+                          ...prev,
+                          openAI: { ...prev.openAI, endpoint: e.target.value },
+                        }))
+                      }
+                    />
                   </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="openai-deployment">Deployment Name</Label>
-                <Input
-                  id="openai-deployment"
-                  placeholder="gpt-4o"
-                  value={localConfig.openAI.deploymentName}
-                  onChange={(e) =>
-                    setLocalConfig((prev) => ({
-                      ...prev,
-                      openAI: { ...prev.openAI, deploymentName: e.target.value },
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="openai-version">API Version</Label>
-                <Input
-                  id="openai-version"
-                  placeholder="2024-12-01-preview"
-                  value={localConfig.openAI.apiVersion}
-                  onChange={(e) =>
-                    setLocalConfig((prev) => ({
-                      ...prev,
-                      openAI: { ...prev.openAI, apiVersion: e.target.value },
-                    }))
-                  }
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="openai-apiKey">API Key</Label>
+                    <Input
+                      id="openai-apiKey"
+                      type="password"
+                      placeholder="Your Azure OpenAI API key"
+                      value={localConfig.openAI.apiKey}
+                      disabled={localConfig.openAI.authType === 'entraId'}
+                      onChange={(e) =>
+                        setLocalConfig((prev) => ({
+                          ...prev,
+                          openAI: { ...prev.openAI, apiKey: e.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="openai-deployment">Deployment Name</Label>
+                    <Input
+                      id="openai-deployment"
+                      placeholder="gpt-4o"
+                      value={localConfig.openAI.deploymentName}
+                      onChange={(e) =>
+                        setLocalConfig((prev) => ({
+                          ...prev,
+                          openAI: { ...prev.openAI, deploymentName: e.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="openai-version">API Version</Label>
+                    <Input
+                      id="openai-version"
+                      placeholder="2024-12-01-preview"
+                      value={localConfig.openAI.apiVersion}
+                      onChange={(e) =>
+                        setLocalConfig((prev) => ({
+                          ...prev,
+                          openAI: { ...prev.openAI, apiVersion: e.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+                </>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="reasoning-effort">Reasoning Effort</Label>
                 <select
@@ -591,84 +632,98 @@ export function ConfigDialog() {
           <div>
             <h3 className="text-lg font-semibold mb-3">Azure Speech Service</h3>
             <div className="space-y-3">
+              {/* Authentication Type Selection - show first */}
               <div className="space-y-2">
-                <Label htmlFor="speech-region">Region</Label>
-                <Input
-                  id="speech-region"
-                  placeholder="eastus"
-                  value={localConfig.speech.region}
+                <Label htmlFor="speech-auth-type">Authentication Method</Label>
+                <select
+                  id="speech-auth-type"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                  value={localConfig.speech.authType || 'apiKey'}
                   onChange={(e) =>
                     setLocalConfig((prev) => ({
                       ...prev,
-                      speech: { ...prev.speech, region: e.target.value },
+                      speech: { ...prev.speech, authType: e.target.value as 'apiKey' | 'entraId' | 'managedIdentity' },
                     }))
                   }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Azure region (e.g., eastus, westus2, westeurope)
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="speech-key">Subscription Key</Label>
-                <Input
-                  id="speech-key"
-                  type="password"
-                  placeholder="Your Azure Speech subscription key"
-                  value={localConfig.speech.subscriptionKey}
-                  disabled={localConfig.speech.authType === 'entraId'}
-                  onChange={(e) =>
-                    setLocalConfig((prev) => ({
-                      ...prev,
-                      speech: { ...prev.speech, subscriptionKey: e.target.value },
-                    }))
-                  }
-                />
+                >
+                  <option value="managedIdentity">Managed Identity (Azure Container Apps)</option>
+                  <option value="apiKey">API Key</option>
+                  <option value="entraId">Entra ID (Browser Login)</option>
+                </select>
               </div>
               
-              {/* Entra ID Authentication Toggle for Speech */}
-              <div className="space-y-3 pt-2 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="speech-entra-toggle">Use Entra ID (Azure AD)</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Authenticate with Azure AD instead of subscription key
-                    </p>
+              {localConfig.speech.authType === 'managedIdentity' && (
+                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-3 space-y-2">
+                  <p className="text-xs text-green-800 dark:text-green-200 font-medium">
+                    ✅ Using Managed Identity (backend proxy)
+                  </p>
+                  <div className="text-xs text-green-700 dark:text-green-300 font-mono space-y-1 bg-green-100 dark:bg-green-900 p-2 rounded">
+                    <div><span className="opacity-70">Region:</span> {backendConfig?.speech?.region || '(loading...)'}</div>
                   </div>
-                  <Switch
-                    id="speech-entra-toggle"
-                    checked={localConfig.speech.authType === 'entraId'}
-                    onCheckedChange={(checked) =>
-                      setLocalConfig((prev) => ({
-                        ...prev,
-                        speech: { ...prev.speech, authType: checked ? 'entraId' : 'apiKey' },
-                      }))
-                    }
-                  />
                 </div>
-                
-                {localConfig.speech.authType === 'entraId' && (
-                  <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                    <p className="text-xs text-blue-800 dark:text-blue-200">
-                      <strong>🔐 Browser Authentication:</strong> A login popup will appear when you first transcribe audio. 
-                      Requires <strong>Cognitive Services User</strong> role on the Azure Speech resource.
+              )}
+              
+              {localConfig.speech.authType === 'entraId' && (
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    <strong>🔐 Browser Authentication:</strong> A login popup will appear when you first transcribe audio. 
+                    Requires <strong>Cognitive Services User</strong> role on the Azure Speech resource.
+                  </p>
+                </div>
+              )}
+              
+              {/* Only show region/key fields when NOT using managed identity */}
+              {localConfig.speech.authType !== 'managedIdentity' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="speech-region">Region</Label>
+                    <Input
+                      id="speech-region"
+                      placeholder="eastus"
+                      value={localConfig.speech.region}
+                      onChange={(e) =>
+                        setLocalConfig((prev) => ({
+                          ...prev,
+                          speech: { ...prev.speech, region: e.target.value },
+                        }))
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Azure region (e.g., eastus, westus2, westeurope)
                     </p>
                   </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="speech-version">API Version</Label>
-                <Input
-                  id="speech-version"
-                  placeholder="2025-10-15"
-                  value={localConfig.speech.apiVersion}
-                  onChange={(e) =>
-                    setLocalConfig((prev) => ({
-                      ...prev,
-                      speech: { ...prev.speech, apiVersion: e.target.value },
-                    }))
-                  }
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="speech-key">Subscription Key</Label>
+                    <Input
+                      id="speech-key"
+                      type="password"
+                      placeholder="Your Azure Speech subscription key"
+                      value={localConfig.speech.subscriptionKey}
+                      disabled={localConfig.speech.authType === 'entraId'}
+                      onChange={(e) =>
+                        setLocalConfig((prev) => ({
+                          ...prev,
+                          speech: { ...prev.speech, subscriptionKey: e.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="speech-version">API Version</Label>
+                    <Input
+                      id="speech-version"
+                      placeholder="2025-10-15"
+                      value={localConfig.speech.apiVersion}
+                      onChange={(e) =>
+                        setLocalConfig((prev) => ({
+                          ...prev,
+                          speech: { ...prev.speech, apiVersion: e.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+                </>
+              )}
               
               {/* Language Selector */}
               <div className="space-y-2 pt-2">

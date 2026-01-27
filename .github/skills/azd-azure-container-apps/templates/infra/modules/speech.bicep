@@ -29,7 +29,8 @@ resource speech 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
     networkAcls: {
       defaultAction: 'Allow'
     }
-    disableLocalAuth: true // Require Entra ID authentication
+    // CRITICAL: Disable API keys, require Entra ID authentication
+    disableLocalAuth: true
   }
 }
 

@@ -80,7 +80,7 @@ export class AzureOpenAIService {
       apiKey: '',
       deploymentName: '',
       apiVersion: '2024-12-01-preview',
-      authType: 'apiKey',
+      authType: 'managedIdentity',
       reasoningEffort: 'low',
     };
     
@@ -90,6 +90,10 @@ export class AzureOpenAIService {
   }
 
   private isConfigValid(): boolean {
+    // For managed identity, we don't need any frontend config - backend handles everything
+    if (this.config.authType === 'managedIdentity') {
+      return true;
+    }
     // For Entra ID auth, we don't need an API key
     if (this.config.authType === 'entraId') {
       return !!(this.config.endpoint && this.config.deploymentName);
@@ -1070,7 +1074,7 @@ ${topicsText}
     const messages: ChatMessage[] = [
       {
         role: 'system',
-        content: 'You are a data generation assistant that creates realistic synthetic data based on schema definitions. Always respond with valid JSON containing a "records" array.',
+        content: 'You are a data generation assistant that creates realistic synthetic data for Contoso Corporation (a fictional company). Use Contoso branding where applicable (company name, @contoso.com emails, etc.). Always respond with valid JSON containing a "records" array.',
       },
       {
         role: 'user',
@@ -1155,13 +1159,16 @@ ${topicsText}
 
     const prompt = `Generate a realistic call center transcription as a JSON array of dialogue turns.
 
+IMPORTANT: This is for Contoso Corporation, a fictional company used for demonstration purposes. The agent works for Contoso and should reference the company name naturally in the conversation (e.g., "Thank you for calling Contoso", "Here at Contoso we...").
+
+Company: Contoso Corporation
 Business Type: ${businessContext}
 Call Type: ${callType}
 Call Outcome: ${outcome}
 Approximate Duration: ${duration}
 
 Participants:
-- ${agentLabel}: ${agentName} (speaker 1)
+- ${agentLabel}: ${agentName} (speaker 1, Contoso employee)
 - ${customerLabel}: ${customerName} (speaker 2)
 
 Call Metadata:
@@ -1194,7 +1201,7 @@ Return ONLY the JSON object, no other text.`;
     const messages: ChatMessage[] = [
       {
         role: 'system',
-        content: 'You are an expert at creating realistic call center transcriptions. Generate natural, professional conversations as structured JSON. Always respond with valid JSON only.',
+        content: 'You are an expert at creating realistic call center transcriptions for Contoso Corporation (a fictional company). Generate natural, professional conversations where the agent represents Contoso. Reference the Contoso name naturally in greetings and conversation. Always respond with valid JSON only.',
       },
       {
         role: 'user',

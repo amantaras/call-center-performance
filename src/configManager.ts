@@ -1,4 +1,4 @@
-export type AzureAuthType = 'apiKey' | 'entraId';
+export type AzureAuthType = 'apiKey' | 'entraId' | 'managedIdentity';
 
 export interface AzureOpenAIConfig {
   endpoint: string;

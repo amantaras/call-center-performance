@@ -138,7 +138,7 @@ export class STTCaller {
   }
 
   /**
-   * Get access token for Entra ID authentication
+   * Get access token for Entra ID or Managed Identity authentication
    */
   private async getAccessToken(): Promise<string> {
     // If a pre-fetched token is provided in config, use it
@@ -151,7 +151,20 @@ export class STTCaller {
       return this.cachedAccessToken;
     }
 
-    // Fetch new token using Azure Token Service
+    // For managed identity, fetch token from backend proxy
+    if (this.config.authType === 'managedIdentity') {
+      console.log('🔐 Acquiring Speech token via managed identity backend...');
+      const response = await fetch('/api/speech/token');
+      if (!response.ok) {
+        throw new Error(`Failed to get speech token from backend: ${response.statusText}`);
+      }
+      const data = await response.json();
+      this.cachedAccessToken = data.token;
+      this.tokenExpiresAt = Date.now() + (data.expiresIn * 1000);
+      return data.token;
+    }
+
+    // Fetch new token using Azure Token Service (user Entra ID login)
     console.log('🔐 Acquiring Entra ID token for Speech service...');
     const token = await azureTokenService.getSpeechToken(this.config.tenantId);
     
@@ -163,17 +176,17 @@ export class STTCaller {
   }
 
   /**
-   * Get common headers for API requests (supports both API Key and Entra ID auth)
+   * Get common headers for API requests (supports API Key, Entra ID, and Managed Identity auth)
    */
   private async getHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
-    if (this.config.authType === 'entraId') {
+    if (this.config.authType === 'entraId' || this.config.authType === 'managedIdentity') {
       const token = await this.getAccessToken();
       headers['Authorization'] = `Bearer ${token}`;
-      console.log('🔐 Using Entra ID authentication for Speech API');
+      console.log(`🔐 Using ${this.config.authType} authentication for Speech API`);
     } else {
       // Default to API Key authentication
       headers['Ocp-Apim-Subscription-Key'] = this.config.subscriptionKey;
@@ -188,10 +201,10 @@ export class STTCaller {
   private async getInlineHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {};
 
-    if (this.config.authType === 'entraId') {
+    if (this.config.authType === 'entraId' || this.config.authType === 'managedIdentity') {
       const token = await this.getAccessToken();
       headers['Authorization'] = `Bearer ${token}`;
-      console.log('🔐 Using Entra ID authentication for Speech API');
+      console.log(`🔐 Using ${this.config.authType} authentication for Speech API`);
     } else {
       headers['Ocp-Apim-Subscription-Key'] = this.config.subscriptionKey;
     }

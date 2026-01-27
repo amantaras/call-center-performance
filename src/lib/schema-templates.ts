@@ -6618,7 +6618,6 @@ export const SCHEMA_TEMPLATES: Record<string, SchemaTemplate> = {
   'healthcare': HEALTHCARE_TEMPLATE,
   'airline': AIRLINE_TEMPLATE,
   'telecom-retention': TELECOM_RETENTION_TEMPLATE,
-  'vodafone': VODAFONE_TEMPLATE,
   'insurance-claims': INSURANCE_CLAIMS_TEMPLATE,
   'banking-support': BANKING_SUPPORT_TEMPLATE,
   'ecommerce-support': ECOMMERCE_SUPPORT_TEMPLATE,

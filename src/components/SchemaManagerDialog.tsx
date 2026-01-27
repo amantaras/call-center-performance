@@ -147,6 +147,13 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange, activeSchemaI
     templateName: string;
   } | null>(null);
 
+  // Migration confirmation when creating from template with existing calls
+  const [pendingCallsMigration, setPendingCallsMigration] = useState<{
+    newSchemaId: string;
+    newSchemaName: string;
+    callCount: number;
+  } | null>(null);
+
   useEffect(() => {
     if (open !== undefined) {
       setIsOpen(open);
@@ -573,6 +580,21 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange, activeSchemaI
       setSelectedSchemaId(newSchema.id);
       setShowCreateFromTemplate(false);
       toast.success(`Created new schema from "${templateName}" template`);
+      
+      // Check if there are existing calls that need migration
+      const existingCalls = calls || [];
+      const callsToMigrate = existingCalls.filter(call => 
+        call.schemaId && call.schemaId !== newSchema.id
+      );
+      
+      if (callsToMigrate.length > 0) {
+        // Ask user if they want to migrate existing calls
+        setPendingCallsMigration({
+          newSchemaId: newSchema.id,
+          newSchemaName: newSchema.name,
+          callCount: callsToMigrate.length
+        });
+      }
     } catch (error) {
       toast.error('Failed to create schema from template');
       console.error(error);
@@ -1497,6 +1519,47 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange, activeSchemaI
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmApplyTemplate}>
               Apply Template
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Migrate Existing Calls Dialog */}
+      <AlertDialog open={!!pendingCallsMigration} onOpenChange={() => setPendingCallsMigration(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Migrate Existing Calls?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                You have <strong>{pendingCallsMigration?.callCount} existing call(s)</strong> from a previous schema.
+              </p>
+              <p>
+                Would you like to migrate them to <strong>"{pendingCallsMigration?.newSchemaName}"</strong>?
+              </p>
+              <p className="text-muted-foreground text-sm">
+                If you don't migrate, the calls will be hidden until you migrate them later.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingCallsMigration(null)}>
+              Keep Separate
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (pendingCallsMigration) {
+                // Migrate all calls to the new schema
+                setCalls((prev) => 
+                  (prev || []).map((call) => ({
+                    ...call,
+                    schemaId: pendingCallsMigration.newSchemaId,
+                    updatedAt: new Date().toISOString()
+                  }))
+                );
+                toast.success(`Migrated ${pendingCallsMigration.callCount} call(s) to ${pendingCallsMigration.newSchemaName}`);
+              }
+              setPendingCallsMigration(null);
+            }}>
+              Migrate Calls
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

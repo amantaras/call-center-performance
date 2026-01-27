@@ -192,9 +192,17 @@ function App() {
     }
     
     // For Entra ID auth, we don't require API key
-    const hasOpenAIConfig = azureConfig?.openAI?.authType === 'entraId'
-      ? (azureConfig?.openAI?.endpoint && azureConfig?.openAI?.deploymentName)
-      : (azureConfig?.openAI?.endpoint && azureConfig?.openAI?.apiKey && azureConfig?.openAI?.deploymentName);
+    // Check if OpenAI config is valid based on auth type
+    let hasOpenAIConfig = false;
+    if (azureConfig?.openAI?.authType === 'managedIdentity') {
+      // Managed identity - no frontend config needed, backend handles everything
+      hasOpenAIConfig = true;
+    } else if (azureConfig?.openAI?.authType === 'entraId') {
+      hasOpenAIConfig = !!(azureConfig?.openAI?.endpoint && azureConfig?.openAI?.deploymentName);
+    } else {
+      // API key auth
+      hasOpenAIConfig = !!(azureConfig?.openAI?.endpoint && azureConfig?.openAI?.apiKey && azureConfig?.openAI?.deploymentName);
+    }
       
     if (hasOpenAIConfig) {
       console.log('🔍 App.tsx: azureConfig.openAI.reasoningEffort from localStorage:', azureConfig!.openAI.reasoningEffort);

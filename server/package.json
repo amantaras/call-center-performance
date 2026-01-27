@@ -1,0 +1,14 @@
+{
+  "name": "call-center-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Call Center Performance app",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

@@ -1,0 +1,8 @@
+name: {{ .Env.SERVICE_NAME }}
+metadata:
+  template: {{ .Env.SERVICE_NAME }}@0.0.1
+services:
+  web:
+    project: .
+    language: js
+    host: containerapp

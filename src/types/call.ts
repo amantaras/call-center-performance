@@ -1,4 +1,4 @@
-export type AzureAuthType = 'apiKey' | 'entraId';
+export type AzureAuthType = 'apiKey' | 'entraId' | 'managedIdentity';
 
 export interface AzureSpeechConfig {
   region: string;
@@ -8,7 +8,7 @@ export interface AzureSpeechConfig {
   diarizationEnabled?: boolean;
   minSpeakers?: number;
   maxSpeakers?: number;
-  /** Authentication method: 'apiKey' (default) or 'entraId' for Azure AD */
+  /** Authentication method: 'apiKey' (default), 'entraId' for Azure AD, 'managedIdentity' for Container App */
   authType?: AzureAuthType;
   /** Azure AD tenant ID (required when authType is 'entraId') */
   tenantId?: string;

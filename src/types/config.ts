@@ -1,4 +1,4 @@
-export type AzureAuthType = 'apiKey' | 'entraId';
+export type AzureAuthType = 'apiKey' | 'entraId' | 'managedIdentity';
 
 /** Entra ID (Azure AD) configuration for browser-based authentication */
 export interface EntraIdConfig {
