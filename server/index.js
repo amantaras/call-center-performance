@@ -87,7 +87,13 @@ async function getSpeechToken() {
 
   console.log('🔐 Acquiring Azure Speech token via managed identity...');
   const tokenResponse = await credential.getToken('https://cognitiveservices.azure.com/.default');
-  speechToken = tokenResponse.token;
+  const rawToken = tokenResponse.token;
+  if (AZURE_SPEECH_RESOURCE_ID) {
+    speechToken = `aad#${AZURE_SPEECH_RESOURCE_ID}#${rawToken}`;
+  } else {
+    console.warn('⚠️ AZURE_SPEECH_RESOURCE_ID not set; using raw Speech token');
+    speechToken = rawToken;
+  }
   speechTokenExpiry = tokenResponse.expiresOnTimestamp;
   console.log('🔐 Azure Speech token acquired');
   return speechToken;

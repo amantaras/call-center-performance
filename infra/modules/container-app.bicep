@@ -30,6 +30,9 @@ param openAiDeployment string
 @description('Azure Speech Region')
 param speechRegion string
 
+@description('Azure Speech Resource ID')
+param speechResourceId string
+
 @description('Application Insights Connection String')
 param applicationInsightsConnectionString string
 
@@ -90,6 +93,10 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
             {
               name: 'AZURE_SPEECH_REGION'
               value: speechRegion
+            }
+            {
+              name: 'AZURE_SPEECH_RESOURCE_ID'
+              value: speechResourceId
             }
             {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'

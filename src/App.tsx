@@ -14,7 +14,7 @@ import { setCustomEvaluationCriteria, azureOpenAIService } from '@/services/azur
 import { EvaluationCriterion, CallRecord } from '@/types/call';
 import { SchemaDefinition } from '@/types/schema';
 import { transcriptionService } from '@/services/transcription';
-import { loadAzureConfigFromCookie } from '@/lib/azure-config-storage';
+import { loadAzureConfigFromCookie, saveAzureConfigCookie } from '@/lib/azure-config-storage';
 import { AzureServicesConfig } from '@/types/config';
 import { DEFAULT_CALL_CENTER_LANGUAGES, normalizeLocaleList } from '@/lib/speech-languages';
 import { runMigration } from '@/services/schema-compatibility';
@@ -137,41 +137,52 @@ function App() {
             // Check if current config already has managedIdentity
             const alreadyConfigured = azureConfig?.openAI?.authType === 'managedIdentity' && 
                                       azureConfig?.speech?.authType === 'managedIdentity';
-            
+
+            const autoConfig: AzureServicesConfig = {
+              openAI: {
+                endpoint: backendConfig.openAI?.endpoint || '',
+                apiKey: '',  // Not needed for managedIdentity
+                deploymentName: backendConfig.openAI?.deploymentName || '',
+                apiVersion: '2024-12-01-preview',
+                authType: 'managedIdentity',
+              },
+              speech: {
+                region: backendConfig.speech?.region || '',
+                subscriptionKey: '',  // Not needed for managedIdentity
+                apiVersion: '2025-10-15',
+                authType: 'managedIdentity',
+                selectedLanguages: azureConfig?.speech?.selectedLanguages || DEFAULT_CALL_CENTER_LANGUAGES,
+                diarizationEnabled: azureConfig?.speech?.diarizationEnabled ?? false,
+                minSpeakers: azureConfig?.speech?.minSpeakers ?? 1,
+                maxSpeakers: azureConfig?.speech?.maxSpeakers ?? 2,
+              },
+              entraId: {
+                clientId: '',
+                tenantId: '',
+              },
+              tts: {
+                enabled: azureConfig?.tts?.enabled ?? true,
+                defaultMaleVoice1: azureConfig?.tts?.defaultMaleVoice1,
+                defaultMaleVoice2: azureConfig?.tts?.defaultMaleVoice2,
+                defaultFemaleVoice1: azureConfig?.tts?.defaultFemaleVoice1,
+                defaultFemaleVoice2: azureConfig?.tts?.defaultFemaleVoice2,
+              },
+            };
+
             if (!alreadyConfigured) {
-              const autoConfig: AzureServicesConfig = {
-                openAI: {
-                  endpoint: backendConfig.openAI?.endpoint || '',
-                  apiKey: '',  // Not needed for managedIdentity
-                  deploymentName: backendConfig.openAI?.deploymentName || '',
-                  apiVersion: '2024-12-01-preview',
-                  authType: 'managedIdentity',
-                },
-                speech: {
-                  region: backendConfig.speech?.region || '',
-                  subscriptionKey: '',  // Not needed for managedIdentity
-                  apiVersion: '2025-10-15',
-                  authType: 'managedIdentity',
-                  selectedLanguages: azureConfig?.speech?.selectedLanguages || DEFAULT_CALL_CENTER_LANGUAGES,
-                  diarizationEnabled: azureConfig?.speech?.diarizationEnabled ?? false,
-                  minSpeakers: azureConfig?.speech?.minSpeakers ?? 1,
-                  maxSpeakers: azureConfig?.speech?.maxSpeakers ?? 2,
-                },
-                entraId: {
-                  clientId: '',
-                  tenantId: '',
-                },
-                tts: {
-                  enabled: azureConfig?.tts?.enabled ?? true,
-                  defaultMaleVoice1: azureConfig?.tts?.defaultMaleVoice1,
-                  defaultMaleVoice2: azureConfig?.tts?.defaultMaleVoice2,
-                  defaultFemaleVoice1: azureConfig?.tts?.defaultFemaleVoice1,
-                  defaultFemaleVoice2: azureConfig?.tts?.defaultFemaleVoice2,
-                },
-              };
               setAzureConfig(autoConfig);
+              saveAzureConfigCookie(autoConfig);
               console.log('✅ Auto-configured managed identity from backend');
               toast.success('Azure services configured with Managed Identity');
+            } else {
+              const cookieConfig = loadAzureConfigFromCookie();
+              const cookieNeedsSync = cookieConfig?.openAI?.authType !== 'managedIdentity' ||
+                cookieConfig?.speech?.authType !== 'managedIdentity';
+
+              if (cookieNeedsSync) {
+                saveAzureConfigCookie(autoConfig);
+                console.log('✅ Synced managed identity config to cookie');
+              }
             }
           }
         }
