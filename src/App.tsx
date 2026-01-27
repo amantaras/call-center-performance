@@ -21,6 +21,7 @@ import { runMigration } from '@/services/schema-compatibility';
 import { getActiveSchema, setActiveSchema as setActiveSchemaInStorage, getAllSchemas } from '@/services/schema-manager';
 import { loadRulesForSchema } from '@/services/rules-generator';
 import { toast } from 'sonner';
+import { azureTokenService } from '@/services/azure-token';
 import { 
   PersonalizationSettings, 
   initializePersonalization, 
@@ -138,51 +139,74 @@ function App() {
 
   // Initialize Azure services on mount if config exists
   useEffect(() => {
-    if (azureConfig?.speech?.region && azureConfig?.speech?.subscriptionKey) {
+    // Configure Entra ID token service if client ID is set
+    if (azureConfig?.entraId?.clientId) {
+      azureTokenService.configure({
+        clientId: azureConfig.entraId.clientId,
+        tenantId: azureConfig.entraId.tenantId,
+      });
+      console.log('🔐 Azure Token Service configured with App Registration');
+    }
+    
+    // For Entra ID auth, we don't require subscription key
+    const hasSpeechConfig = azureConfig?.speech?.authType === 'entraId'
+      ? azureConfig?.speech?.region
+      : (azureConfig?.speech?.region && azureConfig?.speech?.subscriptionKey);
+      
+    if (hasSpeechConfig) {
       const sanitizedLanguages =
-        azureConfig.speech.selectedLanguages === undefined
+        azureConfig!.speech.selectedLanguages === undefined
           ? undefined
-          : normalizeLocaleList(azureConfig.speech.selectedLanguages);
+          : normalizeLocaleList(azureConfig!.speech.selectedLanguages);
 
       if (
-        azureConfig.speech.selectedLanguages !== undefined &&
-        !arraysEqual(azureConfig.speech.selectedLanguages, sanitizedLanguages)
+        azureConfig!.speech.selectedLanguages !== undefined &&
+        !arraysEqual(azureConfig!.speech.selectedLanguages, sanitizedLanguages)
       ) {
         setAzureConfig({
-          ...azureConfig,
+          ...azureConfig!,
           speech: {
-            ...azureConfig.speech,
+            ...azureConfig!.speech,
             selectedLanguages: sanitizedLanguages,
           },
         });
       }
 
       transcriptionService.initialize({
-        region: azureConfig.speech.region,
-        subscriptionKey: azureConfig.speech.subscriptionKey,
-        apiVersion: azureConfig.speech.apiVersion || '2025-10-15',
-        selectedLanguages: sanitizedLanguages ?? azureConfig.speech.selectedLanguages ?? DEFAULT_CALL_CENTER_LANGUAGES,
-        diarizationEnabled: azureConfig.speech.diarizationEnabled ?? false,
-        minSpeakers: azureConfig.speech.minSpeakers ?? 1,
-        maxSpeakers: azureConfig.speech.maxSpeakers ?? 2,
+        region: azureConfig!.speech.region,
+        subscriptionKey: azureConfig!.speech.subscriptionKey,
+        apiVersion: azureConfig!.speech.apiVersion || '2025-10-15',
+        selectedLanguages: sanitizedLanguages ?? azureConfig!.speech.selectedLanguages ?? DEFAULT_CALL_CENTER_LANGUAGES,
+        diarizationEnabled: azureConfig!.speech.diarizationEnabled ?? false,
+        minSpeakers: azureConfig!.speech.minSpeakers ?? 1,
+        maxSpeakers: azureConfig!.speech.maxSpeakers ?? 2,
+        authType: azureConfig!.speech.authType ?? 'apiKey',
+        tenantId: azureConfig!.speech.tenantId,
       });
       console.log('🎤 Transcription service initialized from stored config', {
-        diarizationEnabled: azureConfig.speech.diarizationEnabled,
-        minSpeakers: azureConfig.speech.minSpeakers,
-        maxSpeakers: azureConfig.speech.maxSpeakers
+        authType: azureConfig!.speech.authType ?? 'apiKey',
+        diarizationEnabled: azureConfig!.speech.diarizationEnabled,
+        minSpeakers: azureConfig!.speech.minSpeakers,
+        maxSpeakers: azureConfig!.speech.maxSpeakers
       });
     }
     
-    if (azureConfig?.openAI?.endpoint && azureConfig?.openAI?.apiKey && azureConfig?.openAI?.deploymentName) {
-      console.log('🔍 App.tsx: azureConfig.openAI.reasoningEffort from localStorage:', azureConfig.openAI.reasoningEffort);
-      console.log('🔍 App.tsx: Full openAI config from localStorage:', azureConfig.openAI);
+    // For Entra ID auth, we don't require API key
+    const hasOpenAIConfig = azureConfig?.openAI?.authType === 'entraId'
+      ? (azureConfig?.openAI?.endpoint && azureConfig?.openAI?.deploymentName)
+      : (azureConfig?.openAI?.endpoint && azureConfig?.openAI?.apiKey && azureConfig?.openAI?.deploymentName);
+      
+    if (hasOpenAIConfig) {
+      console.log('🔍 App.tsx: azureConfig.openAI.reasoningEffort from localStorage:', azureConfig!.openAI.reasoningEffort);
+      console.log('🔍 App.tsx: Full openAI config from localStorage:', azureConfig!.openAI);
       
       const configToApply = {
-        endpoint: azureConfig.openAI.endpoint,
-        apiKey: azureConfig.openAI.apiKey,
-        deploymentName: azureConfig.openAI.deploymentName,
-        apiVersion: azureConfig.openAI.apiVersion || '2024-12-01-preview',
-        reasoningEffort: azureConfig.openAI.reasoningEffort || 'low',
+        endpoint: azureConfig!.openAI.endpoint,
+        apiKey: azureConfig!.openAI.apiKey,
+        deploymentName: azureConfig!.openAI.deploymentName,
+        apiVersion: azureConfig!.openAI.apiVersion || '2024-12-01-preview',
+        reasoningEffort: azureConfig!.openAI.reasoningEffort || 'low',
+        authType: azureConfig!.openAI.authType,
       };
       
       console.log('📤 App.tsx: Calling azureOpenAIService.updateConfig with:', configToApply);

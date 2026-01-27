@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { GearSix } from '@phosphor-icons/react';
+import { GearSix, Copy, CheckCircle, Terminal, ArrowSquareOut } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { transcriptionService } from '@/services/transcription';
 import { AzureServicesConfig } from '@/types/config';
@@ -23,15 +23,23 @@ import {
 import { LanguageSelector } from './LanguageSelector';
 import { DEFAULT_CALL_CENTER_LANGUAGES, normalizeLocaleList } from '@/lib/speech-languages';
 import { VOICE_OPTIONS, DEFAULT_VOICES } from '@/TTSCaller';
+import { azureTokenService } from '@/services/azure-token';
+import { generateCliCommand, generatePortalUrl } from '@/services/app-registration';
 
 export function ConfigDialog() {
   const [config, setConfig] = useLocalStorage<AzureServicesConfig>('azure-services-config', {
+    entraId: {
+      clientId: '',
+      tenantId: '',
+    },
     openAI: {
       endpoint: '',
       apiKey: '',
       deploymentName: '',
       apiVersion: '2024-12-01-preview',
       reasoningEffort: 'low',
+      authType: 'apiKey',
+      tenantId: '',
     },
       speech: {
       region: '',
@@ -41,6 +49,8 @@ export function ConfigDialog() {
       diarizationEnabled: false,
       minSpeakers: 1,
       maxSpeakers: 2,
+      authType: 'apiKey',
+      tenantId: '',
     },
     tts: {
       enabled: true,
@@ -56,14 +66,21 @@ export function ConfigDialog() {
   });
 
   const [open, setOpen] = useState(false);
+  const [copiedRedirectUri, setCopiedRedirectUri] = useState(false);
   const [localConfig, setLocalConfig] = useState<AzureServicesConfig>(
     config || {
+      entraId: {
+        clientId: '',
+        tenantId: '',
+      },
       openAI: {
         endpoint: '',
         apiKey: '',
         deploymentName: '',
         apiVersion: '2024-12-01-preview',
         reasoningEffort: 'low',
+        authType: 'apiKey',
+        tenantId: '',
       },
       speech: {
         region: '',
@@ -73,6 +90,8 @@ export function ConfigDialog() {
         diarizationEnabled: false,
         minSpeakers: 1,
         maxSpeakers: 2,
+        authType: 'apiKey',
+        tenantId: '',
       },
       tts: {
         enabled: true,
@@ -87,6 +106,40 @@ export function ConfigDialog() {
       },
     }
   );
+  
+  // Computed: is Entra ID enabled for any service?
+  const isEntraIdEnabled = localConfig.openAI.authType === 'entraId' || localConfig.speech.authType === 'entraId';
+  
+  // Current redirect URI for App Registration
+  const currentRedirectUri = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
+  
+  // State for CLI command display
+  const [showCliCommand, setShowCliCommand] = useState(false);
+  const [copiedCliCommand, setCopiedCliCommand] = useState(false);
+  
+  // Generate CLI command for creating App Registration
+  const cliCommand = generateCliCommand({
+    displayName: 'Call Center QA',
+    redirectUri: currentRedirectUri,
+  });
+  
+  const handleCopyRedirectUri = () => {
+    navigator.clipboard.writeText(currentRedirectUri);
+    setCopiedRedirectUri(true);
+    setTimeout(() => setCopiedRedirectUri(false), 2000);
+    toast.success('Redirect URI copied to clipboard');
+  };
+  
+  const handleCopyCliCommand = () => {
+    navigator.clipboard.writeText(cliCommand);
+    setCopiedCliCommand(true);
+    setTimeout(() => setCopiedCliCommand(false), 2000);
+    toast.success('CLI command copied! Paste in terminal and run.');
+  };
+  
+  const handleOpenPortal = () => {
+    window.open(generatePortalUrl({ displayName: 'Call Center QA', redirectUri: currentRedirectUri }), '_blank');
+  };
 
   useEffect(() => {
     if (config) {
@@ -139,7 +192,19 @@ export function ConfigDialog() {
 
   const handleSave = () => {
     const sanitizedLanguages = normalizeLocaleList(localConfig.speech.selectedLanguages ?? []);
+    
+    // Validate Entra ID config if enabled
+    const needsEntraId = localConfig.openAI.authType === 'entraId' || localConfig.speech.authType === 'entraId';
+    if (needsEntraId && !localConfig.entraId?.clientId) {
+      toast.error('App Registration Client ID is required when using Entra ID authentication');
+      return;
+    }
+    
     const configToPersist: AzureServicesConfig = {
+      entraId: {
+        clientId: localConfig.entraId?.clientId || '',
+        tenantId: localConfig.entraId?.tenantId || '',
+      },
       openAI: {
         ...localConfig.openAI,
         // Ensure reasoningEffort is explicitly included, defaulting to 'low' if not set
@@ -166,12 +231,26 @@ export function ConfigDialog() {
     console.log('💾 Full OpenAI config being saved:', configToPersist.openAI);
     console.log('💾 ConfigToPersist stringified:', JSON.stringify(configToPersist, null, 2));
 
+    // Configure Azure Token Service if Entra ID is enabled
+    if (needsEntraId && configToPersist.entraId?.clientId) {
+      azureTokenService.configure({
+        clientId: configToPersist.entraId.clientId,
+        tenantId: configToPersist.entraId.tenantId,
+      });
+      console.log('🔐 Azure Token Service configured with App Registration:', configToPersist.entraId.clientId);
+    }
+
     setConfig(configToPersist);
     setLocalConfig(configToPersist);
     saveAzureConfigCookie(configToPersist);
     
     // Initialize transcription service with Azure Speech config
-    if (configToPersist.speech.region && configToPersist.speech.subscriptionKey) {
+    // For Entra ID auth, we don't require a subscription key (will get token instead)
+    const hasValidAuth = configToPersist.speech.authType === 'entraId' 
+      ? configToPersist.speech.region 
+      : (configToPersist.speech.region && configToPersist.speech.subscriptionKey);
+      
+    if (hasValidAuth) {
       transcriptionService.initialize({
         region: configToPersist.speech.region,
         subscriptionKey: configToPersist.speech.subscriptionKey,
@@ -180,8 +259,11 @@ export function ConfigDialog() {
         diarizationEnabled: configToPersist.speech.diarizationEnabled ?? false,
         minSpeakers: configToPersist.speech.minSpeakers ?? 1,
         maxSpeakers: configToPersist.speech.maxSpeakers ?? 2,
+        authType: configToPersist.speech.authType ?? 'apiKey',
+        tenantId: configToPersist.speech.tenantId,
       });
       console.log('🎤 Transcription service initialized with Azure Speech config', {
+        authType: configToPersist.speech.authType ?? 'apiKey',
         diarizationEnabled: configToPersist.speech.diarizationEnabled,
         minSpeakers: configToPersist.speech.minSpeakers,
         maxSpeakers: configToPersist.speech.maxSpeakers
@@ -209,6 +291,179 @@ export function ConfigDialog() {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-6 py-4">
+          {/* Entra ID App Registration Section - shown when any service uses Entra ID */}
+          {isEntraIdEnabled && (
+            <>
+              <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <h3 className="text-lg font-semibold mb-2 text-amber-900 dark:text-amber-100">
+                  🔐 Entra ID App Registration
+                </h3>
+                <p className="text-sm text-amber-800 dark:text-amber-200 mb-4">
+                  To use Entra ID authentication, you need an App Registration in your Azure AD tenant.
+                </p>
+                
+                <div className="space-y-4">
+                  {/* Create App Registration options - shown when no client ID */}
+                  {!localConfig.entraId?.clientId && (
+                    <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-3 space-y-3">
+                      <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+                        ✨ Create App Registration:
+                      </p>
+                      
+                      {/* Option 1: CLI Command */}
+                      <div className="space-y-2">
+                        <Button
+                          onClick={() => setShowCliCommand(!showCliCommand)}
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-start"
+                        >
+                          <Terminal className="mr-2 h-4 w-4" />
+                          {showCliCommand ? 'Hide' : 'Show'} Azure CLI Command (Recommended)
+                        </Button>
+                        
+                        {showCliCommand && (
+                          <div className="space-y-2 p-3 bg-gray-900 rounded-lg border border-gray-700">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-gray-300">
+                                Run this command in your terminal (requires <code className="text-amber-400">az login</code> first):
+                              </p>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={handleCopyCliCommand}
+                                className="shrink-0 bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                {copiedCliCommand ? (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Copied!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="h-4 w-4 mr-1" />
+                                    Copy Command
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                            <pre className="text-xs bg-black text-green-400 p-3 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono max-h-32 overflow-y-auto">
+                              {cliCommand}
+                            </pre>
+                            <p className="text-xs text-amber-400">
+                              ↑ The command outputs the Client ID - paste it below.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Option 2: Azure Portal */}
+                      <Button
+                        onClick={handleOpenPortal}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                      >
+                        <ArrowSquareOut className="mr-2 h-4 w-4" />
+                        Create in Azure Portal
+                      </Button>
+                      <p className="text-xs text-green-700 dark:text-green-300">
+                        In the portal: Name it "Call Center QA", select "SPA" as platform, add redirect URI: <code className="bg-green-100 dark:bg-green-900 px-1 rounded">{currentRedirectUri}</code>
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="entra-client-id" className="text-amber-900 dark:text-amber-100">
+                      App Registration Client ID {!localConfig.entraId?.clientId && <span className="text-red-500">*</span>}
+                    </Label>
+                    <Input
+                      id="entra-client-id"
+                      placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                      value={localConfig.entraId?.clientId || ''}
+                      onChange={(e) =>
+                        setLocalConfig((prev) => ({
+                          ...prev,
+                          entraId: { 
+                            ...prev.entraId, 
+                            clientId: e.target.value,
+                            tenantId: prev.entraId?.tenantId || '',
+                          },
+                        }))
+                      }
+                      className="font-mono"
+                    />
+                    {localConfig.entraId?.clientId && (
+                      <p className="text-xs text-green-600 dark:text-green-400">
+                        ✓ App Registration configured
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="entra-tenant-id" className="text-amber-900 dark:text-amber-100">
+                      Tenant ID (optional)
+                    </Label>
+                    <Input
+                      id="entra-tenant-id"
+                      placeholder="your-tenant-id or leave empty for multi-tenant"
+                      value={localConfig.entraId?.tenantId || ''}
+                      onChange={(e) =>
+                        setLocalConfig((prev) => ({
+                          ...prev,
+                          entraId: { 
+                            ...prev.entraId, 
+                            clientId: prev.entraId?.clientId || '',
+                            tenantId: e.target.value,
+                          },
+                        }))
+                      }
+                      className="font-mono"
+                    />
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Leave empty to allow any Azure AD account (multi-tenant).
+                    </p>
+                  </div>
+                  
+                  {/* Redirect URI info - only show if they have a client ID (for troubleshooting) */}
+                  {localConfig.entraId?.clientId && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-amber-800 dark:text-amber-200 font-medium hover:underline">
+                        🔧 Troubleshooting: Redirect URI
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        <p className="text-amber-700 dark:text-amber-300">
+                          If you're having login issues, ensure this URI is added to your App Registration as a <strong>SPA</strong> redirect:
+                        </p>
+                        <div className="flex gap-2">
+                          <Input
+                            readOnly
+                            value={currentRedirectUri}
+                            className="font-mono text-xs bg-white dark:bg-gray-900"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCopyRedirectUri}
+                            className="shrink-0"
+                          >
+                            {copiedRedirectUri ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </details>
+                  )}
+                </div>
+              </div>
+              
+              <div className="border-t border-border my-4" />
+            </>
+          )}
+          
           {/* Azure OpenAI Section */}
           <div>
             <h3 className="text-lg font-semibold mb-3">Azure OpenAI</h3>
@@ -234,6 +489,7 @@ export function ConfigDialog() {
                   type="password"
                   placeholder="Your Azure OpenAI API key"
                   value={localConfig.openAI.apiKey}
+                  disabled={localConfig.openAI.authType === 'entraId'}
                   onChange={(e) =>
                     setLocalConfig((prev) => ({
                       ...prev,
@@ -241,6 +497,37 @@ export function ConfigDialog() {
                     }))
                   }
                 />
+              </div>
+              
+              {/* Entra ID Authentication Toggle */}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="openai-entra-toggle">Use Entra ID (Azure AD)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Authenticate with Azure AD instead of API key
+                    </p>
+                  </div>
+                  <Switch
+                    id="openai-entra-toggle"
+                    checked={localConfig.openAI.authType === 'entraId'}
+                    onCheckedChange={(checked) =>
+                      setLocalConfig((prev) => ({
+                        ...prev,
+                        openAI: { ...prev.openAI, authType: checked ? 'entraId' : 'apiKey' },
+                      }))
+                    }
+                  />
+                </div>
+                
+                {localConfig.openAI.authType === 'entraId' && (
+                  <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <p className="text-xs text-blue-800 dark:text-blue-200">
+                      <strong>🔐 Browser Authentication:</strong> A login popup will appear when you first use the service. 
+                      Requires <strong>Cognitive Services User</strong> role on the Azure OpenAI resource.
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="openai-deployment">Deployment Name</Label>
@@ -328,6 +615,7 @@ export function ConfigDialog() {
                   type="password"
                   placeholder="Your Azure Speech subscription key"
                   value={localConfig.speech.subscriptionKey}
+                  disabled={localConfig.speech.authType === 'entraId'}
                   onChange={(e) =>
                     setLocalConfig((prev) => ({
                       ...prev,
@@ -335,6 +623,37 @@ export function ConfigDialog() {
                     }))
                   }
                 />
+              </div>
+              
+              {/* Entra ID Authentication Toggle for Speech */}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="speech-entra-toggle">Use Entra ID (Azure AD)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Authenticate with Azure AD instead of subscription key
+                    </p>
+                  </div>
+                  <Switch
+                    id="speech-entra-toggle"
+                    checked={localConfig.speech.authType === 'entraId'}
+                    onCheckedChange={(checked) =>
+                      setLocalConfig((prev) => ({
+                        ...prev,
+                        speech: { ...prev.speech, authType: checked ? 'entraId' : 'apiKey' },
+                      }))
+                    }
+                  />
+                </div>
+                
+                {localConfig.speech.authType === 'entraId' && (
+                  <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <p className="text-xs text-blue-800 dark:text-blue-200">
+                      <strong>🔐 Browser Authentication:</strong> A login popup will appear when you first transcribe audio. 
+                      Requires <strong>Cognitive Services User</strong> role on the Azure Speech resource.
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="speech-version">API Version</Label>
@@ -604,11 +923,11 @@ export function ConfigDialog() {
 
           <div className="border-t border-border my-4" />
 
-          {/* Synthetic Data Generation Section */}
+          {/* Batches Configuration Section */}
           <div>
-            <h3 className="text-lg font-semibold mb-3">Synthetic Data Generation</h3>
+            <h3 className="text-lg font-semibold mb-3">Batches Configuration</h3>
             <p className="text-sm text-muted-foreground mb-3">
-              Configure parallel processing for faster synthetic data generation.
+              Configure parallel processing for faster synthetic data generation and AI Evaluations.
             </p>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-4">

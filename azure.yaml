@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: call-center-performance
+metadata:
+  template: call-center-performance@1.0.0
+
+# Azure services configuration
+services:
+  web:
+    project: .
+    language: js
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+      context: .
+
+# Infrastructure configuration  
+infra:
+  provider: bicep
+  path: ./infra
+  module: main
+
+# Hooks for custom deployment logic
+hooks:
+  # Pre-provision hook to validate prerequisites
+  preprovision:
+    windows:
+      shell: pwsh
+      run: |
+        Write-Host "🔍 Validating prerequisites for Call Center Performance deployment..."
+        Write-Host "✅ Prerequisites validated"
+
+  # Post-provision hook to display configuration
+  postprovision:
+    windows:
+      shell: pwsh
+      run: |
+        Write-Host ""
+        Write-Host "=========================================="
+        Write-Host "🎉 Deployment Complete!"
+        Write-Host "=========================================="
+        Write-Host ""
+        Write-Host "📌 Next Steps:"
+        Write-Host "1. Open the Container App URL from the Azure Portal"
+        Write-Host "2. Configure Azure OpenAI and Speech settings in the app"
+        Write-Host "3. Use the following environment outputs:"
+        Write-Host "   - AZURE_OPENAI_ENDPOINT: Azure OpenAI endpoint"
+        Write-Host "   - AZURE_SPEECH_REGION: Speech service region"
+        Write-Host ""
+        Write-Host "💡 To get your deployed app URL, run:"
+        Write-Host "   azd show"
+        Write-Host ""

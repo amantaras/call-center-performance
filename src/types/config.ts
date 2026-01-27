@@ -1,10 +1,26 @@
+export type AzureAuthType = 'apiKey' | 'entraId';
+
+/** Entra ID (Azure AD) configuration for browser-based authentication */
+export interface EntraIdConfig {
+  /** App Registration Client ID (Application ID) */
+  clientId: string;
+  /** Tenant ID (optional - leave empty for multi-tenant/common) */
+  tenantId?: string;
+}
+
 export interface AzureServicesConfig {
+  /** Shared Entra ID configuration (used by both OpenAI and Speech when authType is 'entraId') */
+  entraId?: EntraIdConfig;
   openAI: {
     endpoint: string;
     apiKey: string;
     deploymentName: string;
     apiVersion: string;
     reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
+    /** Authentication method: 'apiKey' (default) or 'entraId' for Azure AD */
+    authType?: AzureAuthType;
+    /** @deprecated Use entraId.tenantId instead */
+    tenantId?: string;
   };
   speech: {
     region: string;
@@ -14,6 +30,10 @@ export interface AzureServicesConfig {
     diarizationEnabled?: boolean;
     minSpeakers?: number;
     maxSpeakers?: number;
+    /** Authentication method: 'apiKey' (default) or 'entraId' for Azure AD */
+    authType?: AzureAuthType;
+    /** @deprecated Use entraId.tenantId instead */
+    tenantId?: string;
   };
   syntheticData?: {
     parallelBatches: number; // Number of parallel API calls (1-10)

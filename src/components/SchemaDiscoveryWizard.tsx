@@ -50,30 +50,7 @@ import { toast } from 'sonner';
 import { LLMCaller } from '@/llmCaller';
 import type { AzureOpenAIConfig } from '@/configManager';
 import { loadAzureConfigFromCookie } from '@/lib/azure-config-storage';
-
-/**
- * Simple ConfigManager adapter for browser environment
- * Forces API Key authentication (no Entra ID support)
- */
-class BrowserConfigManager {
-  constructor(private config: AzureOpenAIConfig) {}
-
-  async getConfig(): Promise<AzureOpenAIConfig | null> {
-    // Ensure authType is set to apiKey for browser environment
-    return {
-      ...this.config,
-      authType: 'apiKey'
-    };
-  }
-
-  async getEntraIdToken(_tenantId?: string): Promise<string | null> {
-    throw new Error('Entra ID authentication not supported in browser environment');
-  }
-
-  getMaxRetries(): number {
-    return 3;
-  }
-}
+import { BrowserConfigManager } from '@/services/browser-config-manager';
 
 interface SchemaDiscoveryWizardProps {
   open: boolean;

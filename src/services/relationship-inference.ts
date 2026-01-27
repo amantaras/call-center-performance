@@ -7,6 +7,7 @@ import type { SchemaDefinition, RelationshipDefinition } from '../types/schema';
 import { preparePrompt } from '../lib/prompt-loader';
 import { LLMCaller } from '../llmCaller';
 import { loadAzureConfigFromCookie } from '../lib/azure-config-storage';
+import { BrowserConfigManager } from './browser-config-manager';
 
 /**
  * Infers simple correlative relationships from field names and types
@@ -16,24 +17,25 @@ export async function inferSimpleRelationships(
 ): Promise<RelationshipDefinition[]> {
   try {
     const config = loadAzureConfigFromCookie();
-    if (!config || !config.openAI?.endpoint || !config.openAI?.apiKey) {
+    if (!config || !config.openAI?.endpoint) {
       throw new Error('Azure OpenAI configuration not found');
     }
+    
+    // Check for valid auth - either API key or Entra ID
+    const hasValidAuth = config.openAI.authType === 'entraId' || config.openAI.apiKey;
+    if (!hasValidAuth) {
+      throw new Error('Azure OpenAI authentication not configured');
+    }
 
-    const configManager = {
-      async getConfig() { 
-        return {
-          authType: 'apiKey' as const,
-          endpoint: config.openAI.endpoint,
-          apiKey: config.openAI.apiKey,
-          deploymentName: config.openAI.deploymentName,
-          apiVersion: config.openAI.apiVersion,
-          reasoningEffort: config.openAI.reasoningEffort
-        };
-      },
-      async getEntraIdToken() { return null; },
-      getMaxRetries() { return 3; }
-    };
+    const configManager = new BrowserConfigManager({
+      endpoint: config.openAI.endpoint,
+      apiKey: config.openAI.apiKey,
+      deploymentName: config.openAI.deploymentName,
+      apiVersion: config.openAI.apiVersion,
+      authType: config.openAI.authType || 'apiKey',
+      tenantId: config.openAI.tenantId,
+      reasoningEffort: config.openAI.reasoningEffort
+    });
 
     const llmCaller = new LLMCaller(configManager);
 
@@ -136,24 +138,25 @@ export async function inferComplexRelationships(
 ): Promise<RelationshipDefinition[]> {
   try {
     const config = loadAzureConfigFromCookie();
-    if (!config || !config.openAI?.endpoint || !config.openAI?.apiKey) {
+    if (!config || !config.openAI?.endpoint) {
       throw new Error('Azure OpenAI configuration not found');
     }
+    
+    // Check for valid auth - either API key or Entra ID
+    const hasValidAuth = config.openAI.authType === 'entraId' || config.openAI.apiKey;
+    if (!hasValidAuth) {
+      throw new Error('Azure OpenAI authentication not configured');
+    }
 
-    const configManager = {
-      async getConfig() { 
-        return {
-          authType: 'apiKey' as const,
-          endpoint: config.openAI.endpoint,
-          apiKey: config.openAI.apiKey,
-          deploymentName: config.openAI.deploymentName,
-          apiVersion: config.openAI.apiVersion,
-          reasoningEffort: config.openAI.reasoningEffort
-        };
-      },
-      async getEntraIdToken() { return null; },
-      getMaxRetries() { return 3; }
-    };
+    const configManager = new BrowserConfigManager({
+      endpoint: config.openAI.endpoint,
+      apiKey: config.openAI.apiKey,
+      deploymentName: config.openAI.deploymentName,
+      apiVersion: config.openAI.apiVersion,
+      authType: config.openAI.authType || 'apiKey',
+      tenantId: config.openAI.tenantId,
+      reasoningEffort: config.openAI.reasoningEffort
+    });
 
     const llmCaller = new LLMCaller(configManager);
 

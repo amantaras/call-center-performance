@@ -22,7 +22,7 @@ export interface SchemaTemplate {
   description: string;
   previewDescription: string;
   version: string;
-  industry: 'debt-collection' | 'customer-support' | 'sales' | 'healthcare' | 'airline' | 'telecom' | 'custom';
+  industry: 'debt-collection' | 'customer-support' | 'sales' | 'healthcare' | 'airline' | 'telecom' | 'insurance' | 'banking' | 'ecommerce' | 'it-helpdesk' | 'utilities' | 'hospitality' | 'real-estate' | 'automotive' | 'government' | 'custom';
   schema: Omit<SchemaDefinition, 'id' | 'createdAt' | 'updatedAt'>;
   evaluationRules: Omit<SchemaEvaluationRule, 'id'>[];
   isCustom?: boolean;
@@ -2530,6 +2530,4081 @@ export const TELECOM_RETENTION_TEMPLATE: SchemaTemplate = {
 };
 
 // ============================================================================
+// INSURANCE CLAIMS TEMPLATE
+// ============================================================================
+export const INSURANCE_CLAIMS_TEMPLATE: SchemaTemplate = {
+  id: 'insurance-claims',
+  name: 'Insurance Claims & Underwriting',
+  icon: '🛡️',
+  description: 'For property, casualty, health, and auto insurance claims processing',
+  previewDescription: 'Comprehensive template for insurance claims operations including FNOL documentation, fraud detection, adjuster coordination, settlement authorization, and regulatory compliance tracking.',
+  version: '1.0.0',
+  industry: 'insurance',
+  schema: {
+    name: 'Insurance Claims',
+    version: '1.0.0',
+    businessContext: 'Insurance claims center focused on efficient First Notice of Loss documentation, accurate claim assessment, fraud prevention, and compassionate customer service during difficult situations.',
+    fields: [
+      {
+        id: 'claim_id',
+        name: 'claim_id',
+        displayName: 'Claim ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'policy_number',
+        name: 'policy_number',
+        displayName: 'Policy Number',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'claimant_name',
+        name: 'claimant_name',
+        displayName: 'Claimant Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Claimant',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Claims Agent',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Claims Agent',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'claim_type',
+        name: 'claim_type',
+        displayName: 'Claim Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Auto Collision', 'Auto Comprehensive', 'Property Fire', 'Property Theft', 'Property Water Damage', 'Health Medical', 'Health Dental', 'Liability', 'Workers Comp'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'incident_date',
+        name: 'incident_date',
+        displayName: 'Incident Date',
+        type: 'date',
+        semanticRole: 'timestamp',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'claim_amount',
+        name: 'claim_amount',
+        displayName: 'Claim Amount',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'injury_severity',
+        name: 'injury_severity',
+        displayName: 'Injury Severity',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['None', 'Minor', 'Moderate', 'Severe', 'Fatal'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'fraud_risk_score',
+        name: 'fraud_risk_score',
+        displayName: 'Fraud Risk Score',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'adjuster_name',
+        name: 'adjuster_name',
+        displayName: 'Adjuster Assigned',
+        type: 'string',
+        semanticRole: 'dimension',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'claim_status',
+        name: 'claim_status',
+        displayName: 'Claim Status',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['FNOL Received', 'Under Investigation', 'Pending Documentation', 'Approved', 'Denied', 'Settled', 'Closed'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'policy_coverage',
+        name: 'policy_coverage',
+        displayName: 'Policy Coverage',
+        type: 'string',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+    ],
+    relationships: [
+      {
+        id: 'claim_complexity',
+        type: 'complex',
+        description: 'Claim complexity based on amount and injury severity',
+        formula: 'const amount = Number(metadata.claim_amount || 0); const severity = metadata.injury_severity || "None"; const severityScore = {None: 0, Minor: 20, Moderate: 40, Severe: 70, Fatal: 100}[severity] || 0; const amountScore = Math.min(50, (amount / 50000) * 50); return Math.min(100, amountScore + severityScore);',
+        involvedFields: ['claim_amount', 'injury_severity'],
+        displayName: 'Complexity Score',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'fnol-documentation',
+        name: 'FNOL Documentation',
+        description: 'First Notice of Loss - initial claim reporting and details gathering',
+        keywords: ['first notice', 'incident details', 'what happened', 'when did', 'police report'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'injury-assessment',
+        name: 'Injury Assessment',
+        description: 'Discussion about injuries sustained in the incident',
+        keywords: ['injured', 'hospital', 'medical', 'ambulance', 'doctor', 'pain'],
+        color: '#ef4444',
+      },
+      {
+        id: 'fraud-indicators',
+        name: 'Fraud Indicators',
+        description: 'Potential fraud red flags or inconsistencies in claim',
+        keywords: ['suspicious', 'inconsistent', 'conflict', 'changed story', 'unusual'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'settlement-negotiation',
+        name: 'Settlement Negotiation',
+        description: 'Discussion about claim payout and settlement terms',
+        keywords: ['settlement', 'offer', 'payout', 'compensation', 'how much'],
+        color: '#10b981',
+      },
+      {
+        id: 'documentation-request',
+        name: 'Documentation Request',
+        description: 'Requesting additional documents or evidence',
+        keywords: ['need documents', 'send photos', 'receipt', 'estimate', 'proof'],
+        color: '#8b5cf6',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'fraud-detection',
+        name: 'Fraud Detection',
+        description: 'Analyze call for potential fraud indicators and risk assessment',
+        icon: '🚨',
+        color: '#ef4444',
+        promptInstructions: `Analyze the claim call for fraud indicators and risk factors:
+- Identify inconsistencies in the claimant's story or timeline
+- Evaluate level of detail provided about the incident
+- Look for suspicious patterns (late reporting, excessive damage, opportunistic timing)
+- Assess emotional appropriateness for the claimed loss
+- Flag any red flags mentioned by the agent
+- Consider fraud_risk_score context if available`,
+        outputFields: [
+          { id: 'fraudRisk', name: 'Fraud Risk', type: 'enum', enumValues: ['Low', 'Medium', 'High', 'Critical'], description: 'Overall fraud risk assessment' },
+          { id: 'fraudScore', name: 'Fraud Score', type: 'number', description: 'Numeric fraud risk 0-100' },
+          { id: 'redFlags', name: 'Red Flags', type: 'tags', description: 'Specific fraud indicators identified' },
+          { id: 'investigationRecommended', name: 'Investigation Recommended', type: 'boolean', description: 'Whether SIU investigation is warranted' },
+          { id: 'fraudAnalysis', name: 'Fraud Analysis', type: 'text', description: 'Detailed fraud risk explanation' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'empathy-assessment',
+        name: 'Empathy & Compassion',
+        description: 'Evaluate agent empathy during difficult situation',
+        icon: '💙',
+        color: '#3b82f6',
+        promptInstructions: `Assess the agent's empathy and compassionate communication:
+- Evaluate acknowledgment of claimant's difficult situation
+- Look for empathetic phrases and active listening signals
+- Assess balance between compassion and professional boundaries
+- Identify moments where additional empathy was needed
+- Consider injury severity context for appropriate tone`,
+        outputFields: [
+          { id: 'empathyLevel', name: 'Empathy Level', type: 'enum', enumValues: ['Poor', 'Adequate', 'Good', 'Exceptional'], description: 'Overall empathy rating' },
+          { id: 'empathyExamples', name: 'Empathy Examples', type: 'tags', description: 'Specific empathetic phrases used' },
+          { id: 'missedOpportunities', name: 'Missed Opportunities', type: 'tags', description: 'Moments where more empathy was needed' },
+          { id: 'empathyScore', name: 'Empathy Score', type: 'number', description: 'Empathy score 0-100' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'documentation-completeness',
+        name: 'Documentation Completeness',
+        description: 'Assess completeness of FNOL and claim documentation',
+        icon: '📋',
+        color: '#10b981',
+        promptInstructions: `Evaluate the completeness of claim documentation gathered:
+- Check if all FNOL elements were captured (who, what, when, where, how)
+- Verify required documentation was requested
+- Assess if follow-up documentation needs are clear
+- Identify any missing critical information
+- Evaluate clarity of next steps communicated`,
+        outputFields: [
+          { id: 'completenessScore', name: 'Completeness Score', type: 'number', description: 'Documentation completeness 0-100' },
+          { id: 'capturedElements', name: 'Captured Elements', type: 'tags', description: 'FNOL elements successfully documented' },
+          { id: 'missingElements', name: 'Missing Elements', type: 'tags', description: 'Critical information not collected' },
+          { id: 'nextSteps', name: 'Next Steps Clear', type: 'boolean', description: 'Whether next steps were clearly communicated' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'settlement-authority',
+        name: 'Settlement Authority',
+        description: 'Verify proper authorization and settlement process',
+        icon: '✅',
+        color: '#8b5cf6',
+        promptInstructions: `Analyze settlement discussion for proper procedures:
+- Check if settlement amount is within agent authority limits
+- Verify proper approval process followed if needed
+- Assess if coverage limits were properly explained
+- Evaluate if settlement terms are clearly documented
+- Flag any policy violations or unauthorized commitments`,
+        outputFields: [
+          { id: 'withinAuthority', name: 'Within Authority', type: 'boolean', description: 'Settlement within agent authority' },
+          { id: 'approvalObtained', name: 'Approval Obtained', type: 'boolean', description: 'Supervisor approval obtained if needed' },
+          { id: 'policyCompliance', name: 'Policy Compliance', type: 'enum', enumValues: ['Compliant', 'Minor Issue', 'Major Violation'], description: 'Compliance with settlement policies' },
+          { id: 'complianceNotes', name: 'Compliance Notes', type: 'text', description: 'Details on settlement authorization' },
+        ],
+        enabled: true,
+      },
+    ],
+  },
+  evaluationRules: [
+    {
+      type: 'Must Do',
+      name: 'Proper Introduction',
+      definition: 'Agent must identify themselves, company, and purpose of call',
+      evaluationCriteria: 'Agent states name, company, and that this is regarding their insurance claim',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Hi, this is Sarah from ABC Insurance. I am calling regarding your recent claim filed on January 15th'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Verify Policy Holder',
+      definition: 'Agent must verify identity before discussing claim details',
+      evaluationCriteria: 'Agent verifies at least 2 identifying pieces of information',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Can you please verify your date of birth and policy number?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Empathy & Acknowledgment',
+      definition: 'Agent must acknowledge the difficulty of the situation with empathy',
+      evaluationCriteria: 'Agent expresses understanding and compassion for the loss',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I understand this has been a difficult time for you, and I want to help get your claim processed as quickly as possible'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Complete FNOL Details',
+      definition: 'Agent must gather complete First Notice of Loss information',
+      evaluationCriteria: 'Agent captures: date, time, location, what happened, who was involved, and damages',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Can you walk me through exactly what happened? When and where did the incident occur?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Injury Inquiry',
+      definition: 'Agent must ask about any injuries sustained',
+      evaluationCriteria: 'Agent inquires if anyone was injured and to what extent',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Was anyone injured in the accident? Did anyone seek medical attention?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Documentation Request',
+      definition: 'Agent must clearly explain what documentation is needed',
+      evaluationCriteria: 'Agent lists specific documents needed and how to submit them',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I will need you to send photos of the damage, the police report, and any repair estimates. You can upload these through our portal or email them to claims@insurance.com'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Coverage Explanation',
+      definition: 'Agent must explain coverage and what is/is not covered',
+      evaluationCriteria: 'Agent clarifies coverage limits and deductible information',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Your policy has a $500 deductible and covers up to $50,000 for property damage'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Timeline Communication',
+      definition: 'Agent must provide realistic timeline for claim processing',
+      evaluationCriteria: 'Agent gives specific timeframe for adjuster contact or claim resolution',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['An adjuster will contact you within 2-3 business days to schedule an inspection'],
+    },
+    {
+      type: 'Must Not Do',
+      name: 'No Unauthorized Commitments',
+      definition: 'Agent must not make settlement promises outside their authority',
+      evaluationCriteria: 'Agent avoids committing to specific settlement amounts without approval',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['Once the adjuster completes the assessment, we will determine the appropriate settlement amount'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Fraud Red Flag Documentation',
+      definition: 'Agent must properly document any suspicious details or inconsistencies',
+      evaluationCriteria: 'Agent notes inconsistencies or follows up on unclear details',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Just to clarify, you mentioned the accident happened on Tuesday, but earlier you said Wednesday. Can you confirm the correct date?'],
+    },
+  ],
+};
+
+// ============================================================================
+// BANKING SUPPORT TEMPLATE
+// ============================================================================
+export const BANKING_SUPPORT_TEMPLATE: SchemaTemplate = {
+  id: 'banking-support',
+  name: 'Banking & Financial Services',
+  icon: '🏦',
+  description: 'For retail banking, fraud alerts, disputes, and account support',
+  previewDescription: 'Complete template for banking operations including account inquiries, fraud investigation, dispute resolution, PCI compliance, transaction verification, and regulatory adherence.',
+  version: '1.0.0',
+  industry: 'banking',
+  schema: {
+    name: 'Banking Support',
+    version: '1.0.0',
+    businessContext: 'Retail banking support center focused on account security, fraud prevention, transaction disputes, compliance with financial regulations, and delivering exceptional customer service.',
+    fields: [
+      {
+        id: 'account_number',
+        name: 'account_number',
+        displayName: 'Account Number',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'customer_name',
+        name: 'customer_name',
+        displayName: 'Customer Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Customer',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Banking Agent',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Banking Agent',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'product_type',
+        name: 'product_type',
+        displayName: 'Product Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Checking Account', 'Savings Account', 'Credit Card', 'Personal Loan', 'Mortgage', 'Line of Credit', 'Certificate of Deposit'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'transaction_id',
+        name: 'transaction_id',
+        displayName: 'Transaction ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'dispute_amount',
+        name: 'dispute_amount',
+        displayName: 'Dispute Amount',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'fraud_indicator',
+        name: 'fraud_indicator',
+        displayName: 'Fraud Indicator',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'customer_tenure_years',
+        name: 'customer_tenure_years',
+        displayName: 'Customer Tenure (Years)',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'account_balance',
+        name: 'account_balance',
+        displayName: 'Account Balance',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'resolution_type',
+        name: 'resolution_type',
+        displayName: 'Resolution Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Account Info Provided', 'Fraud Reported', 'Dispute Filed', 'Card Blocked', 'Chargeback Initiated', 'Hold Placed', 'Transfer Completed', 'Escalated'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'compliance_flag',
+        name: 'compliance_flag',
+        displayName: 'Compliance Flag',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+    ],
+    relationships: [
+      {
+        id: 'customer_value',
+        type: 'complex',
+        description: 'Customer value based on tenure and balance',
+        formula: 'const tenure = Number(metadata.customer_tenure_years || 0); const balance = Number(metadata.account_balance || 0); return Math.min(100, (tenure * 10) + (balance / 10000) * 20);',
+        involvedFields: ['customer_tenure_years', 'account_balance'],
+        displayName: 'Customer Value Score',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'fraud-alert',
+        name: 'Fraud & Security',
+        description: 'Fraud alerts, suspicious transactions, account security',
+        keywords: ['fraud', 'suspicious', 'unauthorized', 'stolen', 'hacked', 'security'],
+        color: '#ef4444',
+      },
+      {
+        id: 'transaction-dispute',
+        name: 'Transaction Dispute',
+        description: 'Disputing charges or transactions',
+        keywords: ['dispute', 'charge', 'did not make', 'wrong amount', 'refund'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'account-inquiry',
+        name: 'Account Inquiry',
+        description: 'Balance inquiries, statement requests, account details',
+        keywords: ['balance', 'statement', 'account info', 'transaction history'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'authentication',
+        name: 'Authentication & Verification',
+        description: 'Identity verification and account access',
+        keywords: ['verify', 'authenticate', 'security question', 'password', 'PIN'],
+        color: '#8b5cf6',
+      },
+      {
+        id: 'payment-transfer',
+        name: 'Payments & Transfers',
+        description: 'Wire transfers, bill payments, account transfers',
+        keywords: ['transfer', 'wire', 'payment', 'send money', 'bill pay'],
+        color: '#10b981',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'fraud-investigation',
+        name: 'Fraud Investigation',
+        description: 'Analyze fraud indicators and investigation quality',
+        icon: '🔍',
+        color: '#ef4444',
+        promptInstructions: `Analyze the fraud investigation process and customer responses:
+- Evaluate thoroughness of agent's investigation questions
+- Assess customer's credibility and consistency
+- Identify fraud risk indicators from the conversation
+- Determine if proper fraud protocols were followed
+- Recommend next steps for fraud team`,
+        outputFields: [
+          { id: 'fraudLikelihood', name: 'Fraud Likelihood', type: 'enum', enumValues: ['Very Low', 'Low', 'Medium', 'High', 'Very High'], description: 'Likelihood this is fraud' },
+          { id: 'investigationQuality', name: 'Investigation Quality', type: 'enum', enumValues: ['Poor', 'Adequate', 'Good', 'Thorough'], description: 'Quality of agent investigation' },
+          { id: 'fraudIndicators', name: 'Fraud Indicators', type: 'tags', description: 'Red flags identified' },
+          { id: 'recommendedAction', name: 'Recommended Action', type: 'text', description: 'Next steps for fraud team' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'pci-compliance',
+        name: 'PCI Compliance',
+        description: 'Verify adherence to PCI-DSS and data security standards',
+        icon: '🔒',
+        color: '#8b5cf6',
+        promptInstructions: `Assess PCI-DSS compliance during the call:
+- Check if agent requested or stated full card numbers (violation)
+- Verify proper authentication methods used
+- Ensure sensitive data not captured in transcript
+- Evaluate secure payment processing adherence
+- Flag any compliance violations`,
+        outputFields: [
+          { id: 'pciCompliant', name: 'PCI Compliant', type: 'boolean', description: 'Whether call was PCI compliant' },
+          { id: 'violations', name: 'Violations', type: 'tags', description: 'Any PCI violations identified' },
+          { id: 'complianceScore', name: 'Compliance Score', type: 'number', description: 'Compliance score 0-100' },
+          { id: 'complianceNotes', name: 'Compliance Notes', type: 'text', description: 'Detailed compliance assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'dispute-resolution',
+        name: 'Dispute Resolution',
+        description: 'Analyze dispute handling and resolution quality',
+        icon: '⚖️',
+        color: '#f59e0b',
+        promptInstructions: `Evaluate the dispute resolution process:
+- Assess agent's understanding of dispute policies
+- Verify proper documentation of dispute details
+- Evaluate customer communication about dispute process
+- Check if timeline and next steps were clearly explained
+- Determine if resolution was fair and appropriate`,
+        outputFields: [
+          { id: 'resolutionQuality', name: 'Resolution Quality', type: 'enum', enumValues: ['Poor', 'Fair', 'Good', 'Excellent'], description: 'Quality of dispute resolution' },
+          { id: 'procedureFollowed', name: 'Procedure Followed', type: 'boolean', description: 'Whether proper procedures followed' },
+          { id: 'customerSatisfaction', name: 'Customer Satisfaction', type: 'enum', enumValues: ['Dissatisfied', 'Neutral', 'Satisfied', 'Very Satisfied'], description: 'Customer satisfaction with resolution' },
+          { id: 'resolutionNotes', name: 'Resolution Notes', type: 'text', description: 'Details on dispute resolution' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'authentication-security',
+        name: 'Authentication & Security',
+        description: 'Assess identity verification and security protocols',
+        icon: '🛡️',
+        color: '#10b981',
+        promptInstructions: `Analyze authentication and security measures:
+- Verify proper identity verification performed
+- Assess number and quality of security questions asked
+- Check if agent followed security protocols before account access
+- Evaluate if sensitive actions required appropriate authorization
+- Identify any security gaps or improvements needed`,
+        outputFields: [
+          { id: 'authenticationStrength', name: 'Authentication Strength', type: 'enum', enumValues: ['Weak', 'Adequate', 'Strong', 'Multi-Factor'], description: 'Strength of authentication' },
+          { id: 'securityProtocolsFollowed', name: 'Security Protocols Followed', type: 'boolean', description: 'Whether security protocols followed' },
+          { id: 'verificationMethods', name: 'Verification Methods', type: 'tags', description: 'Methods used for verification' },
+          { id: 'securityNotes', name: 'Security Notes', type: 'text', description: 'Security assessment details' },
+        ],
+        enabled: true,
+      },
+    ],
+  },
+  evaluationRules: [
+    {
+      type: 'Must Do',
+      name: 'Proper Greeting',
+      definition: 'Agent must identify themselves and the bank within first 30 seconds',
+      evaluationCriteria: 'Agent states name, bank name, and department clearly',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Good morning, this is James from ABC Bank customer service. How can I help you today?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Customer Authentication',
+      definition: 'Agent must verify customer identity before discussing account details',
+      evaluationCriteria: 'Agent verifies at least 2 authentication factors',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['For security purposes, can you verify your date of birth and the last four digits of your social security number?'],
+    },
+    {
+      type: 'Must Not Do',
+      name: 'No Full Card Numbers',
+      definition: 'Agent must never request or state full card numbers',
+      evaluationCriteria: 'Agent only references last 4 digits of card number',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['I can see the card ending in 1234. Is that the card you are calling about?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Fraud Protocol',
+      definition: 'For fraud cases, agent must follow proper investigation procedures',
+      evaluationCriteria: 'Agent asks about transaction recognition, location, and recent card usage',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Do you recognize this transaction? Where was your card at the time? Have you shared your card or PIN with anyone?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Dispute Documentation',
+      definition: 'Agent must document all required dispute details',
+      evaluationCriteria: 'Agent captures transaction details, reason for dispute, and supporting information',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Let me document this. The transaction was for $150 at MerchantName on March 1st, and you are disputing it because you never received the merchandise. Is that correct?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Timeline Communication',
+      definition: 'Agent must provide clear timeline for resolution or next steps',
+      evaluationCriteria: 'Agent gives specific timeframe for investigation or resolution',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Your dispute will be investigated within 10 business days, and you will receive a provisional credit within 48 hours'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Account Security Advice',
+      definition: 'For security incidents, agent must provide security recommendations',
+      evaluationCriteria: 'Agent suggests password change, card replacement, or account monitoring',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I recommend changing your online banking password and monitoring your account closely for any other unauthorized activity'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Proper Hold Procedure',
+      definition: 'Agent must ask permission and explain reason before placing on hold',
+      evaluationCriteria: 'Agent requests permission and states what they will be doing',
+      scoringStandard: { passed: 5, failed: 0 },
+      examples: ['May I place you on a brief hold while I review your account details? This should take about 2 minutes'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Confirmation of Actions',
+      definition: 'Agent must summarize actions taken and confirm customer understanding',
+      evaluationCriteria: 'Agent recaps what was done and verifies customer comprehension',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['To confirm, I have blocked your card, filed a fraud report, and ordered a replacement card. You should receive it in 7-10 business days. Is there anything else I can clarify?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Professional Closing',
+      definition: 'Agent must thank customer and offer additional assistance',
+      evaluationCriteria: 'Agent thanks customer and provides clear way to contact bank again',
+      scoringStandard: { passed: 5, failed: 0 },
+      examples: ['Thank you for calling ABC Bank. If you have any other questions, please feel free to call us at any time'],
+    },
+  ],
+};
+
+// ============================================================================
+// E-COMMERCE SUPPORT TEMPLATE
+// ============================================================================
+export const ECOMMERCE_SUPPORT_TEMPLATE: SchemaTemplate = {
+  id: 'ecommerce-support',
+  name: 'E-commerce & Retail Support',
+  icon: '🛒',
+  description: 'For online retail, order tracking, returns, and customer inquiries',
+  previewDescription: 'Complete template for e-commerce operations including order management, return processing, shipping inquiries, product knowledge assessment, upsell tracking, and customer lifetime value optimization.',
+  version: '1.0.0',
+  industry: 'ecommerce',
+  schema: {
+    name: 'E-commerce Support',
+    version: '1.0.0',
+    businessContext: 'E-commerce support center focused on efficient order resolution, return processing, product expertise, customer retention, and identifying upsell opportunities while maintaining high satisfaction.',
+    fields: [
+      {
+        id: 'order_id',
+        name: 'order_id',
+        displayName: 'Order ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'customer_name',
+        name: 'customer_name',
+        displayName: 'Customer Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Customer',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Support Agent',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Support Agent',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'product_sku',
+        name: 'product_sku',
+        displayName: 'Product SKU',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'issue_type',
+        name: 'issue_type',
+        displayName: 'Issue Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Order Tracking', 'Return Request', 'Product Inquiry', 'Damaged Item', 'Wrong Item', 'Shipping Delay', 'Refund Status', 'Product Recommendation'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'return_reason',
+        name: 'return_reason',
+        displayName: 'Return Reason',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Wrong Size', 'Defective', 'Not as Described', 'Changed Mind', 'Better Price Elsewhere', 'Arrived Late', 'Duplicate Order'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'refund_amount',
+        name: 'refund_amount',
+        displayName: 'Refund Amount',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'customer_lifetime_value',
+        name: 'customer_lifetime_value',
+        displayName: 'Customer Lifetime Value',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'delivery_status',
+        name: 'delivery_status',
+        displayName: 'Delivery Status',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Processing', 'Shipped', 'In Transit', 'Out for Delivery', 'Delivered', 'Delayed', 'Returned to Sender'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'warehouse_location',
+        name: 'warehouse_location',
+        displayName: 'Warehouse Location',
+        type: 'string',
+        semanticRole: 'dimension',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'resolution_type',
+        name: 'resolution_type',
+        displayName: 'Resolution Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Tracking Provided', 'Return Initiated', 'Refund Processed', 'Replacement Sent', 'Discount Applied', 'Escalated', 'Upsell Completed'],
+        cardinalityHint: 'low',
+      },
+    ],
+    relationships: [
+      {
+        id: 'customer_retention_risk',
+        type: 'complex',
+        description: 'Retention risk based on CLV and issue severity',
+        formula: 'const clv = Number(metadata.customer_lifetime_value || 0); const issueScore = {\"Order Tracking\": 20, \"Product Inquiry\": 10, \"Return Request\": 40, \"Damaged Item\": 60, \"Wrong Item\": 70, \"Shipping Delay\": 50, \"Refund Status\": 45}[metadata.issue_type] || 30; return Math.min(100, (clv > 1000 ? issueScore * 1.5 : issueScore));',
+        involvedFields: ['customer_lifetime_value', 'issue_type'],
+        displayName: 'Retention Risk Score',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'order-tracking',
+        name: 'Order Tracking',
+        description: 'Customer inquiring about order status and delivery',
+        keywords: ['where is my order', 'tracking', 'shipped', 'delivery', 'when will I receive'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'return-refund',
+        name: 'Returns & Refunds',
+        description: 'Return processing and refund requests',
+        keywords: ['return', 'refund', 'send back', 'money back', 'exchange'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'product-defect',
+        name: 'Product Issues',
+        description: 'Damaged, defective, or wrong items',
+        keywords: ['damaged', 'broken', 'defective', 'wrong item', 'not working'],
+        color: '#ef4444',
+      },
+      {
+        id: 'product-inquiry',
+        name: 'Product Questions',
+        description: 'Product information, compatibility, recommendations',
+        keywords: ['how does it work', 'compatible', 'recommend', 'features', 'specifications'],
+        color: '#8b5cf6',
+      },
+      {
+        id: 'shipping-delay',
+        name: 'Shipping Delays',
+        description: 'Late deliveries and shipping issues',
+        keywords: ['late', 'delayed', 'not arrived', 'still waiting', 'taking too long'],
+        color: '#ef4444',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'retention-analysis',
+        name: 'Retention & Churn Risk',
+        description: 'Assess customer retention risk and satisfaction',
+        icon: '💎',
+        color: '#8b5cf6',
+        promptInstructions: `Analyze customer retention risk and churn probability:
+- Evaluate customer frustration level and satisfaction
+- Consider customer lifetime value context in agent approach
+- Assess likelihood customer will continue shopping with company
+- Identify retention-saving actions taken by agent
+- Determine if additional compensation or gestures recommended`,
+        outputFields: [
+          { id: 'churnRisk', name: 'Churn Risk', type: 'enum', enumValues: ['Low', 'Medium', 'High', 'Critical'], description: 'Risk of customer churning' },
+          { id: 'customerSentiment', name: 'Customer Sentiment', type: 'enum', enumValues: ['Very Negative', 'Negative', 'Neutral', 'Positive', 'Very Positive'], description: 'Overall customer sentiment' },
+          { id: 'retentionActions', name: 'Retention Actions', type: 'tags', description: 'Actions taken to retain customer' },
+          { id: 'recommendedGesture', name: 'Recommended Gesture', type: 'text', description: 'Suggested retention gestures if needed' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'upsell-opportunities',
+        name: 'Upsell Opportunities',
+        description: 'Identify and evaluate upsell/cross-sell opportunities',
+        icon: '📈',
+        color: '#10b981',
+        promptInstructions: `Analyze upsell and cross-sell opportunities in the call:
+- Identify if agent recognized upsell opportunities
+- Assess quality of product recommendations made
+- Evaluate if upsell was appropriate for the context
+- Determine if customer showed interest in additional products
+- Recommend products that could have been suggested`,
+        outputFields: [
+          { id: 'upsellAttempted', name: 'Upsell Attempted', type: 'boolean', description: 'Whether agent attempted upsell' },
+          { id: 'upsellQuality', name: 'Upsell Quality', type: 'enum', enumValues: ['Not Attempted', 'Poor', 'Good', 'Excellent'], description: 'Quality of upsell approach' },
+          { id: 'customerReceptiveness', name: 'Customer Receptiveness', type: 'enum', enumValues: ['Not Interested', 'Neutral', 'Interested', 'Very Interested'], description: 'Customer interest level' },
+          { id: 'missedOpportunities', name: 'Missed Opportunities', type: 'tags', description: 'Products that could have been suggested' },
+          { id: 'upsellNotes', name: 'Upsell Notes', type: 'text', description: 'Details on upsell opportunities' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'product-knowledge',
+        name: 'Product Knowledge',
+        description: 'Assess agent product expertise and accuracy',
+        icon: '🎓',
+        color: '#3b82f6',
+        promptInstructions: `Evaluate agent's product knowledge and expertise:
+- Assess accuracy of product information provided
+- Evaluate confidence and clarity in explanations
+- Check if agent addressed all product questions
+- Identify knowledge gaps or incorrect information
+- Determine if agent used resources effectively`,
+        outputFields: [
+          { id: 'knowledgeLevel', name: 'Knowledge Level', type: 'enum', enumValues: ['Poor', 'Basic', 'Good', 'Expert'], description: 'Agent product knowledge level' },
+          { id: 'accuracyScore', name: 'Accuracy Score', type: 'number', description: 'Information accuracy 0-100' },
+          { id: 'knowledgeGaps', name: 'Knowledge Gaps', type: 'tags', description: 'Topics where agent lacked knowledge' },
+          { id: 'trainingRecommendations', name: 'Training Recommendations', type: 'text', description: 'Suggested training areas' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'return-analysis',
+        name: 'Return Reason Analysis',
+        description: 'Analyze return reasons and prevent future returns',
+        icon: '↩️',
+        color: '#f59e0b',
+        promptInstructions: `Analyze the return request and underlying causes:
+- Identify the true reason for return (may differ from stated)
+- Assess if return was due to product issue vs. customer expectations
+- Evaluate if agent attempted to resolve without return
+- Determine if this reveals product quality or description issues
+- Recommend actions to prevent similar returns`,
+        outputFields: [
+          { id: 'returnCategory', name: 'Return Category', type: 'enum', enumValues: ['Product Defect', 'Wrong Expectations', 'Customer Error', 'Shipping Issue', 'Better Alternative'], description: 'True return category' },
+          { id: 'preventable', name: 'Preventable', type: 'boolean', description: 'Whether return was preventable' },
+          { id: 'rootCause', name: 'Root Cause', type: 'text', description: 'Underlying cause of return' },
+          { id: 'preventionRecommendations', name: 'Prevention Recommendations', type: 'text', description: 'How to prevent future similar returns' },
+        ],
+        enabled: true,
+      },
+    ],
+  },
+  evaluationRules: [
+    {
+      type: 'Must Do',
+      name: 'Friendly Greeting',
+      definition: 'Agent must greet customer warmly and identify company',
+      evaluationCriteria: 'Agent provides friendly greeting with company name',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Hi! Thank you for contacting ShopXYZ customer service. My name is Alex. How can I help you today?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Order Verification',
+      definition: 'Agent must verify customer identity and locate order',
+      evaluationCriteria: 'Agent confirms customer name, email, or order number',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Can I have your order number or the email address you used for the order?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Active Listening',
+      definition: 'Agent must demonstrate active listening and empathy for customer issue',
+      evaluationCriteria: 'Agent acknowledges customer concern and shows understanding',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I completely understand your frustration with the delayed delivery. Let me look into this for you right away'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Proactive Solutions',
+      definition: 'Agent must offer solutions or alternatives without customer needing to ask',
+      evaluationCriteria: 'Agent presents at least one solution or next step',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I can expedite a replacement for you at no extra charge, or if you prefer, I can process a full refund immediately'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Return Policy Explanation',
+      definition: 'For returns, agent must clearly explain return policy and process',
+      evaluationCriteria: 'Agent states return window, process steps, and refund timeline',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Our return policy allows returns within 30 days. I will email you a prepaid return label, and once we receive the item, your refund will process within 5-7 business days'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Tracking Information',
+      definition: 'Agent must provide specific tracking information or delivery estimate',
+      evaluationCriteria: 'Agent gives tracking number or specific delivery date range',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Your tracking number is 1Z999AA10123456784, and it shows delivery expected tomorrow between 2-6 PM'],
+    },
+    {
+      type: 'Should Do',
+      name: 'Identify Upsell Opportunity',
+      definition: 'Agent should recognize and attempt appropriate upsell or cross-sell',
+      evaluationCriteria: 'Agent suggests complementary product or upgrade when context appropriate',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Since you are ordering the camera, many customers also find our premium carrying case very useful. Would you like me to add it at a 20% discount?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Product Knowledge',
+      definition: 'Agent must provide accurate product information',
+      evaluationCriteria: 'Agent answers product questions correctly or finds accurate information',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Let me check the specifications for you... Yes, this model is compatible with both Windows and Mac'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Compensation Appropriateness',
+      definition: 'Agent must offer appropriate compensation for issues within policy guidelines',
+      evaluationCriteria: 'Compensation matches issue severity and company policy',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I apologize for the inconvenience. I will refund your shipping cost and provide a 15% discount on your next order'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Clear Next Steps & Follow-up',
+      definition: 'Agent must clearly explain what happens next and provide follow-up information',
+      evaluationCriteria: 'Agent summarizes actions, timeline, and how customer can follow up',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['To recap, I have processed your return and emailed the return label. You should receive your refund within 7 days after we receive the package. If you have any questions, you can reply to that email or call us anytime'],
+    },
+  ],
+};
+
+// ============================================================================
+// IT HELP DESK TEMPLATE
+// ============================================================================
+export const IT_HELPDESK_TEMPLATE: SchemaTemplate = {
+  id: 'it-helpdesk',
+  name: 'IT Help Desk & Tech Support',
+  icon: '💻',
+  description: 'For enterprise IT support, software troubleshooting, and technical issues',
+  previewDescription: 'Comprehensive template for IT help desk operations including ticket management, SLA tracking, troubleshooting methodology, escalation procedures, root cause analysis, and technical documentation.',
+  version: '1.0.0',
+  industry: 'it-helpdesk',
+  schema: {
+    name: 'IT Help Desk',
+    version: '1.0.0',
+    businessContext: 'IT help desk center focused on efficient technical issue resolution, proper troubleshooting methodology, SLA compliance, knowledge documentation, and customer education.',
+    fields: [
+      {
+        id: 'ticket_id',
+        name: 'ticket_id',
+        displayName: 'Ticket ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'user_name',
+        name: 'user_name',
+        displayName: 'User Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'User',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'technician_name',
+        name: 'technician_name',
+        displayName: 'Technician',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Technician',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'product_module',
+        name: 'product_module',
+        displayName: 'Product/Module',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Email/Outlook', 'VPN/Network', 'Software Application', 'Hardware', 'Password/Access', 'Printer', 'Phone System', 'Database', 'Operating System'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'severity_level',
+        name: 'severity_level',
+        displayName: 'Severity Level',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['P1 - Critical', 'P2 - High', 'P3 - Medium', 'P4 - Low'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'error_code',
+        name: 'error_code',
+        displayName: 'Error Code',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'resolution_time_minutes',
+        name: 'resolution_time_minutes',
+        displayName: 'Resolution Time (Minutes)',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'sla_status',
+        name: 'sla_status',
+        displayName: 'SLA Status',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Within SLA', 'At Risk', 'Breached'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'technician_expertise_level',
+        name: 'technician_expertise_level',
+        displayName: 'Technician Level',
+        type: 'select',
+        semanticRole: 'dimension',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['L1 - Tier 1', 'L2 - Tier 2', 'L3 - Senior', 'L4 - Expert'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'root_cause',
+        name: 'root_cause',
+        displayName: 'Root Cause',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['User Error', 'Software Bug', 'Configuration Issue', 'Hardware Failure', 'Network Issue', 'Third-Party Service', 'Known Issue'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'resolution_type',
+        name: 'resolution_type',
+        displayName: 'Resolution Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Resolved', 'Workaround Provided', 'Escalated to L2', 'Escalated to Vendor', 'Requires Change Request', 'User Trained'],
+        cardinalityHint: 'low',
+      },
+    ],
+    relationships: [
+      {
+        id: 'complexity_score',
+        type: 'complex',
+        description: 'Issue complexity based on severity and resolution time',
+        formula: 'const severityScore = {\"P1 - Critical\": 100, \"P2 - High\": 70, \"P3 - Medium\": 40, \"P4 - Low\": 20}[metadata.severity_level] || 40; const time = Number(metadata.resolution_time_minutes || 30); const timeScore = Math.min(50, (time / 60) * 50); return Math.min(100, (severityScore * 0.6) + (timeScore * 0.4));',
+        involvedFields: ['severity_level', 'resolution_time_minutes'],
+        displayName: 'Complexity Score',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'troubleshooting',
+        name: 'Troubleshooting Steps',
+        description: 'Technical troubleshooting and diagnostic procedures',
+        keywords: ['try this', 'restart', 'reinstall', 'check settings', 'diagnostic', 'test'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'error-diagnosis',
+        name: 'Error Diagnosis',
+        description: 'Identifying and diagnosing error messages',
+        keywords: ['error message', 'error code', 'why', 'what does mean', 'diagnosis'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'escalation',
+        name: 'Escalation',
+        description: 'Issues requiring escalation to higher tier support',
+        keywords: ['escalate', 'tier 2', 'senior tech', 'beyond my scope', 'complex issue'],
+        color: '#ef4444',
+      },
+      {
+        id: 'user-training',
+        name: 'User Training',
+        description: 'Teaching users how to use features or avoid issues',
+        keywords: ['how to', 'show you', 'tutorial', 'learn', 'prevent'],
+        color: '#10b981',
+      },
+      {
+        id: 'ticket-documentation',
+        name: 'Ticket Documentation',
+        description: 'Documenting issue details and resolution steps',
+        keywords: ['document', 'note', 'record', 'ticket update', 'knowledge base'],
+        color: '#8b5cf6',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'troubleshooting-methodology',
+        name: 'Troubleshooting Methodology',
+        description: 'Assess quality of troubleshooting approach and diagnostic steps',
+        icon: '🔧',
+        color: '#3b82f6',
+        promptInstructions: `Analyze the technician's troubleshooting methodology:
+- Evaluate if proper diagnostic steps were followed (gather info, isolate issue, test solution)
+- Assess logical flow and systematic approach vs. random guessing
+- Check if technician verified the fix before closing
+- Identify shortcuts taken or steps skipped
+- Rate overall troubleshooting effectiveness`,
+        outputFields: [
+          { id: 'methodologyQuality', name: 'Methodology Quality', type: 'enum', enumValues: ['Poor', 'Basic', 'Good', 'Excellent'], description: 'Quality of troubleshooting approach' },
+          { id: 'stepsFollowed', name: 'Steps Followed', type: 'tags', description: 'Diagnostic steps taken' },
+          { id: 'stepsSkipped', name: 'Steps Skipped', type: 'tags', description: 'Important steps missed' },
+          { id: 'verifiedFix', name: 'Verified Fix', type: 'boolean', description: 'Whether solution was verified before closing' },
+          { id: 'methodologyNotes', name: 'Methodology Notes', type: 'text', description: 'Detailed assessment of approach' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'technical-knowledge',
+        name: 'Technical Knowledge',
+        description: 'Evaluate technician expertise and accuracy',
+        icon: '🎓',
+        color: '#8b5cf6',
+        promptInstructions: `Assess the technician's technical knowledge and expertise:
+- Evaluate accuracy of technical explanations
+- Check if technician understood the root cause
+- Assess confidence and clarity in technical communication
+- Identify knowledge gaps or incorrect information
+- Consider if expertise level matches ticket complexity`,
+        outputFields: [
+          { id: 'knowledgeLevel', name: 'Knowledge Level', type: 'enum', enumValues: ['Insufficient', 'Basic', 'Proficient', 'Expert'], description: 'Technician knowledge level' },
+          { id: 'technicalAccuracy', name: 'Technical Accuracy', type: 'number', description: 'Accuracy of technical information 0-100' },
+          { id: 'knowledgeGaps', name: 'Knowledge Gaps', type: 'tags', description: 'Areas where knowledge was lacking' },
+          { id: 'trainingNeeds', name: 'Training Needs', type: 'text', description: 'Recommended training areas' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'sla-compliance',
+        name: 'SLA & Time Management',
+        description: 'Analyze SLA adherence and time efficiency',
+        icon: '⏱️',
+        color: '#10b981',
+        promptInstructions: `Evaluate SLA compliance and time management:
+- Assess if resolution time was appropriate for issue severity
+- Check if technician worked efficiently vs. unnecessarily prolonging
+- Identify time wasters or efficiency opportunities
+- Consider if escalation should have happened sooner
+- Evaluate communication about timeline expectations`,
+        outputFields: [
+          { id: 'timeEfficiency', name: 'Time Efficiency', type: 'enum', enumValues: ['Inefficient', 'Adequate', 'Efficient', 'Optimal'], description: 'Time management quality' },
+          { id: 'slaRisk', name: 'SLA Risk', type: 'enum', enumValues: ['None', 'Low', 'Medium', 'High'], description: 'Risk to SLA compliance' },
+          { id: 'delayFactors', name: 'Delay Factors', type: 'tags', description: 'Factors that caused delays' },
+          { id: 'efficiencyRecommendations', name: 'Efficiency Recommendations', type: 'text', description: 'Suggestions for improvement' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'documentation-quality',
+        name: 'Documentation Quality',
+        description: 'Assess ticket documentation and knowledge capture',
+        icon: '📝',
+        color: '#f59e0b',
+        promptInstructions: `Evaluate the quality of ticket documentation:
+- Assess if root cause was clearly documented
+- Check if resolution steps are reproducible by others
+- Verify error codes and technical details were captured
+- Determine if this should be added to knowledge base
+- Evaluate clarity and completeness for audit trail`,
+        outputFields: [
+          { id: 'documentationCompleteness', name: 'Documentation Completeness', type: 'number', description: 'Completeness score 0-100' },
+          { id: 'reproducibility', name: 'Reproducibility', type: 'enum', enumValues: ['Not Reproducible', 'Partially', 'Fully Reproducible'], description: 'Whether another tech could follow' },
+          { id: 'knowledgeBaseWorthy', name: 'Knowledge Base Worthy', type: 'boolean', description: 'Should be added to KB' },
+          { id: 'documentationNotes', name: 'Documentation Notes', type: 'text', description: 'Documentation assessment details' },
+        ],
+        enabled: true,
+      },
+    ],
+  },
+  evaluationRules: [
+    {
+      type: 'Must Do',
+      name: 'Professional Introduction',
+      definition: 'Technician must identify themselves and IT help desk',
+      evaluationCriteria: 'Technician states name, IT help desk, and confirms ticket/issue',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Hi, this is Mike from IT Help Desk. I am calling about ticket #12345 regarding your email issue'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Issue Verification',
+      definition: 'Technician must verify and understand the reported issue',
+      evaluationCriteria: 'Technician confirms issue details and asks clarifying questions',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Can you describe exactly what error message you are seeing and when it occurs?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Systematic Troubleshooting',
+      definition: 'Technician must follow logical troubleshooting steps',
+      evaluationCriteria: 'Technician works through diagnostic steps systematically (gather info, isolate, test)',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Let me first check if this is affecting just you or multiple users. Then we will test the connection'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Technical Accuracy',
+      definition: 'Technician must provide accurate technical information',
+      evaluationCriteria: 'All technical explanations and solutions are correct',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['The error code 0x80070005 indicates a permissions issue. We need to adjust your access rights'],
+    },
+    {
+      type: 'Must Do',
+      name: 'User-Friendly Explanation',
+      definition: 'Technician must explain technical concepts in user-friendly language',
+      evaluationCriteria: 'Technician avoids jargon and explains clearly for non-technical users',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['The VPN creates a secure tunnel, like a private highway, between your computer and our network'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Solution Verification',
+      definition: 'Technician must verify the solution worked before closing',
+      evaluationCriteria: 'Technician confirms with user that issue is resolved',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Can you try accessing your email again and confirm it is working properly now?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Proper Escalation',
+      definition: 'Technician must escalate appropriately when beyond their expertise',
+      evaluationCriteria: 'Technician recognizes limitations and escalates to appropriate tier',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['This issue requires database-level access which is handled by our Tier 2 team. I will escalate this ticket to them immediately'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Ticket Documentation',
+      definition: 'Technician must document troubleshooting steps and resolution',
+      evaluationCriteria: 'Technician states they are documenting the issue and solution in the ticket',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I am documenting the steps we took and the solution in your ticket for future reference'],
+    },
+    {
+      type: 'Should Do',
+      name: 'User Education',
+      definition: 'Technician should educate user to prevent future issues',
+      evaluationCriteria: 'Technician provides tips or explains how to avoid the issue',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['To prevent this in the future, make sure to save your work before logging off'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Clear Closing & Follow-up',
+      definition: 'Technician must provide clear next steps and follow-up information',
+      evaluationCriteria: 'Technician explains what happens next and how to reopen if needed',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I will close this ticket as resolved. If the issue returns, please respond to the ticket email or call us and reference ticket #12345'],
+    },
+  ],
+};
+
+// ============================================================================
+// UTILITIES & ENERGY TEMPLATE
+// ============================================================================
+export const UTILITIES_TEMPLATE: SchemaTemplate = {
+  id: 'utilities',
+  name: 'Utilities & Energy Services',
+  icon: '⚡',
+  description: 'For electric, gas, water utility companies and energy providers',
+  previewDescription: 'Complete template for utility operations including billing inquiries, outage reporting, safety protocols, payment arrangements, service connections, disconnection procedures, and regulatory compliance.',
+  version: '1.0.0',
+  industry: 'utilities',
+  schema: {
+    name: 'Utilities Services',
+    version: '1.0.0',
+    businessContext: 'Utility company call center focused on billing support, outage management, safety-critical communications, payment assistance, and regulatory compliance in customer interactions.',
+    fields: [
+      {
+        id: 'account_number',
+        name: 'account_number',
+        displayName: 'Account Number',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'customer_name',
+        name: 'customer_name',
+        displayName: 'Customer Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Customer',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Service Agent',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Service Agent',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'service_address',
+        name: 'service_address',
+        displayName: 'Service Address',
+        type: 'string',
+        semanticRole: 'dimension',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'call_type',
+        name: 'call_type',
+        displayName: 'Call Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Billing Inquiry', 'Outage Report', 'Payment Arrangement', 'Service Connection', 'Disconnection Notice', 'High Bill Complaint', 'Safety Emergency', 'Meter Reading'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'billing_dispute_amount',
+        name: 'billing_dispute_amount',
+        displayName: 'Billing Dispute Amount',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'outage_duration_hours',
+        name: 'outage_duration_hours',
+        displayName: 'Outage Duration (Hours)',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'meter_id',
+        name: 'meter_id',
+        displayName: 'Meter ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'payment_plan_terms',
+        name: 'payment_plan_terms',
+        displayName: 'Payment Plan Terms',
+        type: 'string',
+        semanticRole: 'freeform',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'disconnect_risk',
+        name: 'disconnect_risk',
+        displayName: 'Disconnection Risk',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['None', 'Low', 'Moderate', 'High', 'Imminent'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'safety_flag',
+        name: 'safety_flag',
+        displayName: 'Safety Flag',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'resolution_type',
+        name: 'resolution_type',
+        displayName: 'Resolution Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Billing Explained', 'Payment Arranged', 'Outage Crew Dispatched', 'Service Scheduled', 'Disconnection Prevented', 'Safety Issue Escalated', 'Meter Investigation'],
+        cardinalityHint: 'low',
+      },
+    ],
+    relationships: [
+      {
+        id: 'urgency_score',
+        type: 'complex',
+        description: 'Call urgency based on type and safety flags',
+        formula: 'const isSafety = metadata.safety_flag === true ? 100 : 0; const typeScore = {\"Safety Emergency\": 100, \"Outage Report\": 80, \"Disconnection Notice\": 60, \"High Bill Complaint\": 40, \"Billing Inquiry\": 20}[metadata.call_type] || 30; return Math.max(isSafety, typeScore);',
+        involvedFields: ['call_type', 'safety_flag'],
+        displayName: 'Urgency Score',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'safety-emergency',
+        name: 'Safety Emergency',
+        description: 'Gas leaks, downed power lines, electrical hazards',
+        keywords: ['gas leak', 'smell gas', 'power line down', 'sparks', 'emergency', 'danger'],
+        color: '#ef4444',
+      },
+      {
+        id: 'outage-restoration',
+        name: 'Outage & Restoration',
+        description: 'Power outages, service interruptions, restoration updates',
+        keywords: ['power out', 'outage', 'no electricity', 'when restored', 'ETA'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'billing-explanation',
+        name: 'Billing Explanation',
+        description: 'High bill inquiries and billing clarifications',
+        keywords: ['high bill', 'charges', 'why so much', 'billing', 'explain'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'payment-assistance',
+        name: 'Payment Assistance',
+        description: 'Payment arrangements, financial hardship, assistance programs',
+        keywords: ['payment plan', 'cannot pay', 'hardship', 'assistance program', 'extension'],
+        color: '#10b981',
+      },
+      {
+        id: 'disconnection-warning',
+        name: 'Disconnection',
+        description: 'Disconnection notices and prevention',
+        keywords: ['disconnect', 'shut off', 'notice', 'turn off service', 'final warning'],
+        color: '#ef4444',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'safety-protocol-compliance',
+        name: 'Safety Protocol Compliance',
+        description: 'Verify proper safety procedures were followed',
+        icon: '🚨',
+        color: '#ef4444',
+        promptInstructions: `Assess safety protocol adherence during the call:
+- Check if gas leak or electrical hazard was escalated immediately
+- Verify agent prioritized safety over all other concerns
+- Assess if proper emergency instructions were given
+- Evaluate if emergency dispatch was appropriate
+- Flag any safety protocol violations`,
+        outputFields: [
+          { id: 'safetyCompliance', name: 'Safety Compliance', type: 'enum', enumValues: ['Non-Compliant', 'Partial', 'Compliant', 'Exemplary'], description: 'Safety protocol adherence' },
+          { id: 'safetyRisk', name: 'Safety Risk', type: 'enum', enumValues: ['None', 'Low', 'Moderate', 'High', 'Critical'], description: 'Safety risk level' },
+          { id: 'immediateActions', name: 'Immediate Actions', type: 'tags', description: 'Safety actions taken' },
+          { id: 'safetyNotes', name: 'Safety Notes', type: 'text', description: 'Safety compliance assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'outage-communication',
+        name: 'Outage Communication',
+        description: 'Evaluate quality of outage information and expectations',
+        icon: '💡',
+        color: '#f59e0b',
+        promptInstructions: `Assess outage communication effectiveness:
+- Check if agent provided restoration time estimate
+- Verify crew dispatch information was communicated
+- Evaluate empathy for customer inconvenience
+- Assess if alternative resources offered (cooling centers, etc.)
+- Determine if updates/follow-up process explained`,
+        outputFields: [
+          { id: 'communicationQuality', name: 'Communication Quality', type: 'enum', enumValues: ['Poor', 'Fair', 'Good', 'Excellent'], description: 'Outage communication quality' },
+          { id: 'etaProvided', name: 'ETA Provided', type: 'boolean', description: 'Whether restoration ETA given' },
+          { id: 'empathyLevel', name: 'Empathy Level', type: 'enum', enumValues: ['None', 'Minimal', 'Adequate', 'Strong'], description: 'Empathy for inconvenience' },
+          { id: 'communicationNotes', name: 'Communication Notes', type: 'text', description: 'Outage communication details' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'payment-plan-appropriateness',
+        name: 'Payment Plan Appropriateness',
+        description: 'Assess payment arrangement quality and compliance',
+        icon: '💳',
+        color: '#10b981',
+        promptInstructions: `Evaluate payment arrangement appropriateness:
+- Check if payment plan meets company policies
+- Assess if terms are realistic for customer situation
+- Verify proper authorization obtained if needed
+- Evaluate if disconnection timeline clearly communicated
+- Determine if assistance programs were mentioned`,
+        outputFields: [
+          { id: 'planAppropriate', name: 'Plan Appropriate', type: 'boolean', description: 'Whether plan is appropriate' },
+          { id: 'withinPolicy', name: 'Within Policy', type: 'boolean', description: 'Compliant with policies' },
+          { id: 'assistanceMentioned', name: 'Assistance Programs Mentioned', type: 'boolean', description: 'Whether assistance programs offered' },
+          { id: 'paymentNotes', name: 'Payment Notes', type: 'text', description: 'Payment plan assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'regulatory-compliance',
+        name: 'Regulatory Compliance',
+        description: 'Verify compliance with utility regulations',
+        icon: '⚖️',
+        color: '#8b5cf6',
+        promptInstructions: `Assess regulatory compliance during the call:
+- Check if required disconnection warnings provided
+- Verify proper notice periods mentioned
+- Assess if vulnerable customer protections discussed (medical, elderly)
+- Evaluate if consumer rights explained appropriately
+- Flag any regulatory violations`,
+        outputFields: [
+          { id: 'regulatoryCompliant', name: 'Regulatory Compliant', type: 'boolean', description: 'Whether call was compliant' },
+          { id: 'violations', name: 'Violations', type: 'tags', description: 'Any regulatory violations' },
+          { id: 'protectionsMentioned', name: 'Protections Mentioned', type: 'tags', description: 'Customer protections discussed' },
+          { id: 'complianceNotes', name: 'Compliance Notes', type: 'text', description: 'Regulatory compliance details' },
+        ],
+        enabled: true,
+      },
+    ],
+  },
+  evaluationRules: [
+    {
+      type: 'Must Do',
+      name: 'Professional Greeting',
+      definition: 'Agent must identify themselves and the utility company',
+      evaluationCriteria: 'Agent states name and company within first 30 seconds',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Good morning, this is Lisa from City Power Company. How can I assist you today?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Account Verification',
+      definition: 'Agent must verify customer identity before discussing account',
+      evaluationCriteria: 'Agent verifies at least 2 pieces of information (address, last 4 SSN, account number)',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['For security, can you verify the service address and last four digits of your account number?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Immediate Safety Escalation',
+      definition: 'Agent must immediately escalate any safety emergencies',
+      evaluationCriteria: 'Gas leaks, downed lines, or electrical hazards escalated within 60 seconds',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['I am dispatching an emergency crew immediately. Please evacuate the area and call 911 if you smell gas'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Outage ETA Communication',
+      definition: 'Agent must provide restoration time estimate for outages',
+      evaluationCriteria: 'Agent gives specific ETA or explains why ETA unavailable',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Our crew is on-site and estimates power restoration by 3 PM today. We will update you if that changes'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Billing Explanation',
+      definition: 'Agent must clearly explain billing charges and usage',
+      evaluationCriteria: 'Agent explains rate structure, usage comparison, or charges clearly',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Your bill is higher because usage increased from 500 kWh to 850 kWh. This could be due to heating during the cold snap'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Payment Assistance Programs',
+      definition: 'For hardship cases, agent must mention available assistance programs',
+      evaluationCriteria: 'Agent informs about payment plans, assistance programs, or resources',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['We have payment assistance programs available. You may also qualify for the Low Income Home Energy Assistance Program. Would you like information on these?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Disconnection Warning',
+      definition: 'Agent must clearly communicate disconnection timeline and prevention',
+      evaluationCriteria: 'Agent states specific disconnection date and payment options to prevent',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Without payment, service will be disconnected on March 15th. To prevent this, you can pay $200 by March 10th or set up a payment arrangement today'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Medical/Vulnerable Customer Protocol',
+      definition: 'Agent must ask about medical equipment or vulnerable household members',
+      evaluationCriteria: 'For disconnection cases, agent inquires about medical necessity or vulnerable persons',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Do you or anyone in your household rely on electrically-powered medical equipment?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Proper Authorization',
+      definition: 'Agent must obtain proper authorization for payment arrangements',
+      evaluationCriteria: 'Agent verifies authorization level or escalates for approval',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['I can approve a payment plan up to 6 months. For longer terms, I will need supervisor approval'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Clear Summary & Next Steps',
+      definition: 'Agent must summarize agreement and provide clear next steps',
+      evaluationCriteria: 'Agent recaps actions, dates, and follow-up process',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['To confirm, you will pay $150 on the 1st of each month for 4 months. Your first payment is due April 1st. I will send a confirmation letter within 3 business days'],
+    },
+  ],
+};
+
+// ============================================================================
+// TRAVEL & HOSPITALITY TEMPLATE
+// ============================================================================
+export const HOSPITALITY_TEMPLATE: SchemaTemplate = {
+  id: 'hospitality',
+  name: 'Travel & Hospitality',
+  icon: '🏨',
+  description: 'For hotels, resorts, vacation rentals, and hospitality services',
+  previewDescription: 'Complete template for hospitality operations including reservations, modifications, guest complaints, service recovery, loyalty programs, upsell opportunities, and guest satisfaction management.',
+  version: '1.0.0',
+  industry: 'hospitality',
+  schema: {
+    name: 'Travel & Hospitality',
+    version: '1.0.0',
+    businessContext: 'Hospitality call center focused on exceptional guest service, reservation management, service recovery, loyalty rewards, revenue optimization through upsells, and creating memorable experiences.',
+    fields: [
+      {
+        id: 'reservation_id',
+        name: 'reservation_id',
+        displayName: 'Reservation ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'guest_name',
+        name: 'guest_name',
+        displayName: 'Guest Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Guest',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Agent Name',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Guest Services Agent',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'guest_tier_status',
+        name: 'guest_tier_status',
+        displayName: 'Guest Tier Status',
+        type: 'select',
+        semanticRole: 'dimension',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Standard', 'Silver', 'Gold', 'Platinum', 'Diamond'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'check_in_date',
+        name: 'check_in_date',
+        displayName: 'Check-in Date',
+        type: 'date',
+        semanticRole: 'timestamp',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'check_out_date',
+        name: 'check_out_date',
+        displayName: 'Check-out Date',
+        type: 'date',
+        semanticRole: 'timestamp',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'room_type',
+        name: 'room_type',
+        displayName: 'Room Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Standard Room', 'Deluxe Room', 'Suite', 'Executive Suite', 'Presidential Suite'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'call_reason',
+        name: 'call_reason',
+        displayName: 'Call Reason',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['New Reservation', 'Modify Reservation', 'Cancellation', 'Guest Complaint', 'Special Request', 'Loyalty Inquiry', 'Billing Issue', 'General Inquiry'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'complaint_category',
+        name: 'complaint_category',
+        displayName: 'Complaint Category',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Room Cleanliness', 'Noise', 'Staff Service', 'Amenity Issue', 'Maintenance', 'Billing Error', 'Safety Concern'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'compensation_offered',
+        name: 'compensation_offered',
+        displayName: 'Compensation Offered',
+        type: 'string',
+        semanticRole: 'freeform',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'property_location',
+        name: 'property_location',
+        displayName: 'Property Location',
+        type: 'string',
+        semanticRole: 'dimension',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'resolution_type',
+        name: 'resolution_type',
+        displayName: 'Resolution Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Reservation Confirmed', 'Modification Completed', 'Cancellation Processed', 'Complaint Resolved', 'Room Upgraded', 'Compensation Provided', 'Escalated to Manager'],
+        cardinalityHint: 'low',
+      },
+    ],
+    relationships: [
+      {
+        id: 'guest_value',
+        type: 'complex',
+        description: 'Guest value based on tier status',
+        formula: 'const tierScore = {Diamond: 100, Platinum: 80, Gold: 60, Silver: 40, Standard: 20}[metadata.guest_tier_status] || 20; return tierScore;',
+        involvedFields: ['guest_tier_status'],
+        displayName: 'Guest Value Score',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'reservation-booking',
+        name: 'Reservation & Booking',
+        description: 'New reservations, availability, rates',
+        keywords: ['book', 'reserve', 'available', 'rate', 'price', 'dates'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'service-complaint',
+        name: 'Service Complaint',
+        description: 'Guest complaints and service issues',
+        keywords: ['complaint', 'unhappy', 'disappointed', 'problem', 'issue', 'dissatisfied'],
+        color: '#ef4444',
+      },
+      {
+        id: 'special-requests',
+        name: 'Special Requests',
+        description: 'Room preferences, amenities, accommodations',
+        keywords: ['request', 'prefer', 'need', 'special', 'celebrate', 'anniversary'],
+        color: '#8b5cf6',
+      },
+      {
+        id: 'loyalty-rewards',
+        name: 'Loyalty & Rewards',
+        description: 'Points, status, loyalty program benefits',
+        keywords: ['points', 'rewards', 'status', 'benefits', 'loyalty', 'member'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'upsell-upgrade',
+        name: 'Upsell & Upgrade',
+        description: 'Room upgrades, package add-ons, premium services',
+        keywords: ['upgrade', 'suite', 'better room', 'package', 'add-on', 'premium'],
+        color: '#10b981',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'service-recovery',
+        name: 'Service Recovery',
+        description: 'Assess service recovery effectiveness for complaints',
+        icon: '🛎️',
+        color: '#ef4444',
+        promptInstructions: `Evaluate service recovery quality for guest complaints:
+- Assess agent's empathy and acknowledgment of issue
+- Evaluate appropriateness of compensation offered
+- Check if resolution addresses root cause vs. just symptom
+- Determine if agent turned negative into positive experience
+- Assess likelihood guest will return despite issue`,
+        outputFields: [
+          { id: 'recoveryQuality', name: 'Recovery Quality', type: 'enum', enumValues: ['Poor', 'Adequate', 'Good', 'Exceptional'], description: 'Service recovery effectiveness' },
+          { id: 'compensationAppropriate', name: 'Compensation Appropriate', type: 'boolean', description: 'Whether compensation matched issue' },
+          { id: 'guestSatisfied', name: 'Guest Satisfied', type: 'enum', enumValues: ['Still Dissatisfied', 'Neutral', 'Satisfied', 'Delighted'], description: 'Guest satisfaction post-resolution' },
+          { id: 'recoveryNotes', name: 'Recovery Notes', type: 'text', description: 'Service recovery assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'upsell-effectiveness',
+        name: 'Upsell Effectiveness',
+        description: 'Analyze upsell attempts and revenue optimization',
+        icon: '💰',
+        color: '#10b981',
+        promptInstructions: `Evaluate upsell and revenue optimization efforts:
+- Check if agent identified upsell opportunities
+- Assess quality and relevance of upsell suggestions
+- Evaluate if benefits were clearly communicated
+- Determine guest receptiveness to offers
+- Identify missed revenue opportunities`,
+        outputFields: [
+          { id: 'upsellAttempted', name: 'Upsell Attempted', type: 'boolean', description: 'Whether upsell was attempted' },
+          { id: 'upsellSuccess', name: 'Upsell Success', type: 'enum', enumValues: ['Not Attempted', 'Declined', 'Accepted', 'Multiple Accepted'], description: 'Upsell outcome' },
+          { id: 'revenueOpportunity', name: 'Revenue Opportunity', type: 'number', description: 'Estimated missed revenue' },
+          { id: 'upsellRecommendations', name: 'Upsell Recommendations', type: 'text', description: 'Suggested upsell improvements' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'brand-standards',
+        name: 'Brand Standards',
+        description: 'Assess adherence to hospitality brand standards',
+        icon: '⭐',
+        color: '#8b5cf6',
+        promptInstructions: `Evaluate adherence to brand service standards:
+- Check if agent used brand-specific greetings and phrases
+- Assess personalization and use of guest name
+- Verify loyalty tier recognition and benefits mentioned
+- Evaluate warmth and hospitality tone
+- Identify brand standard deviations`,
+        outputFields: [
+          { id: 'brandCompliance', name: 'Brand Compliance', type: 'number', description: 'Brand standards compliance 0-100' },
+          { id: 'personalizationLevel', name: 'Personalization Level', type: 'enum', enumValues: ['Generic', 'Basic', 'Personalized', 'Highly Personalized'], description: 'Level of personalization' },
+          { id: 'standardsViolations', name: 'Standards Violations', type: 'tags', description: 'Brand standards not met' },
+          { id: 'brandNotes', name: 'Brand Notes', type: 'text', description: 'Brand standards assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'review-impact',
+        name: 'Review Impact Prediction',
+        description: 'Predict likelihood of positive/negative online review',
+        icon: '⭐',
+        color: '#f59e0b',
+        promptInstructions: `Predict online review likelihood and sentiment:
+- Assess overall guest satisfaction based on call tone
+- Evaluate if issue resolution will prevent negative review
+- Determine if experience worthy of positive review
+- Consider guest tier and expectations
+- Recommend proactive follow-up if needed`,
+        outputFields: [
+          { id: 'reviewLikelihood', name: 'Review Likelihood', type: 'enum', enumValues: ['Unlikely', 'Possible', 'Likely', 'Very Likely'], description: 'Probability of review' },
+          { id: 'predictedSentiment', name: 'Predicted Sentiment', type: 'enum', enumValues: ['Very Negative', 'Negative', 'Neutral', 'Positive', 'Very Positive'], description: 'Expected review sentiment' },
+          { id: 'reviewTriggers', name: 'Review Triggers', type: 'tags', description: 'Factors influencing review' },
+          { id: 'followUpRecommended', name: 'Follow-up Recommended', type: 'boolean', description: 'Whether proactive follow-up needed' },
+        ],
+        enabled: true,
+      },
+    ],
+  },
+  evaluationRules: [
+    {
+      type: 'Must Do',
+      name: 'Warm Brand Greeting',
+      definition: 'Agent must provide warm, brand-appropriate greeting',
+      evaluationCriteria: 'Agent uses brand greeting with enthusiasm and warmth',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Thank you for calling Grand Hotel Resorts! This is Jessica. I would be delighted to assist you today!'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Guest Recognition',
+      definition: 'Agent must recognize and acknowledge loyalty status',
+      evaluationCriteria: 'Agent mentions guest tier status and relevant benefits',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I see you are a Platinum member. Thank you for your continued loyalty! You are eligible for complimentary upgrades and late checkout'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Empathy for Complaints',
+      definition: 'Agent must express genuine empathy for guest issues',
+      evaluationCriteria: 'Agent acknowledges disappointment and takes ownership',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I sincerely apologize for the room cleanliness issue. That is absolutely not the experience we want for our guests. Let me make this right for you'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Proactive Solutions',
+      definition: 'Agent must offer solutions without guest needing to ask',
+      evaluationCriteria: 'Agent presents multiple resolution options proactively',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I can immediately move you to a suite at no additional charge, and I will credit one night to your account. Would that work for you?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Personalization',
+      definition: 'Agent must use guest name and personalize conversation',
+      evaluationCriteria: 'Agent uses guest name at least twice and references previous stays if applicable',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Ms. Johnson, I see you stayed with us in Miami last month. Are you celebrating another special occasion?'],
+    },
+    {
+      type: 'Should Do',
+      name: 'Upsell Opportunity',
+      definition: 'Agent should identify and present relevant upsell opportunities',
+      evaluationCriteria: 'Agent suggests room upgrade, package, or add-on when appropriate',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['For just $40 more per night, I can upgrade you to an ocean-view suite with a private balcony. Many guests celebrating anniversaries love that option'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Special Requests Confirmation',
+      definition: 'Agent must confirm and document all special requests',
+      evaluationCriteria: 'Agent repeats special requests and confirms documentation',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['To confirm, I have noted your requests for a high floor, king bed, and that you will be arriving late around 11 PM. We will hold the room for late arrival'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Reservation Summary',
+      definition: 'Agent must provide clear reservation summary',
+      evaluationCriteria: 'Agent confirms dates, room type, rate, and confirmation number',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Your reservation is confirmed for July 15-18, Deluxe Ocean View Room, at $299 per night. Your confirmation number is ABC123456'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Cancellation Policy',
+      definition: 'For bookings, agent must state cancellation policy',
+      evaluationCriteria: 'Agent clearly explains cancellation terms and deadline',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['You may cancel without penalty up to 48 hours before check-in. After that, you will be charged for one night'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Memorable Closing',
+      definition: 'Agent must close warmly and create anticipation',
+      evaluationCriteria: 'Agent expresses excitement for guest arrival and offers future assistance',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['We are so looking forward to welcoming you in July! If there is anything else we can do to make your stay exceptional, please do not hesitate to call. Have a wonderful day!'],
+    },
+  ],
+};
+
+// ============================================================================
+// REAL ESTATE & PROPERTY MANAGEMENT TEMPLATE
+// ============================================================================
+export const REAL_ESTATE_TEMPLATE: SchemaTemplate = {
+  id: 'real-estate',
+  name: 'Real Estate & Property Management',
+  icon: '🏠',
+  description: 'For property management, tenant support, and maintenance coordination',
+  previewDescription: 'Complete template for property management operations including tenant requests, maintenance coordination, lease management, emergency response, rent collection, and fair housing compliance.',
+  version: '1.0.0',
+  industry: 'real-estate',
+  schema: {
+    name: 'Real Estate & Property Management',
+    version: '1.0.0',
+    businessContext: 'Property management call center focused on tenant satisfaction, efficient maintenance coordination, emergency response, lease compliance, and fair housing adherence.',
+    fields: [
+      {
+        id: 'property_id',
+        name: 'property_id',
+        displayName: 'Property ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'unit_number',
+        name: 'unit_number',
+        displayName: 'Unit Number',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'tenant_name',
+        name: 'tenant_name',
+        displayName: 'Tenant Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Tenant',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Property Agent',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Property Agent',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'call_type',
+        name: 'call_type',
+        displayName: 'Call Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Maintenance Request', 'Emergency Repair', 'Lease Inquiry', 'Rent Payment', 'Noise Complaint', 'Move-in/Move-out', 'Lease Renewal', 'Amenity Issue'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'maintenance_category',
+        name: 'maintenance_category',
+        displayName: 'Maintenance Category',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Plumbing', 'HVAC', 'Electrical', 'Appliance', 'Pest Control', 'Structural', 'Cosmetic'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'urgency_level',
+        name: 'urgency_level',
+        displayName: 'Urgency Level',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Emergency', 'Urgent', 'Routine', 'Low Priority'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'lease_expiration',
+        name: 'lease_expiration',
+        displayName: 'Lease Expiration',
+        type: 'date',
+        semanticRole: 'timestamp',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'landlord_approval_needed',
+        name: 'landlord_approval_needed',
+        displayName: 'Landlord Approval Needed',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'estimated_cost',
+        name: 'estimated_cost',
+        displayName: 'Estimated Cost',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'resolution_type',
+        name: 'resolution_type',
+        displayName: 'Resolution Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Work Order Created', 'Emergency Dispatch', 'Scheduled Maintenance', 'Self-Resolution Guidance', 'Escalated to Owner', 'Lease Renewed'],
+        cardinalityHint: 'low',
+      },
+    ],
+    relationships: [
+      {
+        id: 'response_priority',
+        type: 'complex',
+        description: 'Response priority based on urgency and category',
+        formula: 'const urgencyScore = {Emergency: 100, Urgent: 70, Routine: 40, \"Low Priority\": 20}[metadata.urgency_level] || 40; const categoryBoost = [\"Plumbing\", \"HVAC\", \"Electrical\"].includes(metadata.maintenance_category) ? 20 : 0; return Math.min(100, urgencyScore + categoryBoost);',
+        involvedFields: ['urgency_level', 'maintenance_category'],
+        displayName: 'Response Priority',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'emergency-maintenance',
+        name: 'Emergency Maintenance',
+        description: 'Critical repairs requiring immediate attention',
+        keywords: ['emergency', 'urgent', 'leak', 'no heat', 'no water', 'flooding'],
+        color: '#ef4444',
+      },
+      {
+        id: 'routine-maintenance',
+        name: 'Routine Maintenance',
+        description: 'Standard maintenance and repair requests',
+        keywords: ['repair', 'fix', 'broken', 'not working', 'maintenance'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'lease-management',
+        name: 'Lease Management',
+        description: 'Lease terms, renewals, and agreements',
+        keywords: ['lease', 'renew', 'move out', 'contract', 'terms'],
+        color: '#8b5cf6',
+      },
+      {
+        id: 'neighbor-issues',
+        name: 'Neighbor Issues',
+        description: 'Noise complaints, disputes, and community concerns',
+        keywords: ['noise', 'loud', 'neighbor', 'complaint', 'disturbing'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'rent-payment',
+        name: 'Rent & Payment',
+        description: 'Rent payment, late fees, payment arrangements',
+        keywords: ['rent', 'payment', 'late fee', 'pay', 'balance'],
+        color: '#10b981',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'emergency-response',
+        name: 'Emergency Response',
+        description: 'Assess emergency handling and response time',
+        icon: '🚨',
+        color: '#ef4444',
+        promptInstructions: `Evaluate emergency response quality:
+- Check if emergency was properly classified and prioritized
+- Assess speed of dispatch or emergency coordinator contact
+- Verify safety instructions provided to tenant
+- Evaluate agent's urgency and professionalism
+- Determine if temporary solutions offered while awaiting repair`,
+        outputFields: [
+          { id: 'responseQuality', name: 'Response Quality', type: 'enum', enumValues: ['Poor', 'Adequate', 'Good', 'Excellent'], description: 'Emergency response effectiveness' },
+          { id: 'dispatchTime', name: 'Dispatch Time', type: 'enum', enumValues: ['Immediate', 'Within Hour', 'Same Day', 'Delayed'], description: 'Speed of emergency dispatch' },
+          { id: 'safetyGuidance', name: 'Safety Guidance Provided', type: 'boolean', description: 'Whether safety instructions given' },
+          { id: 'emergencyNotes', name: 'Emergency Notes', type: 'text', description: 'Emergency response assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'maintenance-sla',
+        name: 'Maintenance SLA',
+        description: 'Verify SLA compliance for maintenance requests',
+        icon: '⏱️',
+        color: '#3b82f6',
+        promptInstructions: `Assess maintenance SLA adherence:
+- Check if response timeline matches urgency level
+- Verify proper categorization of maintenance type
+- Evaluate if tenant expectations were set appropriately
+- Determine if escalation was needed and executed
+- Assess follow-up process explained`,
+        outputFields: [
+          { id: 'slaCompliance', name: 'SLA Compliance', type: 'enum', enumValues: ['Non-Compliant', 'At Risk', 'Compliant', 'Exceeded'], description: 'SLA compliance status' },
+          { id: 'responseTimeframe', name: 'Response Timeframe', type: 'string', description: 'Committed response time' },
+          { id: 'expectationsSet', name: 'Expectations Set', type: 'boolean', description: 'Whether timeline clearly communicated' },
+          { id: 'slaNotes', name: 'SLA Notes', type: 'text', description: 'SLA compliance details' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'fair-housing-compliance',
+        name: 'Fair Housing Compliance',
+        description: 'Verify compliance with fair housing regulations',
+        icon: '⚖️',
+        color: '#8b5cf6',
+        promptInstructions: `Assess fair housing compliance during the call:
+- Check for any discriminatory language or practices
+- Verify consistent policy application
+- Assess if reasonable accommodations discussed appropriately
+- Flag any protected class references
+- Evaluate compliance with disability accommodation laws`,
+        outputFields: [
+          { id: 'compliant', name: 'Fair Housing Compliant', type: 'boolean', description: 'Whether call was compliant' },
+          { id: 'violations', name: 'Potential Violations', type: 'tags', description: 'Any compliance concerns' },
+          { id: 'accommodationsHandled', name: 'Accommodations Handled', type: 'boolean', description: 'Whether requests handled properly' },
+          { id: 'complianceNotes', name: 'Compliance Notes', type: 'text', description: 'Fair housing assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'tenant-retention',
+        name: 'Tenant Retention',
+        description: 'Assess tenant satisfaction and retention risk',
+        icon: '🏡',
+        color: '#10b981',
+        promptInstructions: `Evaluate tenant retention factors:
+- Assess tenant satisfaction with service
+- Identify frustration or dissatisfaction indicators
+- Check if lease renewal was discussed if approaching
+- Evaluate if retention-building actions taken
+- Determine churn risk level`,
+        outputFields: [
+          { id: 'satisfactionLevel', name: 'Satisfaction Level', type: 'enum', enumValues: ['Very Dissatisfied', 'Dissatisfied', 'Neutral', 'Satisfied', 'Very Satisfied'], description: 'Tenant satisfaction' },
+          { id: 'churnRisk', name: 'Churn Risk', type: 'enum', enumValues: ['Low', 'Medium', 'High', 'Critical'], description: 'Risk of not renewing' },
+          { id: 'renewalDiscussed', name: 'Renewal Discussed', type: 'boolean', description: 'Whether lease renewal mentioned' },
+          { id: 'retentionNotes', name: 'Retention Notes', type: 'text', description: 'Retention assessment' },
+        ],
+        enabled: true,
+      },
+    ],
+  },
+  evaluationRules: [
+    {
+      type: 'Must Do',
+      name: 'Professional Greeting',
+      definition: 'Agent must identify themselves and property management company',
+      evaluationCriteria: 'Agent states name, company, and purpose',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Good morning, this is Sarah from ABC Property Management. How can I assist you today?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Tenant Verification',
+      definition: 'Agent must verify tenant identity and unit',
+      evaluationCriteria: 'Agent confirms tenant name and unit number',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Can you please confirm your unit number and the name on the lease?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Emergency Classification',
+      definition: 'Agent must properly classify emergency vs. routine maintenance',
+      evaluationCriteria: 'Agent asks qualifying questions to determine urgency',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Is this affecting your safety or causing property damage? Is water actively leaking?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Immediate Emergency Dispatch',
+      definition: 'For emergencies, agent must dispatch immediately',
+      evaluationCriteria: 'Emergency work order created or technician dispatched within call',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['I am dispatching an emergency plumber right now. They should arrive within 2 hours'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Safety Instructions',
+      definition: 'For safety hazards, agent must provide immediate safety guidance',
+      evaluationCriteria: 'Agent gives specific safety instructions relevant to the issue',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Please turn off the water main valve under your sink and move any valuables away from the leak'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Timeline Communication',
+      definition: 'Agent must provide clear timeline for resolution',
+      evaluationCriteria: 'Agent gives specific timeframe for service or follow-up',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['A technician will contact you within 24 hours to schedule the repair'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Work Order Confirmation',
+      definition: 'Agent must provide work order number and details',
+      evaluationCriteria: 'Agent states work order number and summarizes request',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Your work order number is WO-12345 for HVAC repair. You will receive a confirmation email'],
+    },
+    {
+      type: 'Must Not Do',
+      name: 'No Discriminatory Language',
+      definition: 'Agent must not use discriminatory language or practices',
+      evaluationCriteria: 'No references to protected classes or discriminatory statements',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['Avoid any references to race, religion, family status, disability, etc.'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Tenant Entry Authorization',
+      definition: 'Agent must obtain proper authorization for unit entry',
+      evaluationCriteria: 'Agent explains entry procedure and obtains tenant consent or provides notice',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['The technician will need to enter your unit. Will you be home tomorrow between 9-12, or shall we provide 24-hour notice for entry?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Follow-up Process',
+      definition: 'Agent must explain follow-up and how to check status',
+      evaluationCriteria: 'Agent provides contact method and follow-up timeline',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['You can check the status in your tenant portal or call us anytime. We will also send you updates via text'],
+    },
+  ],
+};
+
+// ============================================================================
+// AUTOMOTIVE SERVICE & WARRANTY TEMPLATE
+// ============================================================================
+export const AUTOMOTIVE_TEMPLATE: SchemaTemplate = {
+  id: 'automotive',
+  name: 'Automotive Service & Warranty',
+  icon: '🚗',
+  description: 'For roadside assistance, warranty claims, and vehicle service coordination',
+  previewDescription: 'Complete template for automotive support including roadside assistance dispatch, warranty claim processing, recall coordination, service appointment scheduling, and customer safety prioritization.',
+  version: '1.0.0',
+  industry: 'automotive',
+  schema: {
+    name: 'Automotive Service',
+    version: '1.0.0',
+    businessContext: 'Automotive service center focused on vehicle owner support, emergency roadside assistance, warranty claim validation, recall management, and service appointment coordination.',
+    fields: [
+      {
+        id: 'vin',
+        name: 'vin',
+        displayName: 'VIN',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'customer_name',
+        name: 'customer_name',
+        displayName: 'Customer Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Customer',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Service Agent',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Service Agent',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'mileage',
+        name: 'mileage',
+        displayName: 'Mileage',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'warranty_status',
+        name: 'warranty_status',
+        displayName: 'Warranty Status',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Under Warranty', 'Warranty Expired', 'Extended Warranty', 'Recall Coverage', 'Out of Coverage'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'service_type',
+        name: 'service_type',
+        displayName: 'Service Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Roadside Assistance', 'Warranty Claim', 'Recall Service', 'Routine Maintenance', 'Repair Inquiry', 'Appointment Scheduling'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'assistance_category',
+        name: 'assistance_category',
+        displayName: 'Assistance Category',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Tow', 'Tire Change', 'Jump Start', 'Fuel Delivery', 'Lockout', 'Winch Out'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'repair_authorization_amount',
+        name: 'repair_authorization_amount',
+        displayName: 'Repair Authorization Amount',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'dealer_location',
+        name: 'dealer_location',
+        displayName: 'Dealer Location',
+        type: 'string',
+        semanticRole: 'dimension',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'recall_id',
+        name: 'recall_id',
+        displayName: 'Recall ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'safety_concern',
+        name: 'safety_concern',
+        displayName: 'Safety Concern',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+    ],
+    relationships: [
+      {
+        id: 'urgency_level',
+        type: 'complex',
+        description: 'Service urgency based on type and safety concern',
+        formula: 'const isSafety = metadata.safety_concern === true ? 100 : 0; const typeScore = {\"Roadside Assistance\": 90, \"Recall Service\": 70, \"Warranty Claim\": 50, \"Repair Inquiry\": 30}[metadata.service_type] || 40; return Math.max(isSafety, typeScore);',
+        involvedFields: ['service_type', 'safety_concern'],
+        displayName: 'Urgency Level',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'roadside-emergency',
+        name: 'Roadside Emergency',
+        description: 'Breakdown, stranded, need immediate assistance',
+        keywords: ['stranded', 'breakdown', 'stuck', 'won\'t start', 'emergency', 'tow'],
+        color: '#ef4444',
+      },
+      {
+        id: 'warranty-coverage',
+        name: 'Warranty Coverage',
+        description: 'Warranty claims and coverage verification',
+        keywords: ['warranty', 'covered', 'claim', 'free repair', 'under warranty'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'recall-campaign',
+        name: 'Recall Campaign',
+        description: 'Recall notifications and service scheduling',
+        keywords: ['recall', 'safety notice', 'campaign', 'manufacturer notice'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'service-appointment',
+        name: 'Service Appointment',
+        description: 'Scheduling routine maintenance or repairs',
+        keywords: ['appointment', 'schedule', 'book', 'service', 'maintenance'],
+        color: '#10b981',
+      },
+      {
+        id: 'safety-issue',
+        name: 'Safety Issue',
+        description: 'Safety-critical vehicle issues',
+        keywords: ['safety', 'danger', 'unsafe', 'brakes', 'airbag', 'steering'],
+        color: '#ef4444',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'safety-prioritization',
+        name: 'Safety Prioritization',
+        description: 'Assess how agent handled safety-critical situations',
+        icon: '🛡️',
+        color: '#ef4444',
+        promptInstructions: `Evaluate safety prioritization during the call:
+- Check if safety concerns were identified and escalated
+- Assess if customer was advised not to drive if unsafe
+- Verify appropriate urgency applied to safety issues
+- Evaluate if recall safety information communicated clearly
+- Determine if alternative transportation offered for safety issues`,
+        outputFields: [
+          { id: 'safetyHandling', name: 'Safety Handling', type: 'enum', enumValues: ['Poor', 'Adequate', 'Good', 'Exemplary'], description: 'How safety was handled' },
+          { id: 'drivingAdviceGiven', name: 'Driving Advice Given', type: 'boolean', description: 'Whether safe driving advice provided' },
+          { id: 'urgencyAppropriate', name: 'Urgency Appropriate', type: 'boolean', description: 'Whether urgency matched safety risk' },
+          { id: 'safetyNotes', name: 'Safety Notes', type: 'text', description: 'Safety handling assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'roadside-response-time',
+        name: 'Roadside Response Time',
+        description: 'Evaluate dispatch efficiency and ETA communication',
+        icon: '⏱️',
+        color: '#f59e0b',
+        promptInstructions: `Assess roadside assistance response quality:
+- Check if location captured accurately
+- Verify ETA provided and realistic
+- Evaluate if dispatch confirmed within call
+- Assess customer safety instructions while waiting
+- Determine if status updates process explained`,
+        outputFields: [
+          { id: 'dispatchSpeed', name: 'Dispatch Speed', type: 'enum', enumValues: ['Slow', 'Adequate', 'Fast', 'Immediate'], description: 'Speed of dispatch' },
+          { id: 'etaProvided', name: 'ETA Provided', type: 'boolean', description: 'Whether ETA communicated' },
+          { id: 'waitingInstructions', name: 'Waiting Instructions', type: 'boolean', description: 'Safety while waiting discussed' },
+          { id: 'responseNotes', name: 'Response Notes', type: 'text', description: 'Response time assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'warranty-verification',
+        name: 'Warranty Verification',
+        description: 'Assess warranty validation and communication',
+        icon: '✅',
+        color: '#3b82f6',
+        promptInstructions: `Evaluate warranty coverage verification:
+- Check if warranty status accurately determined
+- Verify mileage and coverage limits explained
+- Assess if exclusions or limitations communicated
+- Evaluate authorization process clarity
+- Determine if customer understands out-of-pocket costs`,
+        outputFields: [
+          { id: 'verificationAccuracy', name: 'Verification Accuracy', type: 'enum', enumValues: ['Incorrect', 'Unclear', 'Accurate', 'Thorough'], description: 'Warranty verification quality' },
+          { id: 'costsExplained', name: 'Costs Explained', type: 'boolean', description: 'Whether costs clearly communicated' },
+          { id: 'exclusionsMentioned', name: 'Exclusions Mentioned', type: 'boolean', description: 'Whether limitations discussed' },
+          { id: 'warrantyNotes', name: 'Warranty Notes', type: 'text', description: 'Warranty verification details' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'dealer-coordination',
+        name: 'Dealer Coordination',
+        description: 'Assess dealer coordination and appointment facilitation',
+        icon: '🔧',
+        color: '#10b981',
+        promptInstructions: `Evaluate dealer coordination effectiveness:
+- Check if appropriate dealer identified and contacted
+- Verify appointment scheduled or process explained
+- Assess if dealer contact information provided
+- Evaluate if rental car or loaner discussed
+- Determine if follow-up process clear`,
+        outputFields: [
+          { id: 'coordinationQuality', name: 'Coordination Quality', type: 'enum', enumValues: ['Poor', 'Basic', 'Good', 'Excellent'], description: 'Dealer coordination effectiveness' },
+          { id: 'appointmentScheduled', name: 'Appointment Scheduled', type: 'boolean', description: 'Whether appointment confirmed' },
+          { id: 'alternativesOffered', name: 'Alternatives Offered', type: 'tags', description: 'Loaner, rental, shuttle options' },
+          { id: 'coordinationNotes', name: 'Coordination Notes', type: 'text', description: 'Dealer coordination details' },
+        ],
+        enabled: true,
+      },
+    ],
+  },
+  evaluationRules: [
+    {
+      type: 'Must Do',
+      name: 'Professional Greeting',
+      definition: 'Agent must identify themselves and automotive service center',
+      evaluationCriteria: 'Agent states name, company, and department',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Good morning, this is Tom from AutoCare Roadside Assistance. How can I help you?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'VIN Collection',
+      definition: 'Agent must collect VIN for vehicle identification',
+      evaluationCriteria: 'Agent asks for and records VIN number',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Can you provide your Vehicle Identification Number? It is on your registration or dashboard'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Safety Assessment',
+      definition: 'Agent must assess if vehicle is safe to drive',
+      evaluationCriteria: 'Agent asks about safety indicators and advises appropriately',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Are you seeing any warning lights? Do the brakes feel normal? If you are unsure, it is safer not to drive'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Location Capture',
+      definition: 'For roadside assistance, agent must capture precise location',
+      evaluationCriteria: 'Agent gets address, cross streets, or landmarks',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['What is your exact address or closest cross street? Are there any landmarks nearby?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'ETA Communication',
+      definition: 'Agent must provide estimated arrival time for assistance',
+      evaluationCriteria: 'Agent gives specific ETA for service provider',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['A tow truck will arrive within 45 minutes. I will text you the driver\'s name and number'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Warranty Coverage Explanation',
+      definition: 'Agent must clearly explain what is covered under warranty',
+      evaluationCriteria: 'Agent states coverage status and any customer costs',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['This repair is covered under your powertrain warranty. You will not have any out-of-pocket costs'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Recall Information',
+      definition: 'If recall exists, agent must explain the issue and urgency',
+      evaluationCriteria: 'Agent describes recall issue, safety implications, and no-cost repair',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['There is a safety recall for your airbag sensor. This is repaired at no cost. We recommend scheduling as soon as possible'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Customer Safety Instructions',
+      definition: 'Agent must provide safety instructions while customer waits',
+      evaluationCriteria: 'Agent advises on safe waiting location and precautions',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Please wait in your vehicle with doors locked if you feel safe, or move to a safe location away from traffic'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Dealer Coordination',
+      definition: 'Agent must coordinate with dealer and provide appointment details',
+      evaluationCriteria: 'Agent provides dealer name, address, appointment time, and contact',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['I have scheduled you at Smith Toyota, 123 Main Street, tomorrow at 10 AM. Their number is 555-1234'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Follow-up & Reference Number',
+      definition: 'Agent must provide case/claim number and follow-up method',
+      evaluationCriteria: 'Agent gives reference number and explains how to check status',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Your service request number is RS-789456. You will receive text updates, or you can call us anytime with that number'],
+    },
+  ],
+};
+
+// ============================================================================
+// GOVERNMENT & PUBLIC SERVICES TEMPLATE
+// ============================================================================
+export const GOVERNMENT_TEMPLATE: SchemaTemplate = {
+  id: 'government',
+  name: 'Government & Public Services',
+  icon: '🏛️',
+  description: 'For government agencies, benefits enrollment, permits, and public services',
+  previewDescription: 'Complete template for government call centers including benefits enrollment, license renewals, permit applications, eligibility verification, document processing, and regulatory compliance with accessibility requirements.',
+  version: '1.0.0',
+  industry: 'government',
+  schema: {
+    name: 'Government Services',
+    version: '1.0.0',
+    businessContext: 'Government call center focused on citizen service, benefits administration, regulatory compliance, accessibility accommodations, plain language communication, and privacy protection.',
+    fields: [
+      {
+        id: 'case_id',
+        name: 'case_id',
+        displayName: 'Case ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'citizen_name',
+        name: 'citizen_name',
+        displayName: 'Citizen Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Citizen',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Service Representative',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Service Representative',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'benefit_type',
+        name: 'benefit_type',
+        displayName: 'Benefit/Service Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Unemployment Benefits', 'Healthcare Enrollment', 'Food Assistance', 'Housing Assistance', 'License Renewal', 'Permit Application', 'Social Security', 'Tax Assistance'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'eligibility_status',
+        name: 'eligibility_status',
+        displayName: 'Eligibility Status',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Eligible', 'Pending Verification', 'Ineligible', 'Requires Documentation', 'Under Review'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'document_checklist',
+        name: 'document_checklist',
+        displayName: 'Document Checklist',
+        type: 'string',
+        semanticRole: 'freeform',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'processing_time_days',
+        name: 'processing_time_days',
+        displayName: 'Processing Time (Days)',
+        type: 'number',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'language_preference',
+        name: 'language_preference',
+        displayName: 'Language Preference',
+        type: 'select',
+        semanticRole: 'dimension',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['English', 'Spanish', 'Chinese', 'Vietnamese', 'Korean', 'Russian', 'Arabic', 'Other'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'accommodation_needed',
+        name: 'accommodation_needed',
+        displayName: 'Accommodation Needed',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'privacy_sensitive',
+        name: 'privacy_sensitive',
+        displayName: 'Privacy Sensitive',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'resolution_type',
+        name: 'resolution_type',
+        displayName: 'Resolution Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Application Submitted', 'Documents Requested', 'Eligibility Confirmed', 'Benefits Approved', 'Appeal Filed', 'Referred to Specialist', 'Information Provided'],
+        cardinalityHint: 'low',
+      },
+    ],
+    relationships: [
+      {
+        id: 'complexity_score',
+        type: 'complex',
+        description: 'Case complexity based on benefit type and accommodations',
+        formula: 'const complexityMap = {\"Unemployment Benefits\": 50, \"Healthcare Enrollment\": 70, \"Food Assistance\": 40, \"Social Security\": 80}[metadata.benefit_type] || 50; const accommodationBoost = metadata.accommodation_needed ? 20 : 0; return Math.min(100, complexityMap + accommodationBoost);',
+        involvedFields: ['benefit_type', 'accommodation_needed'],
+        displayName: 'Case Complexity',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'number',
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'eligibility-verification',
+        name: 'Eligibility Verification',
+        description: 'Verifying eligibility requirements and criteria',
+        keywords: ['eligible', 'qualify', 'requirements', 'criteria', 'qualify for'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'document-submission',
+        name: 'Document Submission',
+        description: 'Required documents and submission process',
+        keywords: ['documents', 'proof', 'submit', 'verification', 'paperwork'],
+        color: '#8b5cf6',
+      },
+      {
+        id: 'benefits-enrollment',
+        name: 'Benefits Enrollment',
+        description: 'Enrolling in benefits programs',
+        keywords: ['enroll', 'apply', 'sign up', 'register', 'application'],
+        color: '#10b981',
+      },
+      {
+        id: 'appeals-complaints',
+        name: 'Appeals & Complaints',
+        description: 'Filing appeals or complaints about decisions',
+        keywords: ['appeal', 'complaint', 'disagree', 'denied', 'unfair'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'status-inquiry',
+        name: 'Status Inquiry',
+        description: 'Checking application or case status',
+        keywords: ['status', 'where is my', 'processing', 'how long', 'update'],
+        color: '#3b82f6',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'plain-language',
+        name: 'Plain Language Usage',
+        description: 'Assess use of clear, accessible language',
+        icon: '📖',
+        color: '#3b82f6',
+        promptInstructions: `Evaluate plain language communication:
+- Check if agent avoided jargon and bureaucratic language
+- Assess clarity of explanations for complex processes
+- Verify that citizen understanding was confirmed
+- Evaluate if technical terms were explained simply
+- Determine if agent adapted language to citizen level`,
+        outputFields: [
+          { id: 'languageClarity', name: 'Language Clarity', type: 'enum', enumValues: ['Poor', 'Fair', 'Good', 'Excellent'], description: 'Clarity of language used' },
+          { id: 'jargonUsed', name: 'Jargon Used', type: 'tags', description: 'Unexplained jargon or technical terms' },
+          { id: 'understandingConfirmed', name: 'Understanding Confirmed', type: 'boolean', description: 'Whether agent verified comprehension' },
+          { id: 'languageNotes', name: 'Language Notes', type: 'text', description: 'Plain language assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'regulatory-accuracy',
+        name: 'Regulatory Accuracy',
+        description: 'Verify accuracy of regulatory information provided',
+        icon: '⚖️',
+        color: '#8b5cf6',
+        promptInstructions: `Assess accuracy of regulatory and policy information:
+- Check if eligibility criteria stated correctly
+- Verify processing timeframes match regulations
+- Assess if appeal rights mentioned when applicable
+- Evaluate accuracy of benefit amounts or requirements
+- Flag any incorrect policy statements`,
+        outputFields: [
+          { id: 'informationAccurate', name: 'Information Accurate', type: 'boolean', description: 'Whether all information was correct' },
+          { id: 'inaccuracies', name: 'Inaccuracies', type: 'tags', description: 'Any incorrect information provided' },
+          { id: 'appealRightsMentioned', name: 'Appeal Rights Mentioned', type: 'boolean', description: 'Whether appeal process explained if relevant' },
+          { id: 'accuracyNotes', name: 'Accuracy Notes', type: 'text', description: 'Regulatory accuracy assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'accessibility-compliance',
+        name: 'Accessibility & Accommodation',
+        description: 'Assess accommodation of accessibility needs',
+        icon: '♿',
+        color: '#10b981',
+        promptInstructions: `Evaluate accommodation of accessibility needs:
+- Check if accommodation needs were identified
+- Verify appropriate services offered (interpreter, alternative formats)
+- Assess if agent was patient and accommodating
+- Evaluate if accessible alternatives provided
+- Determine compliance with ADA and accessibility standards`,
+        outputFields: [
+          { id: 'accommodationsOffered', name: 'Accommodations Offered', type: 'tags', description: 'Accommodations provided or offered' },
+          { id: 'accessibilityCompliance', name: 'Accessibility Compliance', type: 'boolean', description: 'Whether needs were accommodated' },
+          { id: 'patienceLevel', name: 'Patience Level', type: 'enum', enumValues: ['Impatient', 'Adequate', 'Patient', 'Very Patient'], description: 'Agent patience level' },
+          { id: 'accessibilityNotes', name: 'Accessibility Notes', type: 'text', description: 'Accessibility assessment' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'privacy-protection',
+        name: 'Privacy & Data Protection',
+        description: 'Verify HIPAA/privacy compliance',
+        icon: '🔒',
+        color: '#ef4444',
+        promptInstructions: `Assess privacy and data protection compliance:
+- Check if proper identity verification performed
+- Verify sensitive information not over-disclosed
+- Assess if HIPAA requirements followed for health data
+- Evaluate if privacy notices provided when required
+- Flag any privacy violations or concerns`,
+        outputFields: [
+          { id: 'privacyCompliant', name: 'Privacy Compliant', type: 'boolean', description: 'Whether privacy standards met' },
+          { id: 'verificationPerformed', name: 'Verification Performed', type: 'boolean', description: 'Whether identity verified' },
+          { id: 'privacyViolations', name: 'Privacy Violations', type: 'tags', description: 'Any privacy concerns identified' },
+          { id: 'privacyNotes', name: 'Privacy Notes', type: 'text', description: 'Privacy protection assessment' },
+        ],
+        enabled: true,
+      },
+    ],
+  },
+  evaluationRules: [
+    {
+      type: 'Must Do',
+      name: 'Professional Introduction',
+      definition: 'Agent must identify themselves, agency, and department',
+      evaluationCriteria: 'Agent states name, agency name, and department clearly',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Good morning, this is Maria from the Department of Social Services, Benefits Division. How may I help you?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Identity Verification',
+      definition: 'Agent must verify caller identity before discussing case details',
+      evaluationCriteria: 'Agent verifies at least 2 pieces of identifying information',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['For your privacy, can you verify your date of birth and case number?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Plain Language Communication',
+      definition: 'Agent must use clear, jargon-free language',
+      evaluationCriteria: 'Agent avoids bureaucratic terms and explains concepts simply',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['You will need to provide proof of income. This can be recent pay stubs or a letter from your employer'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Eligibility Criteria Explanation',
+      definition: 'Agent must clearly explain eligibility requirements',
+      evaluationCriteria: 'Agent lists specific requirements and explains how to meet them',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['To qualify for unemployment benefits, you must have lost your job through no fault of your own and have earned at least $3,000 in the last 12 months'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Document Checklist',
+      definition: 'Agent must provide complete list of required documents',
+      evaluationCriteria: 'Agent lists all required documents and explains where to submit',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['You will need: 1) proof of identity like a driver\'s license, 2) proof of address like a utility bill, and 3) proof of income. You can upload these on our website or mail them to...'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Processing Timeline',
+      definition: 'Agent must provide realistic processing timeframe',
+      evaluationCriteria: 'Agent gives specific timeframe for application processing',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Applications typically take 15-20 business days to process once we receive all documents'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Appeal Rights Notice',
+      definition: 'For denials or negative decisions, agent must explain appeal rights',
+      evaluationCriteria: 'Agent informs of right to appeal, deadline, and process',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: ['You have the right to appeal this decision within 30 days. You can request an appeal by filling out form A-123 or calling this number'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Accommodation Inquiry',
+      definition: 'Agent must ask if any accommodations are needed',
+      evaluationCriteria: 'Agent inquires about language, disability, or other accommodation needs',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Do you need any assistance such as a language interpreter or documents in an alternative format?'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Reference Number Provision',
+      definition: 'Agent must provide case or reference number',
+      evaluationCriteria: 'Agent gives specific reference number and explains how to use it',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['Your case number is CS-789012. Please reference this number in all future communications'],
+    },
+    {
+      type: 'Must Do',
+      name: 'Follow-up Instructions',
+      definition: 'Agent must provide clear next steps and contact information',
+      evaluationCriteria: 'Agent explains what happens next and how to get help',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: ['You will receive a letter in the mail within 10 days. If you have questions, you can call us at 1-800-555-0123 Monday through Friday, 8 AM to 5 PM'],
+    },
+  ],
+};
+
+// ============================================================================
+// VODAFONE CALL CENTER TEMPLATE
+// ============================================================================
+export const VODAFONE_TEMPLATE: SchemaTemplate = {
+  id: 'vodafone',
+  name: 'Vodafone Call Center',
+  icon: '📞',
+  description: 'Vodafone call center quality evaluation with CONNECT-DISCOVER-EXCITE-CONFIRM-DELIVER methodology',
+  previewDescription: 'Complete template for Vodafone call center operations following the CONNECT > DISCOVER > EXCITE > CONFIRM > DELIVER framework, including soft skills evaluation, TNPS promotion, MVA/self-care guidance, and comprehensive quality scoring.',
+  version: '1.0.0',
+  industry: 'telecom',
+  schema: {
+    name: 'Vodafone Call Center',
+    version: '1.0.0',
+    businessContext: 'Vodafone call center focused on customer service excellence using the CONNECT-DISCOVER-EXCITE-CONFIRM-DELIVER methodology, emphasizing proper greeting scripts, security verification, customer need identification, solution presentation, self-care promotion, and professional call closure with TNPS survey promotion.',
+    fields: [
+      {
+        id: 'call_id',
+        name: 'call_id',
+        displayName: 'Call ID',
+        type: 'string',
+        semanticRole: 'identifier',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'customer_name',
+        name: 'customer_name',
+        displayName: 'Customer Name',
+        type: 'string',
+        semanticRole: 'participant_2',
+        participantLabel: 'Customer',
+        required: true,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+      {
+        id: 'agent_name',
+        name: 'agent_name',
+        displayName: 'Agent Name',
+        type: 'string',
+        semanticRole: 'participant_1',
+        participantLabel: 'Vodafone Agent',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        cardinalityHint: 'medium',
+      },
+      {
+        id: 'call_type',
+        name: 'call_type',
+        displayName: 'Call Type',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Billing Inquiry', 'Technical Support', 'Account Management', 'Plan Change', 'Complaint', 'General Inquiry', 'Roaming', 'Device Support', 'Network Issues', 'Other'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'tht',
+        name: 'tht',
+        displayName: 'Total Handling Time',
+        type: 'select',
+        semanticRole: 'metric',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['0 to 3 mins', '3 to 5 mins', '5 to 10 mins', '10+ mins'],
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'fcr',
+        name: 'fcr',
+        displayName: 'First Call Resolution',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: true,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'call_drop',
+        name: 'call_drop',
+        displayName: 'Call Drop',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'escalated',
+        name: 'escalated',
+        displayName: 'Escalated',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'escalation_reason',
+        name: 'escalation_reason',
+        displayName: 'Escalation Reason',
+        type: 'select',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: false,
+        useInPrompt: true,
+        enableAnalytics: true,
+        selectOptions: ['Supervisor Request', 'Technical Complexity', 'Billing Dispute', 'Complaint', 'Policy Exception', 'VIP Customer', 'Other'],
+        cardinalityHint: 'low',
+        dependsOn: {
+          fieldId: 'escalated',
+          operator: 'equals',
+          value: true,
+        },
+        dependsOnBehavior: 'show',
+      },
+      {
+        id: 'tnps_promoted',
+        name: 'tnps_promoted',
+        displayName: 'TNPS Promoted',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'mva_promoted',
+        name: 'mva_promoted',
+        displayName: 'MVA/Self-Care Promoted',
+        type: 'boolean',
+        semanticRole: 'classification',
+        required: false,
+        showInTable: true,
+        useInPrompt: true,
+        enableAnalytics: true,
+        defaultValue: false,
+        cardinalityHint: 'low',
+      },
+      {
+        id: 'audio_file_name',
+        name: 'audio_file_name',
+        displayName: 'Audio File Name',
+        type: 'string',
+        semanticRole: 'freeform',
+        required: false,
+        showInTable: false,
+        useInPrompt: false,
+        enableAnalytics: false,
+        cardinalityHint: 'high',
+      },
+    ],
+    relationships: [
+      {
+        id: 'quality_score',
+        type: 'complex',
+        description: 'Overall quality score based on all evaluation criteria',
+        formula: 'return "Calculated from evaluation rules";',
+        involvedFields: ['fcr', 'call_drop', 'tht'],
+        displayName: 'Quality Score',
+        displayInTable: true,
+        enableAnalytics: true,
+        outputType: 'string',
+      },
+    ],
+    topicTaxonomy: [
+      {
+        id: 'billing-payment',
+        name: 'Billing & Payment',
+        description: 'Questions about bills, charges, payments, and account balance',
+        keywords: ['bill', 'charge', 'payment', 'balance', 'invoice', 'credit', 'debit'],
+        color: '#3b82f6',
+      },
+      {
+        id: 'network-coverage',
+        name: 'Network & Coverage',
+        description: 'Issues related to network signal, coverage, and connectivity',
+        keywords: ['signal', 'coverage', 'network', 'connection', '4G', '5G', 'no service', 'dropped call'],
+        color: '#ef4444',
+      },
+      {
+        id: 'plan-services',
+        name: 'Plans & Services',
+        description: 'Questions about plans, packages, add-ons, and services',
+        keywords: ['plan', 'package', 'upgrade', 'downgrade', 'data', 'minutes', 'SMS', 'bundle'],
+        color: '#10b981',
+      },
+      {
+        id: 'device-support',
+        name: 'Device Support',
+        description: 'Help with device setup, configuration, and troubleshooting',
+        keywords: ['phone', 'device', 'SIM', 'settings', 'configuration', 'setup', 'eSIM'],
+        color: '#8b5cf6',
+      },
+      {
+        id: 'roaming-international',
+        name: 'Roaming & International',
+        description: 'International roaming, travel passes, and international calls',
+        keywords: ['roaming', 'travel', 'abroad', 'international', 'overseas', 'passport'],
+        color: '#f59e0b',
+      },
+      {
+        id: 'account-management',
+        name: 'Account Management',
+        description: 'Account changes, ownership, and profile updates',
+        keywords: ['account', 'profile', 'password', 'login', 'ownership', 'transfer'],
+        color: '#06b6d4',
+      },
+    ],
+    insightCategories: [
+      {
+        id: 'connect-phase',
+        name: 'CONNECT Phase Analysis',
+        description: 'Evaluate the opening phase - welcoming and security verification',
+        icon: '👋',
+        color: '#3b82f6',
+        promptInstructions: `Analyze the CONNECT phase of the call:
+
+WELCOMING EVALUATION:
+- Check if agent welcomed with Vodafone branding ("Welcome to Vodafone, my name is...")
+- Evaluate clear pronunciation of agent's name and Vodafone branding
+- Assess tone quality - should be clear and welcoming, NOT lethargic or rushed
+- Check if reason for call was acknowledged where applicable
+
+SECURITY QUESTIONS EVALUATION:
+Security questions (Full Name + Qatar ID) ARE REQUIRED for:
+- Plan upgrades/downgrades, Number migration/disconnection, Primary number change
+- Add/remove Addons, Park number, Request call details, Email ID update
+- Notification number change, DOB/Caller Tunes, Bar & Unbar
+- Promise to pay, Bill explanation/dispute
+
+Security questions are NOT REQUIRED (score as N/A) for:
+- Balance enquiry (unless billing dispute), Payment/recharge status
+- Adjustment status, Campaign offers, Troubleshooting without account info
+- Throttling enquiry, Call transfers, TT status/follow up, Account status
+- General addon benefits enquiry, General inquiries (plans, stores, Metrash)
+- PYN/MNP/TON/Migration order status
+
+Rate the overall CONNECT phase quality.`,
+        outputFields: [
+          { id: 'welcomingScore', name: 'Welcoming Score', type: 'number', description: 'Score for welcoming (0-1): branding, pronunciation, tone, reason for call' },
+          { id: 'securityScore', name: 'Security Questions Score', type: 'number', description: 'Score for security verification (0-1, or N/A if not required)' },
+          { id: 'securityRequired', name: 'Security Was Required', type: 'boolean', description: 'Whether security questions were required for this call type' },
+          { id: 'openingScriptFollowed', name: 'Opening Script Followed', type: 'boolean', description: 'Whether opening script was followed with branding' },
+          { id: 'agentIdentified', name: 'Agent Identified Self', type: 'boolean', description: 'Agent stated name and Vodafone branding clearly' },
+          { id: 'toneQuality', name: 'Tone Quality', type: 'enum', enumValues: ['Excellent', 'Good', 'Lethargic', 'Rushed', 'Unprofessional'], description: 'Quality of agent tone during opening' },
+          { id: 'connectNotes', name: 'Connect Phase Notes', type: 'text', description: 'Detailed observations about the connect phase' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'discover-phase',
+        name: 'DISCOVER Phase Analysis',
+        description: 'Evaluate need identification through probing and questioning',
+        icon: '🔍',
+        color: '#8b5cf6',
+        promptInstructions: `Analyze the DISCOVER phase of the call:
+
+PROBING EVALUATION PRINCIPLES:
+1. Probing = Questions needed to understand customer needs or issues
+2. For SIMPLE issues (balance inquiry, account status, general info) - Score as PASSED if addressed
+3. Check the WHOLE conversation - probing may happen at different stages
+4. Don't focus on rigid structure - if customer's issue is well addressed or understood, score as PASSED
+
+SIMPLE ISSUES (Automatic HIGH/PASSED if addressed):
+- Balance inquiry
+- Account status check
+- General information requests
+- Store locations/timings
+- Plan information
+
+COMPLEX ISSUES (Evaluate probing quality):
+- Technical troubleshooting - need to ask about symptoms, timing, affected devices
+- Billing disputes - need to understand specific charges questioned
+- Service complaints - need to understand full context
+- Multiple issues in one call - need to address each issue
+
+KEY: If the customer's issue was well understood and addressed, probing should score HIGH regardless of how many questions were asked.`,
+        outputFields: [
+          { id: 'probingScore', name: 'Probing Score', type: 'number', description: 'Score for probing technique (0-1): higher for well-understood issues' },
+          { id: 'needIdentificationScore', name: 'Need Identification Score', type: 'number', description: 'Score for identifying customer need (0-1)' },
+          { id: 'issueComplexity', name: 'Issue Complexity', type: 'enum', enumValues: ['Simple', 'Moderate', 'Complex'], description: 'Complexity of customer issue' },
+          { id: 'directQuestioning', name: 'Used Direct Questioning', type: 'boolean', description: 'Whether direct questioning was used effectively' },
+          { id: 'needCorrectlyIdentified', name: 'Need Correctly Identified', type: 'boolean', description: 'Whether customer need was correctly identified' },
+          { id: 'discoverNotes', name: 'Discover Phase Notes', type: 'text', description: 'Detailed observations about the discover phase' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'excite-phase',
+        name: 'EXCITE Phase Analysis',
+        description: 'Evaluate solution identification and self-care promotion',
+        icon: '💡',
+        color: '#10b981',
+        promptInstructions: `Analyze the EXCITE phase of the call:
+- Evaluate if the correct solution was identified
+- Check if accurate process SLA was provided
+- Assess if self-service channels (MVA) were promoted
+- Note any troubleshooting steps provided
+- Rate the overall solution presentation quality`,
+        outputFields: [
+          { id: 'solutionScore', name: 'Solution Identification Score', type: 'number', description: 'Score for solution identification (0-1)' },
+          { id: 'selfCareScore', name: 'Self-Care Promotion Score', type: 'number', description: 'Score for MVA/self-care promotion (0-1)' },
+          { id: 'mvaPromoted', name: 'MVA Promoted', type: 'boolean', description: 'Whether My Vodafone App was promoted' },
+          { id: 'accurateSLAProvided', name: 'Accurate SLA Provided', type: 'boolean', description: 'Whether accurate process SLA was given' },
+          { id: 'exciteNotes', name: 'Excite Phase Notes', type: 'text', description: 'Detailed observations about the excite phase' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'confirm-deliver-phase',
+        name: 'CONFIRM & DELIVER Phase Analysis',
+        description: 'Evaluate agreement gaining, closing script, and TNPS promotion',
+        icon: '✅',
+        color: '#f59e0b',
+        promptInstructions: `Analyze the CONFIRM and DELIVER phases of the call:
+- Evaluate if customer agreement was gained
+- Check if the closing script was followed correctly
+- Assess if TNPS (Transactional Net Promoter Score) survey was promoted
+- Note if follow-up commitments were made and communicated
+- Rate the overall closing quality`,
+        outputFields: [
+          { id: 'agreementScore', name: 'Customer Agreement Score', type: 'number', description: 'Score for gaining agreement (0-1)' },
+          { id: 'closingScore', name: 'Closing Score', type: 'number', description: 'Score for closing the conversation (0-1)' },
+          { id: 'tnpsPromoted', name: 'TNPS Promoted', type: 'boolean', description: 'Whether TNPS survey was promoted' },
+          { id: 'closingScriptFollowed', name: 'Closing Script Followed', type: 'boolean', description: 'Whether closing script was followed' },
+          { id: 'confirmDeliverNotes', name: 'Confirm/Deliver Notes', type: 'text', description: 'Detailed observations about confirm and deliver phases' },
+        ],
+        enabled: true,
+      },
+      {
+        id: 'soft-skills',
+        name: 'Soft Skills Analysis',
+        description: 'Evaluate agent soft skills including empathy, tone, listening, and politeness',
+        icon: '💬',
+        color: '#ec4899',
+        promptInstructions: `Analyze the agent's soft skills throughout the call:
+- Evaluate empathy displayed towards the customer
+- Assess tone and speed of communication
+- Check pronunciation clarity
+- Evaluate active listening (not interrupting, acknowledging)
+- Assess proper hold/mute usage
+- Rate overall politeness and professionalism
+- Note if agent sounded lethargic or unwelcoming`,
+        outputFields: [
+          { id: 'empathyScore', name: 'Empathy Score', type: 'number', description: 'Score for empathy (0-1)' },
+          { id: 'toneSpeedScore', name: 'Tone & Speed Score', type: 'number', description: 'Score for tone and speed (0-1)' },
+          { id: 'pronunciationScore', name: 'Pronunciation Score', type: 'number', description: 'Score for pronunciation clarity (0-1)' },
+          { id: 'activeListeningScore', name: 'Active Listening Score', type: 'number', description: 'Score for active listening (0-1)' },
+          { id: 'holdMuteScore', name: 'Hold/Mute Score', type: 'number', description: 'Score for proper hold/mute usage (0-1)' },
+          { id: 'politenessScore', name: 'Politeness Score', type: 'number', description: 'Score for politeness (0-1)' },
+          { id: 'softSkillsNotes', name: 'Soft Skills Notes', type: 'text', description: 'Detailed soft skills observations' },
+        ],
+        enabled: true,
+      },
+    ],
+  },
+  evaluationRules: [
+    // ==================== CONNECT PHASE ====================
+    {
+      type: 'Must Do',
+      name: 'Welcoming - Opening Script',
+      definition: 'Agent must welcome the customer with proper Vodafone branding, clear pronunciation of name and branding, welcoming tone, and acknowledge the reason for call when applicable',
+      evaluationCriteria: `Evaluate ALL of the following criteria:
+1. BRANDING: Agent welcomes with "Welcome to Vodafone, my name is [Name]..." or similar branding
+2. PRONUNCIATION: Agent clearly pronounces their name and the Vodafone branding
+3. TONE: Agent uses a clear, welcoming voice (not lethargic, rushed, or monotone)
+4. REASON FOR CALL: Agent acknowledges or asks for the reason for the call where applicable
+
+Scoring:
+- PASSED (10): All criteria met - proper branding, clear pronunciation, welcoming tone, reason for call addressed
+- PARTIAL (5): Most criteria met but minor issues (e.g., slightly rushed, unclear pronunciation, or missed reason for call)
+- FAILED (0): Missing branding, unclear/no name mentioned, unwelcoming tone, or completely skipped opening`,
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'PASSED: "Welcome to Vodafone, my name is Ahmed. How may I assist you today?" (clear, welcoming tone)',
+        'PASSED: "Good morning, welcome to Vodafone! I am Sara, and I will be happy to help you with your inquiry today."',
+        'PARTIAL: Agent says greeting but rushes through it, or sounds lethargic/unwelcoming',
+        'PARTIAL: Agent greets but does not clearly state their name or Vodafone branding',
+        'FAILED: Agent does not mention Vodafone branding at all',
+        'FAILED: Agent skips the opening script entirely or sounds very unprofessional'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'Security Questions Verification',
+      definition: 'Agent must verify customer identity using Full Name and Qatar ID/Identification Number for sensitive account operations. Security questions are NOT required (score as N/A) for general inquiries.',
+      evaluationCriteria: `SECURITY QUESTIONS REQUIRED (Full Name + Qatar ID/Identification Number) for these scenarios:
+- Plan upgrade or downgrade
+- Number migration
+- Number disconnection
+- Primary number change
+- Add or remove any Addons
+- Park number
+- Request call details
+- Email ID update
+- Notification number change
+- DOB / Caller Tunes changes
+- Bar & Unbar services
+- Promise to pay arrangements
+- Bill explanation / Bill dispute
+
+SECURITY QUESTIONS NOT REQUIRED (Return N/A) for these scenarios:
+- Balance enquiry (unless billing/balance dispute)
+- Total outstanding bill enquiry (unless billing/balance dispute)
+- Status of payment/recharge
+- Adjustment status
+- Campaign offers sent
+- Troubleshooting without providing account information
+- Throttling enquiry (internet is slow)
+- Transferring the call to another team
+- TT status / TT follow up
+- Account status (active-inactive-barred-suspended)
+- General addon benefits enquiry
+- General Inquiry - For plans or products/add-ons; Metrash, stores locations and timings
+- General Inquiry on PYN, MNP, TON, Migration orders (order status)
+
+Scoring:
+- PASSED (10): Security questions asked when required, OR correctly identified as N/A when not required
+- PARTIAL (5): Only partial verification done when full verification was required
+- FAILED (0): Security questions skipped when they were required
+- N/A: Security questions not applicable for the call type`,
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'PASSED (Required): "Before I can process your plan upgrade, may I verify your full name and Qatar ID number?"',
+        'PASSED (Required): "For security purposes, I need to verify your identity. Can you provide your full name and identification number?"',
+        'PASSED (N/A): Customer asks "What is my current balance?" - No security questions needed, agent proceeds directly',
+        'PASSED (N/A): Customer asks about store locations - No security questions needed',
+        'PARTIAL: Agent asks for name but forgets to ask for Qatar ID when processing a plan change',
+        'FAILED: Agent proceeds with number disconnection without any identity verification',
+        'N/A: Customer calls for general inquiry about plan features - security not required'
+      ],
+    },
+    // ==================== DISCOVER PHASE ====================
+    {
+      type: 'Must Do',
+      name: 'Probing Technique',
+      definition: 'Agent must ask questions needed to understand customer needs or issues. For simple issues like balance inquiry, this should automatically score as High/Passed.',
+      evaluationCriteria: `Evaluate probing based on issue complexity and customer understanding:
+
+KEY PRINCIPLES:
+1. Questions should be asked to understand customer needs or issues
+2. For SIMPLE issues (balance inquiry, account status, general info) - Score as PASSED if issue is addressed
+3. Check the WHOLE conversation - probing may happen at different stages, not just at the beginning
+4. Don't focus on rigid structure - if customer's issue is well addressed or understood, score as PASSED
+
+SIMPLE ISSUES (Automatic PASSED if addressed):
+- Balance inquiry
+- Account status check
+- General information requests
+- Store locations/timings
+- Plan information
+
+COMPLEX ISSUES (Evaluate probing quality):
+- Technical troubleshooting
+- Billing disputes
+- Service complaints
+- Multiple issues in one call
+
+Scoring:
+- PASSED (10): Customer's issue is well understood and addressed, OR simple inquiry handled directly
+- PARTIAL (5): Some probing done but missed important details that affected resolution
+- FAILED (0): No probing done for complex issue, leading to misunderstanding customer's need`,
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'PASSED (Simple): Customer asks "What is my balance?" - Agent provides balance directly without extensive probing',
+        'PASSED (Complex): "I see you are having internet issues. When did this start? Is it affecting all devices or just one? Are you at home or traveling?"',
+        'PASSED: Agent asks clarifying questions at any point in the conversation to understand the issue better',
+        'PARTIAL: Agent asks some questions but misses key details (e.g., does not ask about error messages for technical issue)',
+        'FAILED: Customer has a complex billing dispute but agent does not ask any clarifying questions'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'Identify Customer Need',
+      definition: 'Agent must correctly identify and confirm the customer primary need or issue',
+      evaluationCriteria: 'Agent demonstrates clear understanding of the customer need by summarizing or confirming the issue before proceeding to solution.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'So if I understand correctly, you are unable to access mobile data since yesterday despite having an active plan?',
+        'Let me confirm - you would like to change your postpaid plan to include more international minutes?'
+      ],
+    },
+    // ==================== EXCITE PHASE ====================
+    {
+      type: 'Must Do',
+      name: 'Identify Solution',
+      definition: 'Agent must identify and present the appropriate solution for the customer need, including accurate process SLA when applicable',
+      evaluationCriteria: 'Agent provides the correct solution or takes necessary action to fulfill the customer need. Must provide accurate process SLA/timeline when relevant.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'I have reset your data connection. Please restart your phone and it should work within 5 minutes.',
+        'I have raised a request for your plan change. This will be effective within 24 hours.',
+        'Partial: Agent provides solution but does not mention the process SLA or timeline'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'Self-Care/MVA Promotion',
+      definition: 'Agent must promote self-service channels including My Vodafone App (MVA) for future similar requests',
+      evaluationCriteria: 'Agent educates customer about self-service options and promotes MVA for tasks that can be done independently.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'For future reference, you can easily check your balance and change plans using the My Vodafone App.',
+        'Did you know you can track your data usage in real-time on our MVA? I can help you download it if needed.',
+        'Fail: Agent resolves issue but does not mention any self-service channels'
+      ],
+    },
+    // ==================== CONFIRM PHASE ====================
+    {
+      type: 'Must Do',
+      name: 'Gain Customer Agreement',
+      definition: 'Agent must confirm that the customer agrees with the solution provided and understands the next steps',
+      evaluationCriteria: 'Agent seeks confirmation that the customer is satisfied with the solution and understands what was done or what will happen next.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'Is there anything else I can help you with regarding this issue?',
+        'Are you satisfied with this solution? Do you have any other questions?',
+        'I have explained the process. Does this work for you?'
+      ],
+    },
+    // ==================== DELIVER PHASE ====================
+    {
+      type: 'Must Do',
+      name: 'Close the Conversation',
+      definition: 'Agent must follow the closing script correctly, thanking the customer and providing proper farewell',
+      evaluationCriteria: 'Agent follows the standard closing script, thanks the customer for calling Vodafone, and provides a professional farewell.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'Thank you for calling Vodafone. Is there anything else I can help you with today? Have a great day!',
+        'Partial: Agent thanks customer but rushes through closing or skips parts of the script',
+        'Fail: Agent ends call abruptly without proper closing'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'TNPS Promotion',
+      definition: 'Agent must promote the Transactional Net Promoter Score (TNPS) survey at the end of the call',
+      evaluationCriteria: 'Agent informs customer about the TNPS survey and encourages participation before ending the call.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'You may receive a short survey about your experience today. Your feedback helps us improve our service.',
+        'After this call, you might receive an SMS survey. We would appreciate if you could take a moment to rate your experience.',
+        'Fail: Call ends without any mention of TNPS or customer feedback survey'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'Follow-up on Commitment',
+      definition: 'Agent must clearly communicate any follow-up actions or commitments made during the call',
+      evaluationCriteria: 'If any callback or follow-up was promised, agent must clearly state when and how the follow-up will occur.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'I have scheduled a callback for tomorrow between 2-4 PM to confirm your issue is resolved.',
+        'Our technical team will call you within 24 hours to follow up on this matter.',
+        'N/A if no follow-up commitment was made during the call'
+      ],
+    },
+    // ==================== SOFT SKILLS ====================
+    {
+      type: 'Must Do',
+      name: 'Empathy',
+      definition: 'Agent must display empathy and understanding towards the customer situation and concerns',
+      evaluationCriteria: 'Agent acknowledges customer feelings, shows understanding of frustration or concern, and responds with appropriate care.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'I understand how frustrating it must be to have this issue with your service.',
+        'I am sorry to hear about the inconvenience this has caused you.',
+        'I can see why this would be concerning, let me help you resolve this right away.'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'Tone and Speed',
+      definition: 'Agent must maintain appropriate tone and speaking speed throughout the call',
+      evaluationCriteria: 'Agent speaks clearly, at an appropriate pace (not too fast, not too slow), with a professional and welcoming tone. Should not sound lethargic or unwelcoming.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'Agent maintains consistent, professional tone throughout the call',
+        'Partial: Agent sounds lethargic or voice is not welcoming',
+        'Fail: Agent speaks too fast making it hard to understand, or tone is unprofessional'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'Pronunciation',
+      definition: 'Agent must have clear pronunciation and articulation',
+      evaluationCriteria: 'Agent pronounces words clearly and is easily understood. Technical terms and numbers are articulated properly.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'Agent clearly pronounces plan names, amounts, and technical terms',
+        'Agent spells out reference numbers and confirms spelling when needed'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'Active Listening',
+      definition: 'Agent must demonstrate active listening by not interrupting and acknowledging customer statements',
+      evaluationCriteria: 'Agent listens without interrupting, acknowledges what the customer says, and responds appropriately to show they understood.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'Agent lets customer complete their explanation before responding',
+        'Agent uses acknowledgments like "I understand" or "I see" appropriately',
+        'Fail: Agent frequently interrupts the customer'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'Hold/Mute Usage',
+      definition: 'Agent must use hold and mute functions appropriately and professionally',
+      evaluationCriteria: 'Agent asks permission before placing on hold, provides reason, thanks customer for waiting. Mute is not used inappropriately (no extended silence at call start).',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'May I place you on hold for a moment while I check this information?',
+        'Thank you for holding, I appreciate your patience.',
+        'Partial: Call was on mute for extended time (e.g., first 20 seconds)'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'Politeness',
+      definition: 'Agent must be polite and respectful throughout the entire call',
+      evaluationCriteria: 'Agent uses polite language, says please and thank you, addresses customer respectfully, and maintains professionalism even when dealing with difficult situations.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'Agent consistently uses "please", "thank you", and "you are welcome"',
+        'Agent addresses customer by name respectfully',
+        'Agent maintains composure and politeness even with frustrated customers'
+      ],
+    },
+    // ==================== OPERATIONAL METRICS ====================
+    {
+      type: 'Must Not Do',
+      name: 'Call Drop Prevention',
+      definition: 'Agent must not disconnect the call inappropriately or allow preventable call drops',
+      evaluationCriteria: 'Call should be completed properly without agent-caused disconnection. Technical drops should be followed up.',
+      scoringStandard: { passed: 10, failed: 0 },
+      examples: [
+        'Agent maintains connection until customer confirms they have no more questions',
+        'If technical drop occurs, agent follows callback procedure',
+        'Fail: Agent disconnects call while customer is still speaking or without proper closing'
+      ],
+    },
+    {
+      type: 'Must Do',
+      name: 'Activity Documentation',
+      definition: 'Agent must properly document the call activity and actions taken',
+      evaluationCriteria: 'Agent creates appropriate case notes or activity records for the interaction.',
+      scoringStandard: { passed: 10, failed: 0, partial: 5 },
+      examples: [
+        'Agent confirms case/ticket has been created for tracking',
+        'Agent provides reference number to customer when applicable'
+      ],
+    },
+  ],
+};
+
+// ============================================================================
 // TEMPLATE REGISTRY
 // ============================================================================
 
@@ -2543,6 +6618,16 @@ export const SCHEMA_TEMPLATES: Record<string, SchemaTemplate> = {
   'healthcare': HEALTHCARE_TEMPLATE,
   'airline': AIRLINE_TEMPLATE,
   'telecom-retention': TELECOM_RETENTION_TEMPLATE,
+  'vodafone': VODAFONE_TEMPLATE,
+  'insurance-claims': INSURANCE_CLAIMS_TEMPLATE,
+  'banking-support': BANKING_SUPPORT_TEMPLATE,
+  'ecommerce-support': ECOMMERCE_SUPPORT_TEMPLATE,
+  'it-helpdesk': IT_HELPDESK_TEMPLATE,
+  'utilities': UTILITIES_TEMPLATE,
+  'hospitality': HOSPITALITY_TEMPLATE,
+  'real-estate': REAL_ESTATE_TEMPLATE,
+  'automotive': AUTOMOTIVE_TEMPLATE,
+  'government': GOVERNMENT_TEMPLATE,
 };
 
 /**

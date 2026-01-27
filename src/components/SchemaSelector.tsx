@@ -151,6 +151,7 @@ export function SchemaSelector({
             loadSchemas();
           }
         }}
+        activeSchemaId={activeSchema?.id}
       />
 
       <SchemaDiscoveryWizard

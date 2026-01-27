@@ -1,3 +1,5 @@
+export type AzureAuthType = 'apiKey' | 'entraId';
+
 export interface AzureSpeechConfig {
   region: string;
   subscriptionKey: string;
@@ -6,6 +8,12 @@ export interface AzureSpeechConfig {
   diarizationEnabled?: boolean;
   minSpeakers?: number;
   maxSpeakers?: number;
+  /** Authentication method: 'apiKey' (default) or 'entraId' for Azure AD */
+  authType?: AzureAuthType;
+  /** Azure AD tenant ID (required when authType is 'entraId') */
+  tenantId?: string;
+  /** Pre-fetched access token for Entra ID auth (optional, will be fetched if not provided) */
+  accessToken?: string;
 }
 
 export interface WordTiming {
@@ -34,9 +42,11 @@ export interface CallSentimentSegment {
   endMilliseconds: number;
   speaker?: number;
   sentiment: SentimentLabel;
+  intensity?: number; // 1-10 scale
   confidence?: number;
   summary?: string;
   rationale?: string;
+  emotionalTriggers?: string[]; // Key phrases/words that drove this sentiment
 }
 
 export interface TranscriptionResult {

@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Build outputs (will be rebuilt in container)
+dist/
+build/
+
+# Development files
+*.log
+*.md
+!README.md
+.git/
+.github/
+.gitignore
+.vscode/
+.idea/
+
+# Azure/Infrastructure files
+infra/
+.azure/
+azure.yaml
+*.bicep
+
+# Documentation
+docs/
+*.md
+
+# Test files
+*.test.*
+*.spec.*
+__tests__/
+coverage/
+
+# Environment files (should not be in image)
+.env*
+*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~

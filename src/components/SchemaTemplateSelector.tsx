@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +62,7 @@ export function SchemaTemplateSelector({
 }: SchemaTemplateSelectorProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<SchemaTemplate | null>(null);
   const [activeTab, setActiveTab] = useState<'builtin' | 'custom'>('builtin');
+  const [customName, setCustomName] = useState<string>('');
   
   const builtinTemplates = getAllTemplates().filter(t => !t.isCustom);
   const customTemplates = getCustomTemplates();
@@ -86,7 +89,8 @@ export function SchemaTemplateSelector({
   const handleSelectTemplate = () => {
     if (!selectedTemplate) return;
     const schema = createSchemaFromTemplate(selectedTemplate);
-    onSelectTemplate(schema, selectedTemplate.evaluationRules, selectedTemplate.name);
+    const finalName = customName.trim() || selectedTemplate.name;
+    onSelectTemplate(schema, selectedTemplate.evaluationRules, finalName);
   };
   
   const handleDeleteCustomTemplate = (templateId: string) => {
@@ -126,6 +130,13 @@ export function SchemaTemplateSelector({
       {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
     </div>
   );
+  
+  // Update custom name when template is selected
+  React.useEffect(() => {
+    if (selectedTemplate) {
+      setCustomName(selectedTemplate.name);
+    }
+  }, [selectedTemplate]);
   
   // Preview panel content
   const TemplatePreview = ({ template }: { template: SchemaTemplate }) => (
@@ -237,17 +248,17 @@ export function SchemaTemplateSelector({
   );
 
   return (
-    <div className="flex gap-3 h-[380px]">
+    <div className="flex gap-3 h-[420px]">
       {/* Left: Template List */}
       <div className="w-[320px] shrink-0 flex flex-col">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'builtin' | 'custom')} className="flex-1 flex flex-col">
-          <TabsList className="w-full h-7 mb-2">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'builtin' | 'custom')} className="flex-1 flex flex-col min-h-0">
+          <TabsList className="w-full h-7 mb-2 shrink-0">
             <TabsTrigger value="builtin" className="flex-1 text-[10px] h-6">Industry Templates</TabsTrigger>
             <TabsTrigger value="custom" className="flex-1 text-[10px] h-6">My Templates ({customTemplates.length})</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="builtin" className="flex-1 mt-0 data-[state=inactive]:hidden">
-            <ScrollArea className="h-[300px]">
+          <TabsContent value="builtin" className="flex-1 mt-0 data-[state=inactive]:hidden min-h-0">
+            <ScrollArea className="h-full">
               <div className="space-y-1 pr-2">
                 {builtinTemplates.map(template => (
                   <TemplateItem
@@ -261,8 +272,8 @@ export function SchemaTemplateSelector({
             </ScrollArea>
           </TabsContent>
           
-          <TabsContent value="custom" className="flex-1 mt-0 data-[state=inactive]:hidden">
-            <ScrollArea className="h-[300px]">
+          <TabsContent value="custom" className="flex-1 mt-0 data-[state=inactive]:hidden min-h-0">
+            <ScrollArea className="h-full">
               {customTemplates.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground">
                   <Star className="h-5 w-5 mx-auto mb-1 opacity-50" />
@@ -304,9 +315,22 @@ export function SchemaTemplateSelector({
           </TabsContent>
         </Tabs>
         
-        <Button onClick={handleSelectTemplate} disabled={!selectedTemplate} size="sm" className="mt-2">
-          Apply Template
-        </Button>
+        <div className="mt-3 space-y-2 shrink-0">
+          <div>
+            <Label htmlFor="schema-name" className="text-xs mb-1 block">Schema Name</Label>
+            <Input
+              id="schema-name"
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              placeholder="Enter schema name..."
+              disabled={!selectedTemplate}
+              className="h-8 text-sm"
+            />
+          </div>
+          <Button onClick={handleSelectTemplate} disabled={!selectedTemplate} size="sm" className="w-full">
+            Create from Template
+          </Button>
+        </div>
       </div>
       
       {/* Right: Preview */}

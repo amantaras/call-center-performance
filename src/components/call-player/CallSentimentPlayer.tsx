@@ -166,6 +166,14 @@ export function CallSentimentPlayer({
           )}
           <div className="space-y-2 rounded-lg border bg-card p-3">
             {segments.map((segment, index) => {
+              // Debug logging
+              if (index === 0) {
+                console.log('🔍 Sentiment segment structure:', segment);
+                console.log('Has intensity?', segment.intensity);
+                console.log('Has emotionalTriggers?', segment.emotionalTriggers);
+                console.log('Has summary?', segment.summary);
+                console.log('Has rationale?', segment.rationale);
+              }
               const color = sentimentColors[segment.sentiment] ?? sentimentColors.neutral;
               return (
                 <div
@@ -178,6 +186,11 @@ export function CallSentimentPlayer({
                       <span className="font-medium text-foreground">
                         {sentimentLabels[segment.sentiment] ?? segment.sentiment}
                       </span>
+                      {typeof segment.intensity === 'number' && (
+                        <span className="text-xs font-medium text-foreground">
+                          {segment.intensity}/10
+                        </span>
+                      )}
                       <span className="text-xs text-muted-foreground">
                         {formatTime(segment.startMilliseconds)} - {formatTime(segment.endMilliseconds)}
                       </span>
@@ -195,6 +208,18 @@ export function CallSentimentPlayer({
                     )}
                     {segment.rationale && (
                       <p className="text-xs text-muted-foreground">{segment.rationale}</p>
+                    )}
+                    {segment.emotionalTriggers && segment.emotionalTriggers.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {segment.emotionalTriggers.map((trigger, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground"
+                          >
+                            "{trigger}"
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <button

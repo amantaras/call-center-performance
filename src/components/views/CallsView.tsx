@@ -5,7 +5,7 @@ import { CallRecord } from '@/types/call';
 import { SchemaDefinition } from '@/types/schema';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Upload, MagnifyingGlass, ArrowCounterClockwise, Microphone, FileCsv, Sparkle, ChartBar, SpeakerHigh } from '@phosphor-icons/react';
+import { Upload, MagnifyingGlass, ArrowCounterClockwise, Microphone, FileCsv, Sparkle, ChartBar, SpeakerHigh, FileArchive } from '@phosphor-icons/react';
 import { loadAzureConfigFromCookie } from '@/lib/azure-config-storage';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -20,7 +20,9 @@ import { restoreAudioFilesFromStorage } from '@/lib/csv-parser';
 import { toast } from 'sonner';
 import { generateSyntheticAudioBatch } from '@/services/synthetic-audio';
 import { LLMCaller } from '@/llmCaller';
+import { BrowserConfigManager } from '@/services/browser-config-manager';
 import { storeAudioFile } from '@/lib/audio-storage';
+import { exportCalls, ExportProgress } from '@/services/call-export';
 
 interface CallsViewProps {
   batchProgress: { completed: number; total: number } | null;
@@ -50,6 +52,8 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
   console.log('=== CALLSVIEW RENDER ===');
   console.log('Calls loaded:', calls?.length || 0);
   console.log('First call:', calls?.[0]);
+  console.log('Active schema ID:', activeSchema?.id);
+  console.log('First call schemaId:', calls?.[0]?.schemaId);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -60,6 +64,8 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
   const [evaluatingIds, setEvaluatingIds] = useState<Set<string>>(new Set());
   const [generatingAudioIds, setGeneratingAudioIds] = useState<Set<string>>(new Set());
   const [selectedCallIds, setSelectedCallIds] = useState<Set<string>>(new Set());
+  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const onUpdateCalls = (updater: (prev: CallRecord[] | undefined) => CallRecord[]) => {
     setCalls(updater);
@@ -164,43 +170,47 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
   };
 
   const handleEvaluateSelected = async () => {
-    // Filter for selected calls that have transcripts (allow re-evaluation of already evaluated calls)
-    const callsToEvaluate = (calls || []).filter(
-      (call) => selectedCallIds.has(call.id) && call.transcript
-    );
+    try {
+      // Filter for selected calls that have transcripts (allow re-evaluation of already evaluated calls)
+      const callsToEvaluate = (calls || []).filter(
+        (call) => selectedCallIds.has(call.id) && call.transcript
+      );
 
-    if (callsToEvaluate.length === 0) {
-      toast.error('No transcribed calls selected for evaluation. Please select calls that have been transcribed.');
-      return;
-    }
+      if (callsToEvaluate.length === 0) {
+        toast.error('No transcribed calls selected for evaluation. Please select calls that have been transcribed.');
+        return;
+      }
 
-    if (!activeSchema) {
-      toast.error('Please select a schema first');
-      return;
-    }
+      if (!activeSchema) {
+        toast.error('Please select a schema first');
+        return;
+      }
 
-    // Get batch settings from config
-    const azureConfig = loadAzureConfigFromCookie();
-    const parallelBatches = azureConfig?.syntheticData?.parallelBatches ?? 3;
-    const totalBatchGroups = Math.ceil(callsToEvaluate.length / parallelBatches);
+      // Get batch settings from config
+      const azureConfig = loadAzureConfigFromCookie();
+      const parallelBatches = azureConfig?.syntheticData?.parallelBatches ?? 3;
+      const totalBatchGroups = Math.ceil(callsToEvaluate.length / parallelBatches);
 
-    console.log(`📊 Evaluation batch settings: ${parallelBatches} parallel, ${callsToEvaluate.length} calls, ${totalBatchGroups} batch groups`);
+      console.log(`📊 Evaluation batch settings: ${parallelBatches} parallel, ${callsToEvaluate.length} calls, ${totalBatchGroups} batch groups`);
 
-    // Mark all calls as evaluating
-    const callIdsToEvaluate = new Set(callsToEvaluate.map(c => c.id));
-    setEvaluatingIds(callIdsToEvaluate);
+      // Mark all calls as evaluating
+      const callIdsToEvaluate = new Set(callsToEvaluate.map(c => c.id));
+      setEvaluatingIds(callIdsToEvaluate);
 
-    const startTime = Date.now();
-    toast.info(`🚀 Starting evaluation: ${callsToEvaluate.length} calls in ${totalBatchGroups} batch group(s) (${parallelBatches} parallel)`);
+      const startTime = Date.now();
+      toast.info(`🚀 Starting evaluation: ${callsToEvaluate.length} calls in ${totalBatchGroups} batch group(s) (${parallelBatches} parallel)`);
 
-    // Set up progress tracking
-    setBatchProgress({ completed: 0, total: callsToEvaluate.length });
+      // Set up progress tracking
+      setBatchProgress({ completed: 0, total: callsToEvaluate.length });
 
     let completedCount = 0;
     let successCount = 0;
     let failCount = 0;
 
-    // Process in parallel batches
+    // Collect all updates to apply in a single batch (avoid race conditions)
+    const updatesToApply: CallRecord[] = [];
+
+    // Process in parallel batches - NO STATE UPDATES during loop
     for (let i = 0; i < callsToEvaluate.length; i += parallelBatches) {
       const batch = callsToEvaluate.slice(i, i + parallelBatches);
       const batchGroupNum = Math.floor(i / parallelBatches) + 1;
@@ -219,15 +229,48 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
             call.id,
           );
 
+          let sentimentSegments = call.sentimentSegments;
+          let sentimentSummary = call.sentimentSummary;
+          let overallSentiment = call.overallSentiment;
+
+          // Always run sentiment analysis if we have transcript phrases
+          if (call.transcriptPhrases && call.transcriptPhrases.length > 0) {
+            try {
+              const businessContext = activeSchema.businessContext || activeSchema.name || 'call center';
+              const sentiment = await azureOpenAIService.analyzeSentimentTimeline(
+                call.id,
+                call.transcriptPhrases,
+                call.transcriptLocale || 'en-US',
+                ['positive', 'neutral', 'negative'],
+                businessContext
+              );
+              sentimentSegments = sentiment.segments;
+              sentimentSummary = sentiment.summary;
+
+              // Also analyze overall sentiment for analytics
+              overallSentiment = await azureOpenAIService.analyzeOverallSentiment(
+                call.id,
+                call.transcript!,
+                call.metadata,
+                activeSchema
+              );
+              
+              console.log(`  ✓ Sentiment analysis completed for call ${call.id}`);
+            } catch (error) {
+              console.warn(`  ⚠️ Sentiment analysis failed for ${call.id}:`, error);
+              // Don't fail the whole evaluation if sentiment fails
+            }
+          }
+
           const updatedCall: CallRecord = {
             ...call,
             evaluation,
+            sentimentSegments,
+            sentimentSummary,
+            overallSentiment,
             status: 'evaluated',
             updatedAt: new Date().toISOString(),
           };
-
-          // Update the call immediately
-          onUpdateCalls((prev) => (prev || []).map((c) => (c.id === call.id ? updatedCall : c)));
           
           console.log(`  ✅ Completed evaluation for call ${call.id}: ${evaluation.percentage}%`);
           successCount++;
@@ -236,33 +279,73 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
           console.error(`  ❌ Evaluation error for ${call.id}:`, error);
           failCount++;
           return { success: false, callId: call.id, error };
-        } finally {
-          completedCount++;
-          setBatchProgress({ completed: completedCount, total: callsToEvaluate.length });
-          
-          // Remove from evaluating set
-          setEvaluatingIds((prev) => {
-            const next = new Set(prev);
-            next.delete(call.id);
-            return next;
-          });
         }
       });
 
       // Wait for this batch to complete before starting the next
       console.log(`⏳ Waiting for batch group ${batchGroupNum} to complete...`);
-      await Promise.all(batchPromises);
-      console.log(`✅ Batch group ${batchGroupNum} completed`);
+      const results = await Promise.all(batchPromises);
+      console.log(`✅ Batch group ${batchGroupNum} completed - ${results.length} results received`);
+      
+      // Collect successful updates
+      let batchSuccessCount = 0;
+      for (const result of results) {
+        if (result.success && result.call) {
+          updatesToApply.push(result.call);
+          batchSuccessCount++;
+        }
+      }
+      console.log(`📦 Collected ${batchSuccessCount} successful updates from batch ${batchGroupNum}`);
+      
+      // Update completed count for progress
+      completedCount += batch.length;
+      console.log(`📊 Progress: ${completedCount}/${callsToEvaluate.length} calls processed (${updatesToApply.length} total successful so far)`);
     }
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    setBatchProgress(null);
-    setSelectedCallIds(new Set());
+    console.log(`🎯 Batch loop completed! Total successful evaluations to apply: ${updatesToApply.length}`);
 
-    if (failCount === 0) {
-      toast.success(`✅ Evaluated ${successCount} calls in ${duration}s`);
-    } else {
-      toast.warning(`Completed: ${successCount} succeeded, ${failCount} failed in ${duration}s`);
+    // Apply all updates in a single batch to avoid race conditions
+    console.log(`📊 Applying ${updatesToApply.length} call updates in single batch`);
+    console.log('📊 Updates to apply:', updatesToApply.map(u => ({ id: u.id, status: u.status, score: u.evaluation?.percentage })));
+    
+    if (updatesToApply.length > 0) {
+      onUpdateCalls((prev) => {
+        console.log('📊 onUpdateCalls callback - prev length:', prev?.length || 0);
+        const updated = (prev || []).map((c) => {
+          const update = updatesToApply.find(u => u.id === c.id);
+          if (update) {
+            console.log(`  📝 Updating call ${c.id} from status "${c.status}" to "${update.status}"`);
+          }
+          return update || c;
+        });
+        console.log('📊 onUpdateCalls callback - returning updated array, length:', updated.length);
+        console.log('📊 Updated statuses:', updated.map(c => ({ id: c.id, status: c.status, score: c.evaluation?.percentage })));
+        return updated;
+      });
+    }
+    
+      console.log('✅ State update completed, clearing progress indicators');
+      
+      // Clear evaluating state and progress
+      setEvaluatingIds(new Set());
+      setBatchProgress(null);
+      setSelectedCallIds(new Set());
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+
+      if (failCount === 0) {
+        toast.success(`✅ Evaluated ${successCount} calls in ${duration}s`);
+      } else {
+        toast.warning(`Completed: ${successCount} succeeded, ${failCount} failed in ${duration}s`);
+      }
+    } catch (error) {
+      console.error('❌ FATAL ERROR in handleEvaluateSelected:', error);
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      toast.error(`Evaluation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Clean up state on error
+      setEvaluatingIds(new Set());
+      setBatchProgress(null);
     }
   };
 
@@ -310,19 +393,16 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
     setBatchProgress({ completed: 0, total: callsToGenerate.length });
 
     try {
-      // Create LLM caller for gender detection
-      const llmCaller = new LLMCaller({
-        getConfig: async () => ({
-          endpoint: azureConfig.openAI.endpoint,
-          apiKey: azureConfig.openAI.apiKey,
-          deploymentName: azureConfig.openAI.deploymentName,
-          apiVersion: azureConfig.openAI.apiVersion,
-          reasoningEffort: azureConfig.openAI.reasoningEffort,
-          authType: 'apiKey',
-        }),
-        getEntraIdToken: async () => null,
-        getMaxRetries: () => 3,
-      });
+      // Create LLM caller for gender detection using shared BrowserConfigManager
+      const llmCaller = new LLMCaller(new BrowserConfigManager({
+        endpoint: azureConfig.openAI.endpoint,
+        apiKey: azureConfig.openAI.apiKey,
+        deploymentName: azureConfig.openAI.deploymentName,
+        apiVersion: azureConfig.openAI.apiVersion,
+        reasoningEffort: azureConfig.openAI.reasoningEffort,
+        authType: azureConfig.openAI.authType || 'apiKey',
+        tenantId: azureConfig.openAI.tenantId,
+      }));
 
       let successCount = 0;
       let failCount = 0;
@@ -542,10 +622,49 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
     setSelectedCallIds(new Set());
   };
 
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      setExportProgress({ current: 0, total: 0, status: 'Preparing export...' });
+
+      // Determine which calls to export
+      const callsToExport = selectedCallIds.size > 0
+        ? (calls || []).filter(c => selectedCallIds.has(c.id))
+        : (calls || []);
+
+      const callsWithAudio = callsToExport.filter(c => c.audioFile || c.audioUrl);
+      
+      if (callsWithAudio.length === 0) {
+        toast.error('No calls with audio files found to export');
+        return;
+      }
+
+      toast.info(`Starting export of ${callsWithAudio.length} call(s) with audio...`);
+
+      await exportCalls(
+        calls || [],
+        selectedCallIds.size > 0 ? selectedCallIds : undefined,
+        (progress) => {
+          setExportProgress(progress);
+        }
+      );
+
+      toast.success(`Successfully exported ${callsWithAudio.length} call(s) with audio and metadata!`);
+      setSelectedCallIds(new Set()); // Clear selection after export
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error(error instanceof Error ? error.message : 'Export failed');
+    } finally {
+      setIsExporting(false);
+      setExportProgress(null);
+    }
+  };
+
   // Define filteredCalls BEFORE handleToggleSelect so it's available for shift-click
   const filteredCalls = (calls || []).filter((call) => {
     // Filter by active schema
     if (activeSchema && call.schemaId !== activeSchema.id) {
+      console.log(`❌ Call ${call.id} filtered out: schemaId mismatch (call: ${call.schemaId}, active: ${activeSchema.id})`);
       return false;
     }
     
@@ -567,6 +686,37 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
       return false;
     });
   });
+
+  console.log('Filtered calls:', filteredCalls.length, 'of', calls?.length || 0);
+
+  // Find orphaned calls (calls with different schemaId than active schema)
+  const orphanedCalls = activeSchema 
+    ? (calls || []).filter(call => call.schemaId && call.schemaId !== activeSchema.id)
+    : [];
+
+  const handleMigrateOrphanedCalls = () => {
+    if (!activeSchema) {
+      toast.error('No active schema selected');
+      return;
+    }
+    
+    if (orphanedCalls.length === 0) {
+      toast.info('No orphaned calls to migrate');
+      return;
+    }
+
+    if (window.confirm(`Migrate ${orphanedCalls.length} call(s) to "${activeSchema.name}"? This will update their schema association.`)) {
+      setCalls((prev) => 
+        (prev || []).map((call) => {
+          if (call.schemaId !== activeSchema.id) {
+            return { ...call, schemaId: activeSchema.id, updatedAt: new Date().toISOString() };
+          }
+          return call;
+        })
+      );
+      toast.success(`Migrated ${orphanedCalls.length} call(s) to ${activeSchema.name}`);
+    }
+  };
 
   // Track last selected index for shift-click range selection
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
@@ -634,6 +784,29 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
           </div>
         </Card>
       )}
+      {exportProgress && (
+        <Card className="p-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">Exporting calls...</span>
+              {exportProgress.total > 0 && (
+                <span className="text-muted-foreground">
+                  {exportProgress.current} / {exportProgress.total} completed
+                </span>
+              )}
+            </div>
+            {exportProgress.total > 0 && (
+              <Progress 
+                value={(exportProgress.current / exportProgress.total) * 100} 
+                className="h-2"
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              {exportProgress.status}
+            </p>
+          </div>
+        </Card>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1">
           <div className="relative flex-1 max-w-sm">
@@ -664,15 +837,25 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
                 <SpeakerHigh className="mr-2" size={18} />
                 Generate Audio ({selectedCallIds.size})
               </Button>
+              <Button onClick={handleExport} variant="outline" disabled={isExporting}>
+                <FileArchive className="mr-2" size={18} />
+                Export ({selectedCallIds.size})
+              </Button>
               <Button onClick={handleDeselectAll} variant="outline" size="sm">
                 Deselect All
               </Button>
             </>
           )}
           {selectedCallIds.size === 0 && (calls || []).length > 0 && (
-            <Button onClick={handleSelectAll} variant="outline">
-              Select All
-            </Button>
+            <>
+              <Button onClick={handleSelectAll} variant="outline">
+                Select All
+              </Button>
+              <Button onClick={handleExport} variant="outline" disabled={isExporting}>
+                <FileArchive className="mr-2" size={18} />
+                Export All
+              </Button>
+            </>
           )}
           <Button onClick={handleReset} variant="outline">
             <ArrowCounterClockwise className="mr-2" size={18} />
@@ -701,6 +884,30 @@ export function CallsView({ batchProgress, setBatchProgress, activeSchema, schem
           </Button>
         </div>
       </div>
+
+      {/* Show orphaned calls warning */}
+      {activeSchema && orphanedCalls.length > 0 && (
+        <Card className="p-4 border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <span className="text-amber-600 text-lg">⚠️</span>
+              </div>
+              <div>
+                <h4 className="font-medium text-amber-800 dark:text-amber-200">
+                  {orphanedCalls.length} call(s) from a different schema
+                </h4>
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  These calls were imported with a different schema and are hidden. Migrate them to view and process them.
+                </p>
+              </div>
+            </div>
+            <Button onClick={handleMigrateOrphanedCalls} variant="outline" className="border-amber-500 text-amber-700 hover:bg-amber-100">
+              Migrate to {activeSchema.name}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {(!calls || calls.length === 0) && !activeSchema && (
         <Card className="p-12 text-center">

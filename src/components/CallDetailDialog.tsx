@@ -28,6 +28,7 @@ import { DynamicInsightGrid } from '@/components/DynamicInsightCard';
 import { DEFAULT_CALL_CENTER_LANGUAGES } from '@/lib/speech-languages';
 import { generateSyntheticAudio, SyntheticAudioProgress } from '@/services/synthetic-audio';
 import { LLMCaller } from '@/llmCaller';
+import { BrowserConfigManager } from '@/services/browser-config-manager';
 import { storeAudioFile } from '@/lib/audio-storage';
 
 interface CallDetailDialogProps {
@@ -53,6 +54,7 @@ export function CallDetailDialog({
   const [transcribing, setTranscribing] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
+  const [analyzingSentiment, setAnalyzingSentiment] = useState(false);
   const [audioGenerationProgress, setAudioGenerationProgress] = useState<SyntheticAudioProgress | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | undefined>(undefined);
 
@@ -146,10 +148,13 @@ export function CallDetailDialog({
         if (configValidation.valid) {
           try {
             toast.info('Analyzing sentiment...');
+            const businessContext = schema.businessContext || schema.name || 'call center';
             const sentiment = await azureOpenAIService.analyzeSentimentTimeline(
               call.id,
               result.phrases,
-              result.locale || 'en-US'
+              result.locale || 'en-US',
+              ['positive', 'neutral', 'negative'],
+              businessContext
             );
             sentimentSegments = sentiment.segments;
             sentimentSummary = sentiment.summary;
@@ -245,15 +250,53 @@ export function CallDetailDialog({
         call.id
       );
 
+      let sentimentSegments = call.sentimentSegments;
+      let sentimentSummary = call.sentimentSummary;
+      let overallSentiment = call.overallSentiment;
+
+      // Always run sentiment analysis if we have transcript phrases (to get updated analysis with new prompts)
+      if (call.transcriptPhrases && call.transcriptPhrases.length > 0) {
+        try {
+          toast.info('Analyzing sentiment...');
+          const businessContext = schema.businessContext || schema.name || 'call center';
+          const sentiment = await azureOpenAIService.analyzeSentimentTimeline(
+            call.id,
+            call.transcriptPhrases,
+            call.transcriptLocale || 'en-US',
+            ['positive', 'neutral', 'negative'],
+            businessContext
+          );
+          sentimentSegments = sentiment.segments;
+          sentimentSummary = sentiment.summary;
+
+          // Also analyze overall sentiment for analytics
+          overallSentiment = await azureOpenAIService.analyzeOverallSentiment(
+            call.id,
+            call.transcript,
+            call.metadata,
+            schema
+          );
+          
+          console.log('✓ Sentiment analysis completed during evaluation');
+        } catch (error) {
+          console.warn('Sentiment analysis failed during evaluation:', error);
+          toast.warning('Sentiment analysis failed, but evaluation completed');
+          // Don't fail the whole evaluation if sentiment fails
+        }
+      }
+
       const updatedCall: CallRecord = {
         ...call,
         evaluation,
+        sentimentSegments,
+        sentimentSummary,
+        overallSentiment,
         status: 'evaluated',
         updatedAt: new Date().toISOString(),
       };
 
       onUpdate(updatedCall);
-      toast.success('Call evaluated successfully!');
+      toast.success(sentimentSegments ? 'Call evaluated with sentiment analysis!' : 'Call evaluated successfully!');
     } catch (error) {
       toast.error(
         `Evaluation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -288,19 +331,16 @@ export function CallDetailDialog({
     setAudioGenerationProgress(null);
 
     try {
-      // Create LLM caller for gender detection
-      const llmCaller = new LLMCaller({
-        getConfig: async () => ({
-          endpoint: config.openAI.endpoint,
-          apiKey: config.openAI.apiKey,
-          deploymentName: config.openAI.deploymentName,
-          apiVersion: config.openAI.apiVersion,
-          reasoningEffort: config.openAI.reasoningEffort,
-          authType: 'apiKey',
-        }),
-        getEntraIdToken: async () => null,
-        getMaxRetries: () => 3,
-      });
+      // Create LLM caller for gender detection using shared BrowserConfigManager
+      const llmCaller = new LLMCaller(new BrowserConfigManager({
+        endpoint: config.openAI.endpoint,
+        apiKey: config.openAI.apiKey,
+        deploymentName: config.openAI.deploymentName,
+        apiVersion: config.openAI.apiVersion,
+        reasoningEffort: config.openAI.reasoningEffort,
+        authType: config.openAI.authType || 'apiKey',
+        tenantId: config.openAI.tenantId,
+      }));
 
       toast.info('Generating synthetic audio from transcript...');
 
@@ -930,6 +970,52 @@ export function CallDetailDialog({
           </TabsContent>
 
           <TabsContent value="sentiment" className="space-y-4">
+            {call.transcript && call.transcriptPhrases && (
+              <div className="flex justify-end">
+                <Button
+                  onClick={async () => {
+                    if (!call.transcriptPhrases) {
+                      toast.error('No transcript phrases available');
+                      return;
+                    }
+                    
+                    setAnalyzingSentiment(true);
+                    try {
+                      toast.info('Re-analyzing sentiment...');
+                      const businessContext = schema.businessContext || schema.name || 'call center';
+                      const sentiment = await azureOpenAIService.analyzeSentimentTimeline(
+                        call.id,
+                        call.transcriptPhrases,
+                        call.transcriptLocale || 'en-US',
+                        ['positive', 'neutral', 'negative'],
+                        businessContext
+                      );
+                      
+                      const updatedCall = {
+                        ...call,
+                        sentimentSegments: sentiment.segments,
+                        sentimentSummary: sentiment.summary,
+                        updatedAt: new Date().toISOString(),
+                      };
+                      
+                      onUpdate(updatedCall);
+                      toast.success('Sentiment analysis updated!');
+                    } catch (error) {
+                      console.error('Sentiment re-analysis failed:', error);
+                      toast.error(error instanceof Error ? error.message : 'Failed to re-analyze sentiment');
+                    } finally {
+                      setAnalyzingSentiment(false);
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  disabled={analyzingSentiment}
+                >
+                  {analyzingSentiment ? 'Analyzing...' : 'Re-analyze Sentiment'}
+                </Button>
+              </div>
+            )}
+            
             {(!call.sentimentSegments || call.sentimentSegments.length === 0) && (
               <Card className="p-8 text-center">
                 <div className="space-y-4">

@@ -78,6 +78,7 @@ interface SchemaManagerDialogProps {
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  activeSchemaId?: string;
 }
 
 const SEMANTIC_ROLES: { value: SemanticRole; label: string; description: string }[] = [
@@ -109,7 +110,7 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
  * - Versioning: View history, bump versions
  * - Export/Import: JSON export/import
  */
-export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManagerDialogProps) {
+export function SchemaManagerDialog({ trigger, open, onOpenChange, activeSchemaId }: SchemaManagerDialogProps) {
   const [isOpen, setIsOpen] = useState(open ?? false);
   const [schemas, setSchemas] = useState<SchemaDefinition[]>([]);
   const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null);
@@ -818,9 +819,16 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
               <Database className="h-5 w-5" />
               Schema Manager
               {selectedSchema && (
-                <Badge variant="secondary" className="ml-auto font-normal text-sm">
-                  {selectedSchema.name}
-                  <span className="ml-1.5 text-muted-foreground">v{selectedSchema.version}</span>
+                <Badge 
+                  variant={selectedSchema.id === activeSchemaId ? "default" : "secondary"}
+                  className={`ml-auto font-normal text-sm ${
+                    selectedSchema.id === activeSchemaId 
+                      ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
+                      : ''
+                  }`}
+                >
+                  {selectedSchema.id === activeSchemaId && '✓ '}{selectedSchema.name}
+                  <span className={selectedSchema.id === activeSchemaId ? 'ml-1.5 text-green-100' : 'ml-1.5 text-muted-foreground'}>v{selectedSchema.version}</span>
                 </Badge>
               )}
             </DialogTitle>
@@ -879,7 +887,13 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
                     <Card
                       key={schema.id}
                       className={`cursor-pointer transition-all ${
-                        selectedSchemaId === schema.id ? 'ring-2 ring-primary' : ''
+                        selectedSchemaId === schema.id 
+                          ? schema.id === activeSchemaId
+                            ? 'ring-2 ring-green-600 bg-green-50/50'
+                            : 'ring-2 ring-primary'
+                          : schema.id === activeSchemaId
+                            ? 'border-green-600 border-2'
+                            : ''
                       }`}
                       onClick={() => setSelectedSchemaId(schema.id)}
                     >
@@ -891,7 +905,12 @@ export function SchemaManagerDialog({ trigger, open, onOpenChange }: SchemaManag
                               {schema.businessContext}
                             </CardDescription>
                           </div>
-                          <Badge variant="secondary">v{schema.version}</Badge>
+                          <div className="flex gap-1.5">
+                            {schema.id === activeSchemaId && (
+                              <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs">Active</Badge>
+                            )}
+                            <Badge variant="secondary">v{schema.version}</Badge>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent>

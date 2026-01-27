@@ -1,0 +1,174 @@
+targetScope = 'subscription'
+
+@description('Name of the environment')
+param environmentName string
+
+@description('Primary location for all resources')
+param location string
+
+@description('Azure OpenAI model deployment name')
+param openAiModelDeploymentName string = 'gpt-4o-mini'
+
+@description('Azure OpenAI model name')
+param openAiModelName string = 'gpt-4o-mini'
+
+@description('Azure OpenAI model version')
+param openAiModelVersion string = '2024-07-18'
+
+@description('Azure OpenAI model capacity (TPM in thousands)')
+param openAiModelCapacity int = 30
+
+@description('Deployment timestamp')
+param deploymentDate string = utcNow('yyyy-MM-dd')
+
+// Tags applied to all resources
+var tags = {
+  'azd-env-name': environmentName
+  'deployment-date': deploymentDate
+  project: 'call-center-performance'
+  'Security Control': 'Ignore'
+}
+
+// Generate unique suffix for resource names
+var resourceSuffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var resourceGroupName = 'call-analytics-${environmentName}'
+
+// Abbreviations for resource naming
+var abbrs = {
+  containerAppsEnvironment: 'cae-'
+  containerApps: 'ca-'
+  containerRegistry: 'cr'
+  cognitiveServices: 'cog-'
+  openAi: 'oai-'
+  speech: 'speech-'
+  logAnalytics: 'log-'
+  appInsights: 'appi-'
+  keyVault: 'kv-'
+  managedIdentity: 'id-'
+}
+
+// Resource Group
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: resourceGroupName
+  location: location
+  tags: tags
+}
+
+// Log Analytics Workspace
+module logAnalytics 'modules/log-analytics.bicep' = {
+  name: 'log-analytics'
+  scope: rg
+  params: {
+    name: '${abbrs.logAnalytics}${environmentName}-${resourceSuffix}'
+    location: location
+    tags: tags
+  }
+}
+
+// Application Insights
+module appInsights 'modules/app-insights.bicep' = {
+  name: 'app-insights'
+  scope: rg
+  params: {
+    name: '${abbrs.appInsights}${environmentName}-${resourceSuffix}'
+    location: location
+    tags: tags
+    logAnalyticsWorkspaceId: logAnalytics.outputs.id
+  }
+}
+
+// User Assigned Managed Identity
+module managedIdentity 'modules/managed-identity.bicep' = {
+  name: 'managed-identity'
+  scope: rg
+  params: {
+    name: '${abbrs.managedIdentity}${environmentName}-${resourceSuffix}'
+    location: location
+    tags: tags
+  }
+}
+
+// Container Registry
+module containerRegistry 'modules/container-registry.bicep' = {
+  name: 'container-registry'
+  scope: rg
+  params: {
+    name: '${abbrs.containerRegistry}${replace(environmentName, '-', '')}${resourceSuffix}'
+    location: location
+    tags: tags
+    managedIdentityPrincipalId: managedIdentity.outputs.principalId
+  }
+}
+
+// Container Apps Environment
+module containerAppsEnvironment 'modules/container-apps-environment.bicep' = {
+  name: 'container-apps-environment'
+  scope: rg
+  params: {
+    name: '${abbrs.containerAppsEnvironment}${environmentName}-${resourceSuffix}'
+    location: location
+    tags: tags
+    logAnalyticsWorkspaceCustomerId: logAnalytics.outputs.customerId
+    logAnalyticsWorkspacePrimaryKey: logAnalytics.outputs.primarySharedKey
+  }
+}
+
+// Azure OpenAI Service
+module openAi 'modules/openai.bicep' = {
+  name: 'openai'
+  scope: rg
+  params: {
+    name: '${abbrs.openAi}${environmentName}-${resourceSuffix}'
+    location: location
+    tags: tags
+    modelDeploymentName: openAiModelDeploymentName
+    modelName: openAiModelName
+    modelVersion: openAiModelVersion
+    modelCapacity: openAiModelCapacity
+  }
+}
+
+// Azure Speech Service
+module speech 'modules/speech.bicep' = {
+  name: 'speech'
+  scope: rg
+  params: {
+    name: '${abbrs.speech}${environmentName}-${resourceSuffix}'
+    location: location
+    tags: tags
+  }
+}
+
+// Container App
+module containerApp 'modules/container-app.bicep' = {
+  name: 'container-app'
+  scope: rg
+  params: {
+    name: '${abbrs.containerApps}${environmentName}-${resourceSuffix}'
+    location: location
+    tags: union(tags, {
+      'azd-service-name': 'web'
+    })
+    containerAppsEnvironmentId: containerAppsEnvironment.outputs.id
+    containerRegistryLoginServer: containerRegistry.outputs.loginServer
+    managedIdentityId: managedIdentity.outputs.id
+    managedIdentityClientId: managedIdentity.outputs.clientId
+    openAiEndpoint: openAi.outputs.endpoint
+    speechRegion: location
+    applicationInsightsConnectionString: appInsights.outputs.connectionString
+  }
+}
+
+// Outputs for azd
+output AZURE_LOCATION string = location
+output AZURE_RESOURCE_GROUP string = rg.name
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
+output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
+output AZURE_CONTAINER_ENVIRONMENT_NAME string = containerAppsEnvironment.outputs.name
+output AZURE_CONTAINER_APP_NAME string = containerApp.outputs.name
+output AZURE_CONTAINER_APP_FQDN string = containerApp.outputs.fqdn
+output AZURE_OPENAI_ENDPOINT string = openAi.outputs.endpoint
+output AZURE_OPENAI_DEPLOYMENT_NAME string = openAiModelDeploymentName
+output AZURE_SPEECH_REGION string = location
+output SERVICE_WEB_NAME string = containerApp.outputs.name
+output SERVICE_WEB_URI string = 'https://${containerApp.outputs.fqdn}'

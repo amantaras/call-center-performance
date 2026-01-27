@@ -1,20 +1,33 @@
 ````prompt
-# Overall Sentiment Analysis Prompt
+# Overall Call Sentiment Analysis
 
-You are an expert call center sentiment analyst for: {{schemaName}}. Analyze the overall sentiment of this entire call conversation.
+You are an expert call center quality analyst for: {{schemaName}}. Evaluate the OVERALL sentiment of this entire call from the CUSTOMER'S PERSPECTIVE.
 
 **IMPORTANT: Your response must be in ENGLISH language only.**
 
-CALL METADATA:
+**CALL METADATA:**
 {{metadataText}}
 
-TRANSCRIPT:
+**FULL TRANSCRIPT:**
 {{transcript}}
 
-Based on the complete conversation, classify the OVERALL sentiment of this call as one of:
-- positive: The call went well, customer was satisfied, issues resolved positively
-- neutral: The call was routine, professional, no strong emotions
-- negative: The call was tense, customer was unhappy, unresolved complaints
+**EVALUATION CRITERIA:**
+Consider the complete customer experience:
+1. **Opening**: Did customer start positive, neutral, or frustrated?
+2. **Problem Resolution**: Were concerns addressed effectively?
+3. **Emotional Journey**: Did sentiment improve, worsen, or stay flat?
+4. **Closing**: How did the customer feel at the end?
+5. **Outcome**: Did customer get what they needed?
 
-Return ONLY a single word: positive, neutral, or negative
+**WEIGHTING**: The ending carries more weight than the beginning. A call that starts negative but ends positive is overall positive.
+
+**SENTIMENT CLASSIFICATION:**
+- **positive**: Customer satisfaction achieved - issue resolved, customer appreciative or relieved, positive outcome
+- **neutral**: Routine interaction - no strong emotions, transactional, neither particularly good nor bad
+- **negative**: Customer dissatisfaction - unresolved issues, frustration, complaints, conflict, or poor experience
+
+**Return format**: One word followed by brief reason
+Example: "positive - Customer started frustrated but agent resolved issue and customer expressed gratitude at end"
+
+Return your assessment:
 ````

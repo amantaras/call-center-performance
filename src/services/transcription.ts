@@ -112,10 +112,13 @@ class TranscriptionService {
       const sentimentConfig = azureOpenAIService.validateConfig();
       if (sentimentConfig.valid && result.phrases && result.phrases.length > 0) {
         try {
+          const businessContext = schema?.businessContext || schema?.name || 'call center';
           const sentiment = await azureOpenAIService.analyzeSentimentTimeline(
             call.id,
             result.phrases,
-            result.locale || 'en-US'
+            result.locale || 'en-US',
+            ['positive', 'neutral', 'negative'],
+            businessContext
           );
           sentimentSegments = sentiment.segments;
           sentimentSummary = sentiment.summary;

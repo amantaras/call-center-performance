@@ -28,25 +28,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { LLMCaller, ChatMessage } from '@/llmCaller';
-import { AzureOpenAIConfig, ConfigManager } from '@/configManager';
+import { AzureOpenAIConfig } from '@/configManager';
 import { loadAzureConfigFromCookie } from '@/lib/azure-config-storage';
-
-// Local config manager implementation for browser usage
-class BrowserConfigManager implements ConfigManager {
-  constructor(private config: AzureOpenAIConfig) {}
-  
-  async getConfig(): Promise<AzureOpenAIConfig | null> {
-    return this.config;
-  }
-  
-  async getEntraIdToken(): Promise<string | null> {
-    return null;
-  }
-  
-  getMaxRetries(): number {
-    return 3;
-  }
-}
+import { BrowserConfigManager } from '@/services/browser-config-manager';
 
 interface EnhancementSuggestion {
   suggestedFields: Array<FieldDefinition & { reasoning: string }>;

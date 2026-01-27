@@ -179,33 +179,33 @@ export function AnalyticsConfigWizard({
     try {
       const { LLMCaller } = await import('@/llmCaller');
       const { loadAzureConfigFromCookie } = await import('@/lib/azure-config-storage');
+      const { BrowserConfigManager } = await import('@/services/browser-config-manager');
       
       const azureConfig = loadAzureConfigFromCookie();
-      if (!azureConfig?.openAI?.endpoint || !azureConfig?.openAI?.apiKey || !azureConfig?.openAI?.deploymentName) {
+      if (!azureConfig?.openAI?.endpoint || !azureConfig?.openAI?.deploymentName) {
         toast.error('Azure OpenAI not configured. Please configure in Settings.');
         setGenerating(false);
         return;
       }
+      
+      // Check for valid auth - either API key or Entra ID
+      const hasValidAuth = azureConfig.openAI.authType === 'entraId' || azureConfig.openAI.apiKey;
+      if (!hasValidAuth) {
+        toast.error('Azure OpenAI authentication not configured. Please configure API key or enable Entra ID.');
+        setGenerating(false);
+        return;
+      }
 
-      // Create a ConfigManager wrapper for the config
-      const configManager = {
-        async getConfig() {
-          return {
-            endpoint: azureConfig.openAI.endpoint,
-            apiKey: azureConfig.openAI.apiKey,
-            deploymentName: azureConfig.openAI.deploymentName,
-            apiVersion: azureConfig.openAI.apiVersion || '2024-12-01-preview',
-            authType: 'apiKey' as const,
-            reasoningEffort: azureConfig.openAI.reasoningEffort || 'medium'
-          };
-        },
-        async getEntraIdToken() {
-          return null;
-        },
-        getMaxRetries() {
-          return 3;
-        }
-      };
+      // Use shared BrowserConfigManager that supports Entra ID
+      const configManager = new BrowserConfigManager({
+        endpoint: azureConfig.openAI.endpoint,
+        apiKey: azureConfig.openAI.apiKey,
+        deploymentName: azureConfig.openAI.deploymentName,
+        apiVersion: azureConfig.openAI.apiVersion || '2024-12-01-preview',
+        authType: azureConfig.openAI.authType || 'apiKey',
+        tenantId: azureConfig.openAI.tenantId,
+        reasoningEffort: azureConfig.openAI.reasoningEffort || 'medium'
+      });
 
       const llmCaller = new LLMCaller(configManager);
 

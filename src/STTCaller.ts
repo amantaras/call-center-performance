@@ -1,4 +1,5 @@
 import { AzureSpeechConfig, TranscriptPhrase, TranscriptionResult, WordTiming } from './types/call';
+import { azureTokenService } from './services/azure-token';
 
 export interface STTCallOptions {
   /** Locale for speech recognition (e.g., 'en-US', 'ar-SA', etc.). Use 'auto' for automatic language detection. */
@@ -105,6 +106,8 @@ export class STTCaller {
   private readonly DEFAULT_POLLING_INTERVAL = 2000;
   private readonly DEFAULT_MAX_WAIT_TIME = 300000; // 5 minutes
   private readonly DEFAULT_LOCALE = 'en-US';
+  private cachedAccessToken: string | null = null;
+  private tokenExpiresAt: number = 0;
 
   constructor(private config: AzureSpeechConfig) {
     if (!this.config.apiVersion) {
@@ -120,6 +123,11 @@ export class STTCaller {
     if (!this.config.apiVersion) {
       this.config.apiVersion = '2025-10-15';
     }
+    // Clear cached token when config changes
+    if (config.authType !== undefined || config.tenantId !== undefined || config.accessToken !== undefined) {
+      this.cachedAccessToken = null;
+      this.tokenExpiresAt = 0;
+    }
   }
 
   /**
@@ -130,13 +138,65 @@ export class STTCaller {
   }
 
   /**
-   * Get common headers for API requests
+   * Get access token for Entra ID authentication
    */
-  private getHeaders(): Record<string, string> {
-    return {
+  private async getAccessToken(): Promise<string> {
+    // If a pre-fetched token is provided in config, use it
+    if (this.config.accessToken) {
+      return this.config.accessToken;
+    }
+
+    // Check if cached token is still valid (with 1 min buffer)
+    if (this.cachedAccessToken && this.tokenExpiresAt > Date.now() + 60000) {
+      return this.cachedAccessToken;
+    }
+
+    // Fetch new token using Azure Token Service
+    console.log('🔐 Acquiring Entra ID token for Speech service...');
+    const token = await azureTokenService.getSpeechToken(this.config.tenantId);
+    
+    // Cache the token (assume 1 hour validity, actual expiry is handled by token service)
+    this.cachedAccessToken = token;
+    this.tokenExpiresAt = Date.now() + 3600000; // 1 hour
+    
+    return token;
+  }
+
+  /**
+   * Get common headers for API requests (supports both API Key and Entra ID auth)
+   */
+  private async getHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Ocp-Apim-Subscription-Key': this.config.subscriptionKey,
     };
+
+    if (this.config.authType === 'entraId') {
+      const token = await this.getAccessToken();
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log('🔐 Using Entra ID authentication for Speech API');
+    } else {
+      // Default to API Key authentication
+      headers['Ocp-Apim-Subscription-Key'] = this.config.subscriptionKey;
+    }
+
+    return headers;
+  }
+
+  /**
+   * Get headers for inline transcription (FormData requests)
+   */
+  private async getInlineHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {};
+
+    if (this.config.authType === 'entraId') {
+      const token = await this.getAccessToken();
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log('🔐 Using Entra ID authentication for Speech API');
+    } else {
+      headers['Ocp-Apim-Subscription-Key'] = this.config.subscriptionKey;
+    }
+
+    return headers;
   }
 
   /**
@@ -174,6 +234,16 @@ export class STTCaller {
       } catch (error: any) {
         lastError = new Error(error?.message || String(error));
         console.warn(`⚠ Transcription attempt ${attempt}/${maxRetries} failed: ${lastError.message}`);
+        
+        // Don't retry auth errors - they won't succeed without user action
+        const isAuthError = lastError.message.includes('interaction_in_progress') ||
+                           lastError.message.includes('Login is already in progress') ||
+                           lastError.message.includes('Failed to acquire Azure AD token');
+        
+        if (isAuthError) {
+          console.error('❌ Authentication error - not retrying (requires user action)');
+          throw lastError;
+        }
         
         if (attempt < maxRetries) {
           // Exponential backoff: 2s, 4s, 8s, 16s... (recommended by Azure for 429 errors)
@@ -246,7 +316,10 @@ export class STTCaller {
     console.log(`📡 API Version: ${apiVersion}`);
     console.log(`🌍 Region: ${this.config.region}`);
     console.log(`🔗 Full URL: ${transcribeUrl}`);
-    console.log(`🔑 Subscription Key: ${this.config.subscriptionKey.substring(0, 8)}...${this.config.subscriptionKey.substring(this.config.subscriptionKey.length - 4)}`);
+    console.log(`� Auth Type: ${this.config.authType || 'apiKey'}`);
+    if (this.config.authType !== 'entraId' && this.config.subscriptionKey) {
+      console.log(`🔑 Subscription Key: ${this.config.subscriptionKey.substring(0, 8)}...${this.config.subscriptionKey.substring(this.config.subscriptionKey.length - 4)}`);
+    }
     console.log('========================================');
 
     const file = audioSource instanceof File
@@ -312,11 +385,12 @@ export class STTCaller {
     formData.append('audio', file, file.name || 'audio.wav');
     formData.append('definition', JSON.stringify(definition));
 
+    // Get headers based on auth type (API Key or Entra ID)
+    const headers = await this.getInlineHeaders();
+
     const response = await fetch(transcribeUrl, {
       method: 'POST',
-      headers: {
-        'Ocp-Apim-Subscription-Key': this.config.subscriptionKey,
-      },
+      headers,
       body: formData,
     });
 
@@ -460,9 +534,10 @@ export class STTCaller {
 
     console.log(`📤 Creating transcription job...`);
 
+    const headers = await this.getHeaders();
     const response = await fetch(submitUrl, {
       method: 'POST',
-      headers: this.getHeaders(),
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -492,9 +567,10 @@ export class STTCaller {
         throw new Error(`Transcription timed out after ${maxWaitTime}ms`);
       }
 
+      const headers = await this.getHeaders();
       const response = await fetch(transcriptionUrl, {
         method: 'GET',
-        headers: this.getHeaders(),
+        headers,
       });
 
       if (!response.ok) {
@@ -518,9 +594,10 @@ export class STTCaller {
    * Get transcription files
    */
   private async getTranscriptionFiles(filesUrl: string): Promise<TranscriptionFile[]> {
+    const headers = await this.getHeaders();
     const response = await fetch(filesUrl, {
       method: 'GET',
-      headers: this.getHeaders(),
+      headers,
     });
 
     if (!response.ok) {
@@ -554,9 +631,10 @@ export class STTCaller {
    */
   private async deleteTranscriptionJob(transcriptionUrl: string): Promise<void> {
     try {
+      const headers = await this.getHeaders();
       await fetch(transcriptionUrl, {
         method: 'DELETE',
-        headers: this.getHeaders(),
+        headers,
       });
     } catch (error) {
       // Ignore deletion errors - not critical
@@ -652,8 +730,9 @@ export class STTCaller {
       errors.push('Azure Speech region is required');
     }
 
-    if (!this.config.subscriptionKey) {
-      errors.push('Azure Speech subscription key is required');
+    // For Entra ID auth, subscription key is not required
+    if (this.config.authType !== 'entraId' && !this.config.subscriptionKey) {
+      errors.push('Azure Speech subscription key is required (or use Entra ID authentication)');
     }
 
     return {
