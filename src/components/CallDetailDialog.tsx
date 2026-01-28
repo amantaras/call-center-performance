@@ -1040,7 +1040,18 @@ export function CallDetailDialog({
               </div>
             )}
             
-            {(!call.sentimentSegments || call.sentimentSegments.length === 0) && (
+            {/* Single unified player - shows audio and sentiment when available */}
+            {(audioUrl || (call.sentimentSegments && call.sentimentSegments.length > 0)) && (
+              <CallSentimentPlayer
+                audioUrl={audioUrl}
+                durationMilliseconds={call.transcriptDuration}
+                segments={call.sentimentSegments}
+                sentimentSummary={call.sentimentSummary}
+              />
+            )}
+
+            {/* Sentiment pending message - only when no audio AND no sentiment */}
+            {!audioUrl && (!call.sentimentSegments || call.sentimentSegments.length === 0) && (
               <Card className="p-8 text-center">
                 <div className="space-y-4">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
@@ -1049,21 +1060,11 @@ export function CallDetailDialog({
                   <div className="space-y-1">
                     <h3 className="text-lg font-semibold">Sentiment pending</h3>
                     <p className="text-sm text-muted-foreground">
-                      Transcribe the call (and ensure Azure OpenAI is configured) to generate the
-                      sentiment timeline.
+                      Generate audio or transcribe the call to enable playback and sentiment analysis.
                     </p>
                   </div>
                 </div>
               </Card>
-            )}
-
-            {call.sentimentSegments && call.sentimentSegments.length > 0 && (
-              <CallSentimentPlayer
-                audioUrl={audioUrl}
-                durationMilliseconds={call.transcriptDuration}
-                segments={call.sentimentSegments}
-                sentimentSummary={call.sentimentSummary}
-              />
             )}
           </TabsContent>
         </Tabs>

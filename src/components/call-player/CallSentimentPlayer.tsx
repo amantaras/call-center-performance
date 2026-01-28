@@ -116,7 +116,8 @@ export function CallSentimentPlayer({
         )}
       </div>
 
-      {segments && segments.length > 0 && effectiveDuration > 0 ? (
+      {/* Sentiment timeline - shown when segments exist */}
+      {segments && segments.length > 0 && effectiveDuration > 0 && (
         <div className="space-y-3">
           <div
             className="relative h-4 w-full cursor-pointer overflow-hidden rounded-full bg-muted"
@@ -153,9 +154,19 @@ export function CallSentimentPlayer({
           </div>
           {legend}
         </div>
-      ) : (
+      )}
+
+      {/* Message when no sentiment but audio exists */}
+      {(!segments || segments.length === 0) && audioUrl && (
         <p className="text-sm text-muted-foreground">
-          Sentiment timeline will appear once transcription and analysis are complete.
+          Click "Re-analyze Sentiment" to generate the sentiment timeline overlay.
+        </p>
+      )}
+
+      {/* Message when no audio and no sentiment */}
+      {(!segments || segments.length === 0) && !audioUrl && (
+        <p className="text-sm text-muted-foreground">
+          Generate audio and analyze sentiment to see the timeline.
         </p>
       )}
 

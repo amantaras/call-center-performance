@@ -1,14 +1,15 @@
 /**
  * Prompt Template Loader
- * Loads prompt templates from the prompts folder and performs variable substitution
+ * Loads prompt templates from the public/prompts folder and performs variable substitution
  */
 
 /**
- * Loads a prompt template from file
+ * Loads a prompt template from file (served from public/prompts in production)
  */
 export async function loadPromptTemplate(templateName: string): Promise<string> {
   try {
-    const response = await fetch(`/src/prompts/${templateName}.prompt.md`);
+    // In production, files in public/ are served at root
+    const response = await fetch(`/prompts/${templateName}.prompt.md`);
     if (!response.ok) {
       throw new Error(`Failed to load prompt template: ${templateName}`);
     }
