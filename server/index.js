@@ -28,6 +28,7 @@ let openAIToken = null;
 let openAITokenExpiry = 0;
 let speechToken = null;
 let speechTokenExpiry = 0;
+let speechRawToken = null;
 
 // Middleware
 app.use(cors());
@@ -90,6 +91,7 @@ async function getSpeechToken() {
   console.log('🔐 Acquiring Azure Speech token via managed identity...');
   const tokenResponse = await credential.getToken('https://cognitiveservices.azure.com/.default');
   const rawToken = tokenResponse.token;
+  speechRawToken = rawToken;
   if (!AZURE_SPEECH_RESOURCE_ID) {
     console.warn('⚠️ AZURE_SPEECH_RESOURCE_ID not set; using raw Speech token');
     speechToken = rawToken;
@@ -261,15 +263,22 @@ app.post('/api/speech/tts', async (req, res) => {
       <voice name='${voice || 'en-US-JennyNeural'}'>${text}</voice>
     </speak>`;
 
-    const response = await fetch(url, {
+    const buildResponse = async (authToken) => fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/ssml+xml',
         'X-Microsoft-OutputFormat': outputFormat || 'audio-16khz-128kbitrate-mono-mp3',
+        'User-Agent': 'CallCenterPerformance-TTS/1.0',
       },
       body: ssml,
     });
+
+    let response = await buildResponse(token);
+    if (response.status === 401 && speechRawToken && speechRawToken !== token) {
+      console.warn('⚠️ TTS 401 with AAD formatted token, retrying with raw token');
+      response = await buildResponse(speechRawToken);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
