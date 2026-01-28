@@ -19,26 +19,3 @@ infra:
   provider: bicep
   path: ./infra
   module: main
-
-# Hooks for custom deployment logic
-hooks:
-  # Pre-provision hook to validate prerequisites
-  preprovision:
-    shell: sh
-    run: echo "🔍 Validating prerequisites for Call Center Performance deployment..." && echo "✅ Prerequisites validated"
-
-  # Post-provision hook to display configuration
-  postprovision:
-    shell: sh
-    run: |
-      echo ""
-      echo "=========================================="
-      echo "🎉 Deployment Complete!"
-      echo "=========================================="
-      echo ""
-      echo "📌 Next Steps:"
-      echo "1. Open the Container App URL from the Azure Portal"
-      echo "2. Configure Azure OpenAI and Speech settings in the app"
-      echo ""
-      echo "💡 To get your deployed app URL, run: azd show"
-      echo ""
